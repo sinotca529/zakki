@@ -3,6 +3,10 @@ name = "zakki"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+indoc = "2.0.5"
+latex2mathml = "0.2.3"
+pulldown-cmark = { git = "https://github.com/pulldown-cmark/pulldown-cmark", branch = "branch_0.11", features = ["simd"] }
+syntastica = "0.4.1"
+syntastica-parsers = { version = "0.4.1", features = ["all"] }
+syntastica-themes = "0.4.1"
