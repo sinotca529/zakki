@@ -1,4 +1,4 @@
-use indoc::indoc;
+use indoc::{formatdoc, indoc};
 use latex2mathml::{latex_to_mathml, DisplayStyle};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Tag, TagEnd};
 use syntastica::language_set::SupportedLanguage;
@@ -70,20 +70,23 @@ fn convert_body(md: &str) -> String {
     html
 }
 
-pub fn md_to_html(md_content: &str) -> String {
-    let html_begin = indoc! {r#"
+pub fn md_to_html(md_content: &str, rel_path_to_css: &str) -> String {
+    let html_begin = formatdoc! {r#"
             <!DOCTYPE html>
             <html lang="ja">
             <head>
             <meta charset="UTF-8">
+            <link rel="stylesheet" href="{path_to_css}">
             </head>
             <body>
-        "#};
+        "#,
+        path_to_css = rel_path_to_css
+    };
 
     let html_end = indoc! {"
-            </body>
-            </html>
-        "};
+        </body>
+        </html>
+    "};
 
     let body = convert_body(md_content);
 

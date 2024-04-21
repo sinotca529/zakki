@@ -30,14 +30,21 @@ fn build_dir() -> Result<PathBuf> {
     Ok(std::env::current_dir()?.join("build"))
 }
 
+fn css_path() -> Result<PathBuf> {
+    Ok(build_dir()?.join("style.css"))
+}
+
 fn init_zakki_dir() -> Result<()> {
     let src_dir: PathBuf = src_dir()?;
     let demo_md_path = src_dir.join("hello.md");
     std::fs::create_dir(src_dir)?;
 
-    std::fs::create_dir(build_dir()?)?;
+    let build_dir = build_dir()?;
+    let demo_css_path = build_dir.join("style.css");
+    std::fs::create_dir(build_dir)?;
 
     std::fs::File::create(demo_md_path)?;
+    std::fs::File::create(demo_css_path)?;
     Ok(())
 }
 
@@ -83,11 +90,17 @@ fn write_file(path: impl AsRef<Path>, content: &str) -> Result<()> {
     Ok(())
 }
 
+fn relative_path_to_css(html_path: impl AsRef<Path>) -> Result<PathBuf> {
+    Ok(pathdiff::diff_paths(css_path()?, html_path.as_ref().parent().unwrap()).unwrap())
+}
+
 fn make_html_file(md_path: PathBuf) -> Result<()> {
     let md_content = read_file(&md_path)?;
-    let html_content = md_to_html(&md_content);
-
     let html_path = html_path(&md_path)?;
+
+    let path_to_css = relative_path_to_css(&html_path)?;
+    let html_content = md_to_html(&md_content, path_to_css.to_str().unwrap());
+
     write_file(html_path, &html_content)?;
 
     Ok(())
