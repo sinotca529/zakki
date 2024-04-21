@@ -31,8 +31,8 @@ fn convert_body(md: &str) -> String {
         Event::Text(t) => {
             let lang = code_block.take().map(|l| Lang::for_name(&l).ok()).flatten();
             let Some(lang) = lang else {
-                    return Event::Text(t);
-                };
+                return Event::Text(t);
+            };
 
             let highlights =
                 syntastica::Processor::process_once(&t, lang, &LanguageSetImpl::new()).unwrap();
