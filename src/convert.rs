@@ -6,7 +6,7 @@ use syntastica::renderer::*;
 use syntastica_parsers::{Lang, LanguageSetImpl};
 
 fn convert_body(md: &str) -> String {
-    let parser = pulldown_cmark::Parser::new_ext(&md, Options::all());
+    let parser = pulldown_cmark::Parser::new_ext(md, Options::all());
 
     let mut code_block = None;
 
@@ -28,7 +28,7 @@ fn convert_body(md: &str) -> String {
             Event::InlineHtml(mathml.into())
         }
         Event::Text(t) => {
-            let lang = code_block.take().map(|l| Lang::for_name(&l).ok()).flatten();
+            let lang = code_block.take().and_then(|l| Lang::for_name(&l).ok());
             let Some(lang) = lang else {
                 return Event::Text(t);
             };
@@ -66,7 +66,7 @@ pub fn md_to_html(md_content: &str) -> String {
             </html>
         "};
 
-    let body = convert_body(&md_content);
+    let body = convert_body(md_content);
 
     format!("{html_begin}{body}{html_end}")
 }
