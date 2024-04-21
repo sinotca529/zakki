@@ -5,7 +5,6 @@ use syntastica::language_set::SupportedLanguage;
 use syntastica::renderer::*;
 use syntastica_parsers::{Lang, LanguageSetImpl};
 
-use std::{fs::File, io::Read, path::Path};
 fn convert_body(md: &str) -> String {
     let parser = pulldown_cmark::Parser::new_ext(&md, Options::all());
 
@@ -52,15 +51,8 @@ fn convert_body(md: &str) -> String {
     html
 }
 
-pub fn convert(path: impl AsRef<Path>) -> String {
-    fn inner(path: &Path) -> String {
-        let mut input = String::new();
-        File::open(path)
-            .unwrap()
-            .read_to_string(&mut input)
-            .unwrap();
-
-        let html_begin = indoc! {r#"
+pub fn md_to_html(md_content: &str) -> String {
+    let html_begin = indoc! {r#"
             <!DOCTYPE html>
             <html lang="ja">
             <head>
@@ -69,14 +61,12 @@ pub fn convert(path: impl AsRef<Path>) -> String {
             <body>
         "#};
 
-        let html_end = indoc! {"
+    let html_end = indoc! {"
             </body>
             </html>
         "};
 
-        let body = convert_body(&input);
+    let body = convert_body(&md_content);
 
-        format!("{html_begin}{body}{html_end}")
-    }
-    inner(path.as_ref())
+    format!("{html_begin}{body}{html_end}")
 }
