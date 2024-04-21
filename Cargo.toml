@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.82"
+clap = { version = "4.5.4", features = ["derive"] }
 indoc = "2.0.5"
 latex2mathml = "0.2.3"
 pulldown-cmark = { git = "https://github.com/pulldown-cmark/pulldown-cmark", branch = "branch_0.11", features = ["simd"] }
