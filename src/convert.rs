@@ -15,6 +15,25 @@ fn convert_body(md: &str) -> String {
             code_block = Some(lang.clone());
             Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang)))
         }
+        Event::Start(Tag::Link {
+            link_type,
+            mut dest_url,
+            title,
+            id,
+        }) => {
+            if !dest_url.starts_with("http://")
+                && !dest_url.starts_with("https://")
+                && dest_url.ends_with(".md")
+            {
+                dest_url = format!("{}.html", &dest_url[..dest_url.len() - 3]).into();
+            }
+            Event::Start(Tag::Link {
+                link_type,
+                dest_url,
+                title,
+                id,
+            })
+        }
         Event::End(TagEnd::CodeBlock) => {
             code_block = None;
             Event::End(TagEnd::CodeBlock)
