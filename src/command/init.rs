@@ -1,5 +1,4 @@
 use super::{build_dir, src_dir};
-use crate::util::write_file;
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -15,6 +14,6 @@ pub fn init() -> Result<()> {
     std::fs::File::create(demo_md_path)?;
 
     std::fs::File::create(&demo_css_path)?;
-    write_file(demo_css_path, include_str!("../../asset/style.css"))?;
+    std::fs::write(demo_css_path, include_str!("../../asset/style.css"))?;
     Ok(())
 }
