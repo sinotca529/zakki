@@ -36,7 +36,7 @@ fn css_path() -> Result<PathBuf> {
 
 fn init_zakki_dir() -> Result<()> {
     let src_dir: PathBuf = src_dir()?;
-    let demo_md_path = src_dir.join("hello.md");
+    let demo_md_path = src_dir.join("index.md");
     std::fs::create_dir(src_dir)?;
 
     let build_dir = build_dir()?;
