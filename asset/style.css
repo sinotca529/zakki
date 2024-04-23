@@ -1,0 +1,47 @@
+html {
+  background-color: gray;
+}
+
+body {
+  font-size: large;
+  background-color: snow;
+  padding: 2em;
+  max-width: 80%;
+  margin-inline: auto;
+}
+
+h1::before {
+  content: "#";
+  margin-right: .3em;
+}
+
+h2::before {
+  content: "##";
+  margin-right: .3em;
+}
+
+h3::before {
+  content: "###";
+  margin-right: .3em;
+}
+
+h4::before {
+  content: "####";
+  margin-right: .3em;
+}
+
+h5::before {
+  content: "#####";
+  margin-right: .3em;
+}
+
+h6::before {
+  content: "######";
+  margin-right: .3em;
+}
+
+pre {
+  border: 1pt black solid;
+  margin: 1em;
+  padding: 1em;
+}

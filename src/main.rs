@@ -43,8 +43,10 @@ fn init_zakki_dir() -> Result<()> {
     let demo_css_path = build_dir.join("style.css");
     std::fs::create_dir(build_dir)?;
 
-    std::fs::File::create(demo_md_path)?;
-    std::fs::File::create(demo_css_path)?;
+    std::fs::File::create(&demo_md_path)?;
+
+    std::fs::File::create(&demo_css_path)?;
+    write_file(demo_css_path, include_str!("../asset/style.css"))?;
     Ok(())
 }
 
