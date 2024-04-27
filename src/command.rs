@@ -4,7 +4,10 @@ mod init;
 
 use anyhow::Result;
 use clap::Subcommand;
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::OnceLock,
+};
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
@@ -23,26 +26,37 @@ impl Command {
     }
 }
 
-fn src_dir() -> Result<PathBuf> {
-    Ok(std::env::current_dir()?.join("src"))
+fn src_dir() -> &'static PathBuf {
+    static SRC_DIR: OnceLock<PathBuf> = OnceLock::new();
+    SRC_DIR.get_or_init(|| {
+        std::env::current_dir()
+            .expect("Failed to get the current directry")
+            .join("src")
+    })
 }
 
-fn build_dir() -> Result<PathBuf> {
-    Ok(std::env::current_dir()?.join("build"))
+fn build_dir() -> &'static PathBuf {
+    static BUILD_DIR: OnceLock<PathBuf> = OnceLock::new();
+    BUILD_DIR.get_or_init(|| {
+        std::env::current_dir()
+            .expect("Failed to get the current directry")
+            .join("build")
+    })
 }
 
-fn css_path() -> Result<PathBuf> {
-    Ok(build_dir()?.join("style.css"))
+fn css_path() -> &'static PathBuf {
+    static CSS_DIR: OnceLock<PathBuf> = OnceLock::new();
+    CSS_DIR.get_or_init(|| build_dir().join("style.css"))
 }
 
 fn relative_path_to_css(html_path: impl AsRef<Path>) -> Result<PathBuf> {
-    Ok(pathdiff::diff_paths(css_path()?, html_path.as_ref().parent().unwrap()).unwrap())
+    Ok(pathdiff::diff_paths(css_path(), html_path.as_ref().parent().unwrap()).unwrap())
 }
 
 fn html_path(md_path: impl AsRef<Path>) -> Result<PathBuf> {
     fn inner(md_path: &Path) -> Result<PathBuf> {
-        let rel_path = md_path.strip_prefix(src_dir()?)?;
-        let html_path = build_dir()?.join(rel_path).with_extension("html");
+        let rel_path = md_path.strip_prefix(src_dir())?;
+        let html_path = build_dir().join(rel_path).with_extension("html");
         Ok(html_path)
     }
     inner(md_path.as_ref())

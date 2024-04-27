@@ -4,7 +4,7 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 
 pub fn build() -> Result<()> {
-    visit_files_recursively(src_dir()?, make_html_file)
+    visit_files_recursively(src_dir(), make_html_file)
 }
 
 fn make_html_file(md_path: PathBuf) -> Result<()> {
