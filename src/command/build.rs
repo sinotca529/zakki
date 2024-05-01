@@ -1,5 +1,8 @@
 use super::{dst_dir, html_path, relative_path_to_css, src_dir};
-use crate::convert::md_to_html;
+use crate::{
+    convert::md_to_html,
+    util::{copy_file, write_file},
+};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
@@ -18,12 +21,11 @@ fn convert_file(src_path: PathBuf) -> Result<()> {
             let path_to_css = relative_path_to_css(&html_path)?;
             let html_content = md_to_html(md_content, path_to_css.to_str().unwrap());
 
-            std::fs::write(html_path, html_content)?;
+            write_file(html_path, html_content)?;
         }
         _ => {
             let dst_path = dst_dir().join(src_path.strip_prefix(src_dir())?);
-            std::fs::create_dir_all(dst_path.parent().unwrap())?;
-            std::fs::copy(src_path, dst_path)?;
+            copy_file(src_path, dst_path)?;
         }
     }
     Ok(())
