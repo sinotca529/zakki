@@ -1,43 +1,25 @@
 use indoc::{formatdoc, indoc};
 use latex2mathml::{latex_to_mathml, DisplayStyle};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Tag, TagEnd};
+use std::cell::RefCell;
 use syntastica::language_set::SupportedLanguage;
 use syntastica::renderer::*;
 use syntastica_parsers::{Lang, LanguageSetImpl};
 
-fn convert_body(md: &str) -> String {
-    let parser = pulldown_cmark::Parser::new_ext(md, Options::all());
+fn adjust_link_to_md(mut event: Event) -> Event {
+    if let Event::Start(Tag::Link { dest_url, .. }) = &mut event {
+        let is_local_file = !dest_url.starts_with("http://") && !dest_url.starts_with("https://");
+        let is_md_file = dest_url.ends_with(".md");
 
-    let mut code_block = None;
+        if is_local_file && is_md_file {
+            *dest_url = format!("{}.html", &dest_url[..dest_url.len() - ".md".len()]).into();
+        }
+    }
+    event
+}
 
-    let parser = parser.map(|e| match e {
-        Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang))) => {
-            code_block = Some(lang.clone());
-            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang)))
-        }
-        Event::Start(Tag::Link {
-            link_type,
-            mut dest_url,
-            title,
-            id,
-        }) => {
-            if !dest_url.starts_with("http://")
-                && !dest_url.starts_with("https://")
-                && dest_url.ends_with(".md")
-            {
-                dest_url = format!("{}.html", &dest_url[..dest_url.len() - 3]).into();
-            }
-            Event::Start(Tag::Link {
-                link_type,
-                dest_url,
-                title,
-                id,
-            })
-        }
-        Event::End(TagEnd::CodeBlock) => {
-            code_block = None;
-            Event::End(TagEnd::CodeBlock)
-        }
+fn convert_math(event: Event) -> Event {
+    match event {
         Event::InlineMath(latex) => {
             let mathml = latex_to_mathml(&latex, DisplayStyle::Inline).unwrap();
             Event::InlineHtml(mathml.into())
@@ -46,10 +28,32 @@ fn convert_body(md: &str) -> String {
             let mathml = latex_to_mathml(&latex, DisplayStyle::Block).unwrap();
             Event::InlineHtml(mathml.into())
         }
+        _ => event,
+    }
+}
+
+fn highlight_code(event: Event) -> Event {
+    thread_local! {
+        pub static CODE_BLOCK: RefCell<Option<String>> = const { RefCell::new(None) };
+    };
+
+    match &event {
+        Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang))) => {
+            CODE_BLOCK.with(|code_block| {
+                *code_block.borrow_mut() = Some(lang.to_string());
+            });
+            event
+        }
+        Event::End(TagEnd::CodeBlock) => {
+            CODE_BLOCK.with(|code_block| {
+                *code_block.borrow_mut() = None;
+            });
+            event
+        }
         Event::Text(t) => {
-            let lang = code_block.take().and_then(|l| Lang::for_name(&l).ok());
+            let lang = CODE_BLOCK.take().and_then(|l| Lang::for_name(l).ok());
             let Some(lang) = lang else {
-                return Event::Text(t);
+                return event;
             };
 
             let highlights =
@@ -62,8 +66,17 @@ fn convert_body(md: &str) -> String {
             );
             Event::Html(highlighten.into())
         }
-        _ => e,
-    });
+        _ => event,
+    }
+}
+
+fn convert_body(md: &str) -> String {
+    let parser = pulldown_cmark::Parser::new_ext(md, Options::all());
+
+    let parser = parser
+        .map(adjust_link_to_md)
+        .map(convert_math)
+        .map(highlight_code);
 
     let mut html = String::new();
     pulldown_cmark::html::push_html(&mut html, parser);
