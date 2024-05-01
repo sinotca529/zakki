@@ -1,4 +1,4 @@
-use super::{dst_dir, html_path, relative_path_to_css, src_dir};
+use super::{clean::clean, dst_dir, html_path, init::init, relative_path_to_css, src_dir};
 use crate::{
     convert::md_to_html,
     util::{copy_file, write_file},
@@ -7,6 +7,8 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 
 pub fn build() -> Result<()> {
+    clean()?;
+    init()?;
     visit_files_recursively(src_dir(), convert_file)
 }
 
