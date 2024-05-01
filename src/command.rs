@@ -35,7 +35,7 @@ fn src_dir() -> &'static PathBuf {
     })
 }
 
-fn build_dir() -> &'static PathBuf {
+fn dst_dir() -> &'static PathBuf {
     static BUILD_DIR: OnceLock<PathBuf> = OnceLock::new();
     BUILD_DIR.get_or_init(|| {
         std::env::current_dir()
@@ -46,7 +46,7 @@ fn build_dir() -> &'static PathBuf {
 
 fn css_path() -> &'static PathBuf {
     static CSS_DIR: OnceLock<PathBuf> = OnceLock::new();
-    CSS_DIR.get_or_init(|| build_dir().join("style.css"))
+    CSS_DIR.get_or_init(|| dst_dir().join("style.css"))
 }
 
 fn relative_path_to_css(html_path: impl AsRef<Path>) -> Result<PathBuf> {
@@ -56,7 +56,7 @@ fn relative_path_to_css(html_path: impl AsRef<Path>) -> Result<PathBuf> {
 fn html_path(md_path: impl AsRef<Path>) -> Result<PathBuf> {
     fn inner(md_path: &Path) -> Result<PathBuf> {
         let rel_path = md_path.strip_prefix(src_dir())?;
-        let html_path = build_dir().join(rel_path).with_extension("html");
+        let html_path = dst_dir().join(rel_path).with_extension("html");
         Ok(html_path)
     }
     inner(md_path.as_ref())
