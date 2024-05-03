@@ -1,19 +1,22 @@
-use super::{dst_dir, src_dir};
 use anyhow::Result;
 
-pub fn init() -> Result<()> {
-    let demo_css_path = dst_dir().join("style.css");
-    if !demo_css_path.exists() {
-        crate::util::write_file(
-            demo_css_path,
-            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/asset/style.css")),
-        )?;
-    }
+use crate::default_css_path;
+use crate::path::{src_css_path, src_dir};
 
+fn copy_default_css() -> Result<()> {
+    crate::util::write_file(src_css_path(), include_str!(default_css_path!())).map_err(Into::into)
+}
+
+fn make_index_page() -> Result<()> {
     let demo_md_path = src_dir().join("index.md");
     if !demo_md_path.exists() {
         crate::util::write_file(demo_md_path, "# Index\n")?;
     }
+    Ok(())
+}
 
+pub fn init() -> Result<()> {
+    copy_default_css()?;
+    make_index_page()?;
     Ok(())
 }

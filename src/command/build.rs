@@ -1,6 +1,7 @@
-use super::{clean::clean, dst_dir, html_path, init::init, relative_path_to_css, src_dir};
+use super::{clean::clean, init::init};
 use crate::{
     convert::md_to_html,
+    path::{src_dir, SrcPath},
     util::{copy_file, write_file},
 };
 use anyhow::Result;
@@ -9,28 +10,34 @@ use std::path::{Path, PathBuf};
 pub fn build() -> Result<()> {
     clean()?;
     init()?;
-    visit_files_recursively(src_dir(), convert_file)
+    visit_files_recursively(src_dir(), render)
 }
 
-fn convert_file(src_path: PathBuf) -> Result<()> {
-    match src_path.extension().and_then(|e| e.to_str()) {
-        Some("md") => {
-            let md_content = std::fs::read(&src_path)?;
-            let md_content = std::str::from_utf8(&md_content)?;
+fn copy_non_md(src_path: SrcPath) -> Result<()> {
+    assert!(!src_path.is_md());
+    copy_file(src_path.get_ref(), src_path.to_dst_path().get_ref())
+        .map(|_| ())
+        .map_err(Into::into)
+}
 
-            let html_path = html_path(&src_path)?;
+fn render_md(src_path: SrcPath) -> Result<()> {
+    assert!(src_path.is_md());
+    let md_content = std::fs::read(src_path.get_ref())?;
+    let md_content = std::str::from_utf8(&md_content)?;
 
-            let path_to_css = relative_path_to_css(&html_path)?;
-            let html_content = md_to_html(md_content, path_to_css.to_str().unwrap());
+    let dst_path = src_path.to_dst_path();
+    let html_content = md_to_html(md_content, &dst_path);
 
-            write_file(html_path, html_content)?;
-        }
-        _ => {
-            let dst_path = dst_dir().join(src_path.strip_prefix(src_dir())?);
-            copy_file(src_path, dst_path)?;
-        }
+    write_file(dst_path.get_ref(), html_content).map_err(Into::into)
+}
+
+fn render(src_path: PathBuf) -> Result<()> {
+    let src_path = SrcPath::new(src_path)?;
+    if src_path.is_md() {
+        render_md(src_path)
+    } else {
+        copy_non_md(src_path)
     }
-    Ok(())
 }
 
 fn visit_files_recursively(

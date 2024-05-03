@@ -1,4 +1,5 @@
-use indoc::{formatdoc, indoc};
+use crate::path::DstPath;
+use indoc::formatdoc;
 use latex2mathml::{latex_to_mathml, DisplayStyle};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Tag, TagEnd};
 use std::cell::RefCell;
@@ -70,21 +71,17 @@ fn highlight_code(event: Event) -> Event {
     }
 }
 
-fn convert_body(md: &str) -> String {
-    let parser = pulldown_cmark::Parser::new_ext(md, Options::all());
+pub fn md_to_html(md_content: &str, dst_path: &DstPath) -> String {
+    let mut body = String::new();
 
-    let parser = parser
+    let parser = pulldown_cmark::Parser::new_ext(md_content, Options::all())
         .map(adjust_link_to_md)
         .map(convert_math)
         .map(highlight_code);
 
-    let mut html = String::new();
-    pulldown_cmark::html::push_html(&mut html, parser);
-    html
-}
+    pulldown_cmark::html::push_html(&mut body, parser);
 
-pub fn md_to_html(md_content: &str, rel_path_to_css: &str) -> String {
-    let html_begin = formatdoc! {r#"
+    formatdoc! {r#"
             <!DOCTYPE html>
             <html lang="ja">
             <head>
@@ -92,16 +89,11 @@ pub fn md_to_html(md_content: &str, rel_path_to_css: &str) -> String {
             <link rel="stylesheet" href="{path_to_css}">
             </head>
             <body>
+            {body}
+            </body>
+            </html>
         "#,
-        path_to_css = rel_path_to_css
-    };
-
-    let html_end = indoc! {"
-        </body>
-        </html>
-    "};
-
-    let body = convert_body(md_content);
-
-    format!("{html_begin}{body}{html_end}")
+        path_to_css = dst_path.path_to_css().to_str().unwrap(),
+        body = body,
+    }
 }
