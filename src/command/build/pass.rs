@@ -1,13 +1,11 @@
-use crate::path::DstPath;
-use indoc::formatdoc;
 use latex2mathml::{latex_to_mathml, DisplayStyle};
-use pulldown_cmark::{CodeBlockKind, Event, Options, Tag, TagEnd};
+use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
 use std::cell::RefCell;
 use syntastica::language_set::SupportedLanguage;
 use syntastica::renderer::*;
 use syntastica_parsers::{Lang, LanguageSetImpl};
 
-fn adjust_link_to_md(mut event: Event) -> Event {
+pub fn adjust_link_to_md(mut event: Event) -> Event {
     if let Event::Start(Tag::Link { dest_url, .. }) = &mut event {
         let is_local_file = !dest_url.starts_with("http://") && !dest_url.starts_with("https://");
         let is_md_file = dest_url.ends_with(".md");
@@ -19,7 +17,7 @@ fn adjust_link_to_md(mut event: Event) -> Event {
     event
 }
 
-fn convert_math(event: Event) -> Event {
+pub fn convert_math(event: Event) -> Event {
     match event {
         Event::InlineMath(latex) => {
             let mathml = latex_to_mathml(&latex, DisplayStyle::Inline).unwrap();
@@ -33,7 +31,7 @@ fn convert_math(event: Event) -> Event {
     }
 }
 
-fn highlight_code(event: Event) -> Event {
+pub fn highlight_code(event: Event) -> Event {
     thread_local! {
         pub static CODE_BLOCK: RefCell<Option<String>> = const { RefCell::new(None) };
     };
@@ -58,7 +56,7 @@ fn highlight_code(event: Event) -> Event {
             };
 
             let highlights =
-                syntastica::Processor::process_once(&t, lang, &LanguageSetImpl::new()).unwrap();
+                syntastica::Processor::process_once(t, lang, &LanguageSetImpl::new()).unwrap();
 
             let highlighten = syntastica::render(
                 &highlights,
@@ -68,32 +66,5 @@ fn highlight_code(event: Event) -> Event {
             Event::Html(highlighten.into())
         }
         _ => event,
-    }
-}
-
-pub fn md_to_html(md_content: &str, dst_path: &DstPath) -> String {
-    let mut body = String::new();
-
-    let parser = pulldown_cmark::Parser::new_ext(md_content, Options::all())
-        .map(adjust_link_to_md)
-        .map(convert_math)
-        .map(highlight_code);
-
-    pulldown_cmark::html::push_html(&mut body, parser);
-
-    formatdoc! {r#"
-            <!DOCTYPE html>
-            <html lang="ja">
-            <head>
-            <meta charset="UTF-8">
-            <link rel="stylesheet" href="{path_to_css}">
-            </head>
-            <body>
-            {body}
-            </body>
-            </html>
-        "#,
-        path_to_css = dst_path.path_to_css().to_str().unwrap(),
-        body = body,
     }
 }

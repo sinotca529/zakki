@@ -1,16 +1,47 @@
+mod pass;
+
 use super::{clean::clean, init::init};
 use crate::{
-    convert::md_to_html,
-    path::{src_dir, SrcPath},
+    command::build::pass::{adjust_link_to_md, convert_math, highlight_code},
+    path::{src_dir, DstPath, SrcPath},
     util::{copy_file, write_file},
 };
 use anyhow::Result;
+use indoc::formatdoc;
+use pulldown_cmark::Options;
 use std::path::{Path, PathBuf};
 
 pub fn build() -> Result<()> {
     clean()?;
     init()?;
     visit_files_recursively(src_dir(), render)
+}
+
+fn md_to_html(md_content: &str, dst_path: &DstPath) -> String {
+    let mut body = String::new();
+
+    let parser = pulldown_cmark::Parser::new_ext(md_content, Options::all())
+        .map(adjust_link_to_md)
+        .map(convert_math)
+        .map(highlight_code);
+
+    pulldown_cmark::html::push_html(&mut body, parser);
+
+    formatdoc! {r#"
+            <!DOCTYPE html>
+            <html lang="ja">
+            <head>
+            <meta charset="UTF-8">
+            <link rel="stylesheet" href="{path_to_css}">
+            </head>
+            <body>
+            {body}
+            </body>
+            </html>
+        "#,
+        path_to_css = dst_path.path_to_css().to_str().unwrap(),
+        body = body,
+    }
 }
 
 fn copy_non_md(src_path: SrcPath) -> Result<()> {
