@@ -1,11 +1,13 @@
 mod html;
 mod pass;
 
+use self::html::PageMetadata;
+
 use super::{clean::clean, init::init};
 use crate::{
     command::build::html::Page,
-    path::{src_dir, SrcPath},
-    util::copy_file,
+    path::{dst_metadata_path, src_dir, SrcPath},
+    util::{copy_file, write_file, ToJs},
 };
 use anyhow::Result;
 use std::path::{Path, PathBuf};
@@ -13,7 +15,21 @@ use std::path::{Path, PathBuf};
 pub fn build() -> Result<()> {
     clean()?;
     init()?;
-    visit_files_recursively(src_dir(), render)
+
+    let metadata_list = render_pages()?;
+    save_metadata(&metadata_list)?;
+
+    Ok(())
+}
+
+fn render_pages() -> Result<Vec<PageMetadata>> {
+    let mut metadata_list = vec![];
+    visit_files_recursively(src_dir(), |p| render(p, &mut metadata_list))?;
+    Ok(metadata_list)
+}
+
+fn save_metadata(metadata_list: &[PageMetadata]) -> Result<()> {
+    write_file(dst_metadata_path(), metadata_list.to_js()).map_err(Into::into)
 }
 
 fn copy_non_md(src_path: &SrcPath) -> Result<()> {
@@ -23,24 +39,26 @@ fn copy_non_md(src_path: &SrcPath) -> Result<()> {
         .map_err(Into::into)
 }
 
-fn render_md(src_path: &SrcPath) -> Result<()> {
+fn render_md(src_path: &SrcPath) -> Result<PageMetadata> {
     assert!(src_path.is_md());
     let page = Page::from_md_file(src_path)?;
-    page.save()
+    page.save()?;
+    Ok(page.metadata())
 }
 
-fn render(src_path: PathBuf) -> Result<()> {
+fn render(src_path: PathBuf, metadata_list: &mut Vec<PageMetadata>) -> Result<()> {
     let src_path = SrcPath::new(src_path)?;
     if src_path.is_md() {
-        render_md(&src_path)
+        metadata_list.push(render_md(&src_path)?);
     } else {
-        copy_non_md(&src_path)
+        copy_non_md(&src_path)?;
     }
+    Ok(())
 }
 
 fn visit_files_recursively(
     dir: impl AsRef<Path>,
-    operator: impl Fn(PathBuf) -> Result<()>,
+    mut operator: impl FnMut(PathBuf) -> Result<()>,
 ) -> Result<()> {
     let dir = dir.as_ref();
     let mut work_list: Vec<PathBuf> = vec![dir.into()];

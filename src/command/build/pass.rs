@@ -1,5 +1,5 @@
 use latex2mathml::{latex_to_mathml, DisplayStyle};
-use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
+use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Tag, TagEnd};
 use std::cell::RefCell;
 use syntastica::language_set::SupportedLanguage;
 use syntastica::renderer::*;
@@ -38,15 +38,11 @@ pub fn highlight_code(event: Event) -> Event {
 
     match &event {
         Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang))) => {
-            CODE_BLOCK.with(|code_block| {
-                *code_block.borrow_mut() = Some(lang.to_string());
-            });
+            CODE_BLOCK.with(|code_block| *code_block.borrow_mut() = Some(lang.to_string()));
             event
         }
         Event::End(TagEnd::CodeBlock) => {
-            CODE_BLOCK.with(|code_block| {
-                *code_block.borrow_mut() = None;
-            });
+            CODE_BLOCK.with(|code_block| *code_block.borrow_mut() = None);
             event
         }
         Event::Text(t) => {
@@ -67,4 +63,28 @@ pub fn highlight_code(event: Event) -> Event {
         }
         _ => event,
     }
+}
+
+pub fn get_h1<'a>(event: Event<'a>, title: &mut String) -> Event<'a> {
+    thread_local! {
+        pub static H1: RefCell<bool> = const { RefCell::new(false) };
+    };
+
+    match &event {
+        Event::Start(Tag::Heading { level, .. }) if level == &HeadingLevel::H1 => {
+            H1.with(|code_block| *code_block.borrow_mut() = true);
+            title.clear();
+        }
+        Event::End(TagEnd::CodeBlock) => {
+            H1.with(|code_block| *code_block.borrow_mut() = false);
+        }
+        Event::Text(t) => {
+            if H1.take() {
+                title.push_str(t.as_ref());
+            }
+        }
+        _ => {}
+    }
+
+    event
 }

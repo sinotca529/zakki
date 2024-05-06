@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+
+<script>
+  function createListItem(page) {
+    const nsbp = "\u00a0"
+
+    const linkToPage = `<a href="${page.path}">${page.title}</a>`
+    const date = `${page.date}`;
+
+    const li = document.createElement("li");
+    li.innerHTML = date + nsbp + linkToPage;
+
+    return li;
+  }
+
+  function renderPageList(metadata) {
+    const fragment = document.createDocumentFragment();
+
+    metadata
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .forEach((page) => fragment.appendChild(createListItem(page)));
+
+    document.getElementById("contents-list").appendChild(fragment);
+  }
+
+  window.addEventListener("DOMContentLoaded", function() {
+    renderPageList(METADATA);
+  });
+</script>
+
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <script type="text/javascript" src="metadata.js"></script>
+    <title>Note</title>
+  </head>
+
+  <style>#contents-list li {margin-bottom: 1ex;}</style>
+
+  <body>
+    <h1>サイト</h1>
+    <p>ここにサイトの説明を入力。</p>
+    <hr>
+    <br>
+    <h2>ページ一覧</h2>
+    <ul id = "contents-list">
+    </ul>
+  </body>
+</html>

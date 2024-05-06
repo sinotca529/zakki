@@ -23,3 +23,7 @@ impl DateFormat for SystemTime {
         date.format("%Y-%m-%d").to_string()
     }
 }
+
+pub trait ToJs {
+    fn to_js(&self) -> String;
+}
