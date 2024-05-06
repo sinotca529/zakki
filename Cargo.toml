@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.82"
-chrono = "0.4.38"
 clap = { version = "4.5.4", features = ["derive"] }
+derive_builder = "0.20.0"
 indoc = "2.0.5"
 latex2mathml = "0.2.3"
 pathdiff = "0.2.1"
@@ -14,3 +14,4 @@ pulldown-cmark = { git = "https://github.com/pulldown-cmark/pulldown-cmark", bra
 syntastica = "0.4.1"
 syntastica-parsers = { version = "0.4.1", features = ["all"] }
 syntastica-themes = "0.4.1"
+yaml-rust2 = "0.8.0"

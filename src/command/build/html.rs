@@ -1,17 +1,44 @@
 use crate::{
-    command::build::pass::{adjust_link_to_md, convert_math, get_h1, highlight_code},
+    command::build::pass::{
+        adjust_link_to_md, convert_math, get_h1, highlight_code, read_yaml_header,
+    },
     path::{DstPath, SrcPath},
-    util::{write_file, DateFormat, ToJs},
+    util::{write_file, ToJs},
 };
 use anyhow::Result;
+use derive_builder::Builder;
 use indoc::formatdoc;
 use pulldown_cmark::Options;
-use std::time::SystemTime;
+use yaml_rust2::{Yaml, YamlLoader};
 
+#[derive(Builder)]
 pub struct PageMetadata {
-    last_update: SystemTime,
+    date: String,
     dst_path: DstPath,
     title: String,
+}
+
+impl PageMetadataBuilder {
+    pub fn read_yaml(&mut self, yaml: &str) -> &mut Self {
+        let yaml = YamlLoader::load_from_str(yaml)
+            .ok()
+            .and_then(|mut y| y.pop())
+            .and_then(|y| y.into_hash());
+
+        let Some(yaml) = yaml else {
+            return self;
+        };
+
+        let date = yaml
+            .get(&Yaml::String("date".to_owned()))
+            .and_then(|date| date.as_str().map(str::to_string));
+
+        let Some(date) = date else {
+            return self;
+        };
+
+        self.date(date)
+    }
 }
 
 impl ToJs for &[PageMetadata] {
@@ -23,7 +50,7 @@ impl ToJs for &[PageMetadata] {
                     "{{\"path\":\"{}\",\"title\":\"{}\",\"date\":\"{}\"}}",
                     m.dst_path.rel_path().to_str().unwrap(),
                     m.title,
-                    m.last_update.yyyy_mm_dd_utc()
+                    m.date
                 )
             })
             .reduce(|acc, e| format!("{acc},{e}"))
@@ -49,11 +76,14 @@ impl Page {
         let mut body = String::new();
         let mut title = String::new();
 
+        let mut metadata_builder = PageMetadataBuilder::default();
+
         let parser = pulldown_cmark::Parser::new_ext(md_content, Options::all())
             .map(adjust_link_to_md)
             .map(convert_math)
             .map(highlight_code)
-            .map(|e| get_h1(e, &mut title));
+            .map(|e| get_h1(e, &mut title))
+            .map(|e| read_yaml_header(e, &mut metadata_builder));
 
         pulldown_cmark::html::push_html(&mut body, parser);
 
@@ -61,12 +91,10 @@ impl Page {
             title.push_str("(NoTitle)");
         }
 
-        let last_update = std::fs::metadata(src_path.get_ref()).and_then(|m| m.modified())?;
-        let metadata = PageMetadata {
-            last_update,
-            dst_path,
-            title,
-        };
+        metadata_builder.title(title).dst_path(dst_path);
+
+        let metadata = metadata_builder.build()?;
+
         Ok(Self { body, metadata })
     }
 
@@ -80,12 +108,12 @@ impl Page {
             <link rel="stylesheet" href="{path_to_css}">
             </head>
             <body>
-            <span>Last update: {data}</span><br>
+            <span>{data}</span><br>
             {body}
             </body>
             </html>
         "#,
-            data = self.metadata.last_update.yyyy_mm_dd_utc(),
+            data = self.metadata.date,
             path_to_css = self.metadata.dst_path.path_to_css().to_str().unwrap(),
             body = self.body,
         }

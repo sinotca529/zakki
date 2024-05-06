@@ -86,7 +86,7 @@ impl SrcPath {
     }
 }
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct DstPath(PathBuf);
 
 impl DstPath {

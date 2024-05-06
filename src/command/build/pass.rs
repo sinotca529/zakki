@@ -1,5 +1,6 @@
+use super::html::PageMetadataBuilder;
 use latex2mathml::{latex_to_mathml, DisplayStyle};
-use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Tag, TagEnd};
+use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, MetadataBlockKind, Tag, TagEnd};
 use std::cell::RefCell;
 use syntastica::language_set::SupportedLanguage;
 use syntastica::renderer::*;
@@ -81,6 +82,29 @@ pub fn get_h1<'a>(event: Event<'a>, title: &mut String) -> Event<'a> {
         Event::Text(t) => {
             if H1.take() {
                 title.push_str(t.as_ref());
+            }
+        }
+        _ => {}
+    }
+
+    event
+}
+
+pub fn read_yaml_header<'a>(event: Event<'a>, metadata: &mut PageMetadataBuilder) -> Event<'a> {
+    thread_local! {
+        pub static METADATA_BLOCK: RefCell<bool> = const { RefCell::new(false) };
+    };
+
+    match &event {
+        Event::Start(Tag::MetadataBlock(MetadataBlockKind::YamlStyle)) => {
+            METADATA_BLOCK.with(|mb| *mb.borrow_mut() = true);
+        }
+        Event::End(TagEnd::MetadataBlock(MetadataBlockKind::YamlStyle)) => {
+            METADATA_BLOCK.with(|mb| *mb.borrow_mut() = false);
+        }
+        Event::Text(yaml) => {
+            if METADATA_BLOCK.take() {
+                metadata.read_yaml(yaml);
             }
         }
         _ => {}
