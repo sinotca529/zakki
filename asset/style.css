@@ -58,3 +58,13 @@ th {
   border: 1px black solid;
   padding: .5em;
 }
+
+.tag > a:before {
+  content: "#";
+}
+
+.tag > a {
+  text-decoration: none;
+  color: black;
+  background-color: lightgray;
+}

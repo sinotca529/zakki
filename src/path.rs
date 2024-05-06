@@ -32,27 +32,10 @@ pub fn dst_metadata_path() -> &'static PathBuf {
     METADATA_PATH.get_or_init(|| dst_dir().join("metadata.js"))
 }
 
-pub fn src_css_path() -> &'static PathBuf {
-    static CSS_DIR: OnceLock<PathBuf> = OnceLock::new();
-    CSS_DIR.get_or_init(|| src_dir().join("style.css"))
-}
-
-pub fn src_index_path() -> &'static PathBuf {
-    static CSS_DIR: OnceLock<PathBuf> = OnceLock::new();
-    CSS_DIR.get_or_init(|| src_dir().join("index.html"))
-}
-
 #[macro_export]
-macro_rules! default_css_path {
-    () => {
-        concat!(env!("CARGO_MANIFEST_DIR"), "/asset/style.css")
-    };
-}
-
-#[macro_export]
-macro_rules! default_index_path {
-    () => {
-        concat!(env!("CARGO_MANIFEST_DIR"), "/asset/index.html")
+macro_rules! asset_path {
+    ($fname:literal) => {
+        concat!(env!("CARGO_MANIFEST_DIR"), "/asset/", $fname)
     };
 }
 

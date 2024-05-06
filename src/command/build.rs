@@ -7,7 +7,7 @@ use super::{clean::clean, init::init};
 use crate::{
     command::build::html::Page,
     path::{dst_metadata_path, src_dir, SrcPath},
-    util::{copy_file, write_file, ToJs},
+    util::{copy_file, write_file},
 };
 use anyhow::Result;
 use std::path::{Path, PathBuf};
@@ -29,7 +29,9 @@ fn render_pages() -> Result<Vec<PageMetadata>> {
 }
 
 fn save_metadata(metadata_list: &[PageMetadata]) -> Result<()> {
-    write_file(dst_metadata_path(), metadata_list.to_js()).map_err(Into::into)
+    let js = serde_json::to_string(metadata_list)?;
+    let content = format!("const METADATA={js}");
+    write_file(dst_metadata_path(), content).map_err(Into::into)
 }
 
 fn copy_non_md(src_path: &SrcPath) -> Result<()> {

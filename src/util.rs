@@ -11,7 +11,3 @@ pub fn copy_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> io::Result<u
     std::fs::create_dir_all(to.parent().unwrap())?;
     std::fs::copy(from, to)
 }
-
-pub trait ToJs {
-    fn to_js(&self) -> String;
-}

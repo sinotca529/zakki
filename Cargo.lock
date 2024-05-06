@@ -1585,6 +1585,8 @@ dependencies = [
  "latex2mathml",
  "pathdiff",
  "pulldown-cmark",
+ "serde",
+ "serde_json",
  "syntastica",
  "syntastica-parsers",
  "syntastica-themes",

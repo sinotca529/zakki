@@ -1,25 +1,21 @@
 use anyhow::Result;
 
-use crate::path::{src_css_path, src_index_path};
+use crate::asset_path;
 use crate::util::write_file;
-use crate::{default_css_path, default_index_path};
 
-fn copy_default_css() -> Result<()> {
-    if !src_css_path().exists() {
-        write_file(src_css_path(), include_str!(default_css_path!()))?;
-    }
-    Ok(())
-}
-
-fn copy_default_index() -> Result<()> {
-    if !src_index_path().exists() {
-        write_file(src_index_path(), include_str!(default_index_path!()))?;
-    }
-    Ok(())
+macro_rules! copy_asset {
+    ($fname:literal) => {{
+        let path = crate::path::src_dir().join($fname);
+        if path.exists() {
+            return Ok(());
+        }
+        write_file(path, include_str!(asset_path!($fname)))
+    }};
 }
 
 pub fn init() -> Result<()> {
-    copy_default_css()?;
-    copy_default_index()?;
+    copy_asset!("style.css")?;
+    copy_asset!("index.html")?;
+    copy_asset!("tag.html")?;
     Ok(())
 }

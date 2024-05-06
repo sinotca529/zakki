@@ -3,19 +3,23 @@ use crate::{
         adjust_link_to_md, convert_math, get_h1, highlight_code, read_yaml_header,
     },
     path::{DstPath, SrcPath},
-    util::{write_file, ToJs},
+    util::write_file,
 };
 use anyhow::Result;
 use derive_builder::Builder;
 use indoc::formatdoc;
 use pulldown_cmark::Options;
+use serde::Serialize;
+use std::path::PathBuf;
 use yaml_rust2::{Yaml, YamlLoader};
 
-#[derive(Builder)]
+#[derive(Builder, Serialize)]
 pub struct PageMetadata {
     date: String,
-    dst_path: DstPath,
+    #[serde(rename = "path")]
+    dst_rel_path: PathBuf,
     title: String,
+    tags: Vec<String>,
 }
 
 impl PageMetadataBuilder {
@@ -33,35 +37,47 @@ impl PageMetadataBuilder {
             .get(&Yaml::String("date".to_owned()))
             .and_then(|date| date.as_str().map(str::to_string));
 
-        let Some(date) = date else {
-            return self;
-        };
+        if let Some(date) = date {
+            self.date(date);
+        }
 
-        self.date(date)
-    }
-}
-
-impl ToJs for &[PageMetadata] {
-    fn to_js(&self) -> String {
-        let json = self
+        let tags: Vec<String> = yaml
+            .get(&Yaml::String("tag".to_owned()))
+            .and_then(|tags| tags.as_vec())
             .iter()
-            .map(|m| {
-                format!(
-                    "{{\"path\":\"{}\",\"title\":\"{}\",\"date\":\"{}\"}}",
-                    m.dst_path.rel_path().to_str().unwrap(),
-                    m.title,
-                    m.date
-                )
-            })
-            .reduce(|acc, e| format!("{acc},{e}"))
-            .unwrap_or_default();
+            .flat_map(|tags| tags.iter())
+            .filter_map(|t| t.as_str().map(str::to_string))
+            .collect();
 
-        format!("const METADATA = [{json}];")
+        self.tags(tags);
+
+        self
     }
 }
+
+// impl ToJs for &[PageMetadata] {
+//     fn to_js(&self) -> String {
+//         let json = self
+//             .iter()
+//             .map(|m| {
+//                 dbg!(serde_json::to_string(m));
+//                 format!(
+//                     "{{\"path\":\"{}\",\"title\":\"{}\",\"date\":\"{}\"}}",
+//                     m.dst_rel_path.to_str().unwrap(),
+//                     m.title,
+//                     m.date
+//                 )
+//             })
+//             .reduce(|acc, e| format!("{acc},{e}"))
+//             .unwrap_or_default();
+//
+//         format!("const METADATA = [{json}];")
+//     }
+// }
 
 pub struct Page {
     body: String,
+    dst_path: DstPath,
     metadata: PageMetadata,
 }
 
@@ -91,11 +107,17 @@ impl Page {
             title.push_str("(NoTitle)");
         }
 
-        metadata_builder.title(title).dst_path(dst_path);
+        metadata_builder
+            .title(title)
+            .dst_rel_path(dst_path.rel_path().to_owned());
 
         let metadata = metadata_builder.build()?;
 
-        Ok(Self { body, metadata })
+        Ok(Self {
+            body,
+            metadata,
+            dst_path,
+        })
     }
 
     fn gen_html(&self) -> String {
@@ -114,7 +136,7 @@ impl Page {
             </html>
         "#,
             data = self.metadata.date,
-            path_to_css = self.metadata.dst_path.path_to_css().to_str().unwrap(),
+            path_to_css = self.dst_path.path_to_css().to_str().unwrap(),
             body = self.body,
         }
     }
@@ -125,6 +147,6 @@ impl Page {
 
     pub fn save(&self) -> Result<()> {
         let html = self.gen_html();
-        write_file(self.metadata.dst_path.get_ref(), html).map_err(Into::into)
+        write_file(self.dst_path.get_ref(), html).map_err(Into::into)
     }
 }
