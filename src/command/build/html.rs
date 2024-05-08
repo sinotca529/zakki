@@ -55,26 +55,6 @@ impl PageMetadataBuilder {
     }
 }
 
-// impl ToJs for &[PageMetadata] {
-//     fn to_js(&self) -> String {
-//         let json = self
-//             .iter()
-//             .map(|m| {
-//                 dbg!(serde_json::to_string(m));
-//                 format!(
-//                     "{{\"path\":\"{}\",\"title\":\"{}\",\"date\":\"{}\"}}",
-//                     m.dst_rel_path.to_str().unwrap(),
-//                     m.title,
-//                     m.date
-//                 )
-//             })
-//             .reduce(|acc, e| format!("{acc},{e}"))
-//             .unwrap_or_default();
-//
-//         format!("const METADATA = [{json}];")
-//     }
-// }
-
 pub struct Page {
     body: String,
     dst_path: DstPath,
