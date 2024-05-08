@@ -1,18 +1,18 @@
-<!DOCTYPE html>
+<!doctype html>
 
 <script>
   function createTagElem(tagName) {
-    const a = document.createElement('a');
-    a.className = 'tag';
+    const a = document.createElement("a");
+    a.className = "tag";
     a.href = `tag.html?tag=${tagName}`;
     a.innerHTML = tagName;
     return a;
   }
 
   function createListItem(page) {
-    const nsbp = "\u00a0"
+    const nsbp = "\u00a0";
 
-    const linkToPage = `<a href="${page.path}">${page.title}</a>`
+    const linkToPage = `<a href="${page.path}">${page.title}</a>`;
     const date = `${page.date}`;
 
     const li = document.createElement("li");
@@ -39,10 +39,9 @@
 
   function renderTagSet(metadata) {
     const tagSet = new Set(
-      Object
-        .keys(metadata)
-        .map(key => metadata[key].tags)
-        .flat()
+      Object.keys(metadata)
+        .map((key) => metadata[key].tags)
+        .flat(),
     );
 
     const fragment = document.createDocumentFragment();
@@ -52,12 +51,10 @@
       fragment.appendChild(document.createTextNode(" "));
     });
 
-    document
-      .getElementById("tags-list")
-      .appendChild(fragment);
+    document.getElementById("tags-list").appendChild(fragment);
   }
 
-  window.addEventListener("DOMContentLoaded", function() {
+  window.addEventListener("DOMContentLoaded", function () {
     renderPageList(METADATA);
     renderTagSet(METADATA);
   });
@@ -66,24 +63,27 @@
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
-    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="stylesheet" type="text/css" href="style.css" />
     <script type="text/javascript" src="metadata.js"></script>
     <title>Note</title>
   </head>
 
-  <style>#contents-list li {margin-bottom: 1ex;}</style>
+  <style>
+    #contents-list li {
+      margin-bottom: 1ex;
+    }
+  </style>
 
   <body>
     <h1>サイト</h1>
     <p>ここにサイトの説明を入力。</p>
-    <hr>
-    <br>
+    <hr />
+    <br />
     <h2>ページ一覧</h2>
-    <ul id = "contents-list">
-    </ul>
+    <ul id="contents-list"></ul>
     <h2>タグ一覧</h2>
-    <div style="overflow-wrap: keep-all;">
-        <p id = "tags-list"></p>
+    <div style="overflow-wrap: keep-all">
+      <p id="tags-list"></p>
     </div>
   </body>
 </html>

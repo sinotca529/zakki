@@ -1,18 +1,18 @@
-<!DOCTYPE html>
+<!doctype html>
 
 <script>
   function createTagElem(tagName) {
-    const a = document.createElement('a');
-    a.className = 'tag';
+    const a = document.createElement("a");
+    a.className = "tag";
     a.href = `tag.html?tag=${tagName}`;
     a.innerHTML = tagName;
     return a;
   }
 
   function createListItem(page) {
-    const nsbp = "\u00a0"
+    const nsbp = "\u00a0";
 
-    const linkToPage = `<a href="${page.path}">${page.title}</a>`
+    const linkToPage = `<a href="${page.path}">${page.title}</a>`;
     const date = `${page.date}`;
 
     const li = document.createElement("li");
@@ -27,17 +27,17 @@
     return li;
   }
 
-  window.addEventListener("DOMContentLoaded", function() {
+  window.addEventListener("DOMContentLoaded", function () {
     const params = new URLSearchParams(window.location.search);
     if (!params.has("tag")) return;
     const tag = params.get("tag");
 
-    document.getElementById("h1").innerHTML = "タグ : " + tag + " のついたページ :";
+    document.getElementById("h1").innerHTML =
+      "タグ : " + tag + " のついたページ :";
     document.getElementsByTagName("title")[0].innerHTML = "タグ : " + tag;
 
     const fragment = document.createDocumentFragment();
-    METADATA
-      .filter(page => page.tags.includes(tag))
+    METADATA.filter((page) => page.tags.includes(tag))
       .sort((a, b) => b.date.localeCompare(a.date))
       .forEach((page) => fragment.appendChild(createListItem(page)));
 
@@ -48,14 +48,13 @@
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
-    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="stylesheet" type="text/css" href="style.css" />
     <script type="text/javascript" src="metadata.js"></script>
     <title>Tag</title>
   </head>
   <body>
-    <h1 id = "h1"></h1>
-    <br>
-    <ul id = "contents-list">
-    </ul>
+    <h1 id="h1"></h1>
+    <br />
+    <ul id="contents-list"></ul>
   </body>
 </html>
