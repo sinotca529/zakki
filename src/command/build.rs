@@ -14,7 +14,9 @@ use std::path::{Path, PathBuf};
 
 pub fn build() -> Result<()> {
     clean()?;
-    init()?;
+
+    // Initialization will be failed if asset files are already existing.
+    let _ = init();
 
     let metadata_list = render_pages()?;
     save_metadata(&metadata_list)?;

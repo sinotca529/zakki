@@ -14,8 +14,8 @@ macro_rules! copy_asset {
 }
 
 pub fn init() -> Result<()> {
-    copy_asset!("style.css")?;
-    copy_asset!("index.html")?;
-    copy_asset!("tag.html")?;
-    Ok(())
+    let sr: Result<()> = copy_asset!("style.css").map_err(Into::into);
+    let ir: Result<()> = copy_asset!("index.html").map_err(Into::into);
+    let tr: Result<()> = copy_asset!("tag.html").map_err(Into::into);
+    sr.or(ir).or(tr)
 }
