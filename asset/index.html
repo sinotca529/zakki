@@ -2,10 +2,11 @@
 
 <script>
   function createTagElem(tagName) {
-    const span = document.createElement('span');
-    span.className = 'tag';
-    span.innerHTML = `<a href="tag.html?tag=${tagName}">${tagName}</a>`;
-    return span;
+    const a = document.createElement('a');
+    a.className = 'tag';
+    a.href = `tag.html?tag=${tagName}`;
+    a.innerHTML = tagName;
+    return a;
   }
 
   function createListItem(page) {

@@ -103,7 +103,7 @@ impl Page {
     fn tag_elem(&self, tag_name: &str) -> String {
         let path_to_tag = self.dst_path.path_to_dst().join("tag.html");
         let path_to_tag = path_to_tag.to_str().unwrap();
-        format!(r#"<span class="tag"><a href="{path_to_tag}?tag={tag_name}">{tag_name}</a></span>"#)
+        format!(r#"<a class="tag" href="{path_to_tag}?tag={tag_name}">{tag_name}</a>"#)
     }
 
     fn tag_elems(&self, tag_elems: &[String]) -> String {

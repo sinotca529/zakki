@@ -10,34 +10,18 @@ body {
   margin-inline: auto;
 }
 
-h1::before {
-  content: "#";
-  margin-right: .3em;
+h1 {
+  border-bottom: solid 4px;
 }
-
-h2::before {
-  content: "##";
-  margin-right: .3em;
+h2 {
+  border-bottom: solid 2px;
 }
-
-h3::before {
-  content: "###";
-  margin-right: .3em;
+h3 {
+  border-bottom: solid 1px;
 }
-
-h4::before {
-  content: "####";
-  margin-right: .3em;
-}
-
-h5::before {
-  content: "#####";
-  margin-right: .3em;
-}
-
-h6::before {
-  content: "######";
-  margin-right: .3em;
+h4 {
+  border-bottom: dashed 1px;
+  margin-bottom: 2ex;
 }
 
 pre {
@@ -56,15 +40,18 @@ table,
 td,
 th {
   border: 1px black solid;
-  padding: .5em;
+  padding: 0.5em;
 }
 
-.tag > a:before {
+.tag::before {
   content: "#";
 }
 
-.tag > a {
+.tag {
+  font-size: 0.875em;
+  padding-right: 0.5ch;
+  padding-left: 0.5ch;
+  white-space: nowrap;
   text-decoration: none;
-  color: black;
-  background-color: lightgray;
+  color: gray;
 }
