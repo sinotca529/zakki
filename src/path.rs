@@ -22,11 +22,6 @@ pub fn dst_dir() -> &'static PathBuf {
     })
 }
 
-pub fn dst_css_path() -> &'static PathBuf {
-    static CSS_DIR: OnceLock<PathBuf> = OnceLock::new();
-    CSS_DIR.get_or_init(|| dst_dir().join("style.css"))
-}
-
 pub fn dst_metadata_path() -> &'static PathBuf {
     static METADATA_PATH: OnceLock<PathBuf> = OnceLock::new();
     METADATA_PATH.get_or_init(|| dst_dir().join("metadata.js"))
@@ -73,8 +68,8 @@ impl SrcPath {
 pub struct DstPath(PathBuf);
 
 impl DstPath {
-    pub fn path_to_css(&self) -> PathBuf {
-        pathdiff::diff_paths(dst_css_path(), self.0.parent().unwrap()).unwrap()
+    pub fn path_to_dst(&self) -> PathBuf {
+        pathdiff::diff_paths(dst_dir(), self.0.parent().unwrap()).unwrap()
     }
 
     pub fn get_ref(&self) -> &PathBuf {

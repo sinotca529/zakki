@@ -100,6 +100,20 @@ impl Page {
         })
     }
 
+    fn tag_elem(&self, tag_name: &str) -> String {
+        let path_to_tag = self.dst_path.path_to_dst().join("tag.html");
+        let path_to_tag = path_to_tag.to_str().unwrap();
+        format!(r#"<span class="tag"><a href="{path_to_tag}?tag={tag_name}">{tag_name}</a></span>"#)
+    }
+
+    fn tag_elems(&self, tag_elems: &[String]) -> String {
+        let nsbp = "\u{00a0}";
+        tag_elems
+            .iter()
+            .map(|n| self.tag_elem(n))
+            .fold(String::new(), |acc, e| format!("{acc}{nsbp}{e}"))
+    }
+
     fn gen_html(&self) -> String {
         formatdoc! {r#"
             <!DOCTYPE html>
@@ -111,12 +125,15 @@ impl Page {
             </head>
             <body>
             <span>{data}</span><br>
+            {tag_elems}<br>
+            <span></span>
             {body}
             </body>
             </html>
         "#,
+            tag_elems = self.tag_elems(&self.metadata.tags),
             data = self.metadata.date,
-            path_to_css = self.dst_path.path_to_css().to_str().unwrap(),
+            path_to_css = self.dst_path.path_to_dst().join("style.css").to_str().unwrap(),
             body = self.body,
         }
     }
