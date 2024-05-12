@@ -3,14 +3,15 @@ use crate::{
         adjust_link_to_md, convert_math, get_h1, highlight_code, read_yaml_header,
     },
     path::{DstPath, SrcPath},
-    util::write_file,
+    util::{encode_with_password, write_file},
 };
 use anyhow::Result;
+use base64::prelude::*;
 use derive_builder::Builder;
 use indoc::formatdoc;
 use pulldown_cmark::Options;
 use serde::Serialize;
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::OnceLock};
 use yaml_rust2::{Yaml, YamlLoader};
 
 #[derive(Builder, Serialize)]
@@ -20,6 +21,7 @@ pub struct PageMetadata {
     dst_rel_path: PathBuf,
     title: String,
     tags: Vec<String>,
+    crypto: bool,
 }
 
 impl PageMetadataBuilder {
@@ -50,6 +52,13 @@ impl PageMetadataBuilder {
             .collect();
 
         self.tags(tags);
+
+        let crypto = yaml
+            .get(&Yaml::String("crypto".to_owned()))
+            .and_then(|date| date.as_bool())
+            .unwrap_or(false);
+
+        self.crypto(crypto);
 
         self
     }
@@ -114,8 +123,63 @@ impl Page {
             .fold(String::new(), |acc, e| format!("{acc}{nsbp}{e}"))
     }
 
-    fn gen_html(&self) -> String {
+    fn crypto_html(html: &str) -> String {
+        let html = html.as_bytes();
+        let cypher = encode_with_password(get_password(), html);
+        let encoded = BASE64_STANDARD.encode(cypher);
+
         formatdoc! {r#"
+            <!DOCTYPE html>
+            <html lang="ja">
+            <head>
+            <meta charset="UTF-8">
+            </head>
+            <script>
+                const cypherBase64 = "{encoded}";
+
+                async function decryptAes256Cbc(data, iv, key) {{
+                    const aesKey = await crypto.subtle.importKey('raw', key, {{name: 'AES-CBC'}}, false, ['decrypt']);
+                    return crypto.subtle.decrypt({{name: 'AES-CBC', iv: iv}}, aesKey, data);
+                }}
+
+                async function getAesKey() {{
+                    const key = document.getElementById('keyInput').value;
+                    const keyData = new TextEncoder().encode(key);
+                    return await crypto.subtle.digest('SHA-256', keyData);
+                }}
+
+                function base64ToUint8Array(base64Str) {{
+                    const raw = atob(base64Str);
+                    return Uint8Array.from(Array.prototype.map.call(raw, (x) => {{
+                        return x.charCodeAt(0);
+                    }}));
+                }}
+
+                async function decodeCipher() {{
+                    const cipherData = base64ToUint8Array(cypherBase64);
+                    const iv = cipherData.slice(0, 16);
+                    const encryptedData = cipherData.slice(16);
+                    const keyObj = await getAesKey();
+
+                    try {{
+                        const decryptedData = await decryptAes256Cbc(encryptedData, iv, keyObj);
+                        const decryptedText = new TextDecoder().decode(decryptedData);
+                        document.documentElement.innerHTML = decryptedText;
+                    }} catch (error) {{
+                        console.error('Decryption failed:', error);
+                    }}
+                }}
+            </script>
+            <body>
+                <input type="text" id="keyInput" placeholder="Enter your secret key">
+                <button onclick="decodeCipher()">Decode</button>
+            </body>
+            </html>
+        "#}
+    }
+
+    fn gen_html(&self) -> String {
+        let html = formatdoc! {r#"
             <!DOCTYPE html>
             <html lang="ja">
             <meta name="date" content="{data}">
@@ -135,6 +199,12 @@ impl Page {
             data = self.metadata.date,
             path_to_css = self.dst_path.path_to_dst().join("style.css").to_str().unwrap(),
             body = self.body,
+        };
+
+        if self.metadata.crypto {
+            Self::crypto_html(&html)
+        } else {
+            html
         }
     }
 
@@ -146,4 +216,16 @@ impl Page {
         let html = self.gen_html();
         write_file(self.dst_path.get_ref(), html).map_err(Into::into)
     }
+}
+
+fn get_password() -> &'static String {
+    static PASSWORD: OnceLock<String> = OnceLock::new();
+    PASSWORD.get_or_init(|| {
+        print!("Input password for hidden pages:\n> ");
+        let mut password = String::new();
+        while std::io::stdin().read_line(&mut password).is_err() {
+            print!("Input password for hidden pages:\n> ");
+        }
+        password.trim_end().to_owned()
+    })
 }
