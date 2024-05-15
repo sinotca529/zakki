@@ -186,9 +186,10 @@ impl Page {
             <meta name="date" content="{data}">
             <head>
             <meta charset="UTF-8">
-            <link rel="stylesheet" href="{path_to_css}">
+            <link rel="stylesheet" href="{path_to_root}/style.css">
             </head>
             <body>
+            <a href="{path_to_root}/index.html">Top</a><br>
             <span>{data}</span><br>
             {tag_elems}<br>
             <span></span>
@@ -198,7 +199,7 @@ impl Page {
         "#,
             tag_elems = self.tag_elems(&self.metadata.tags),
             data = self.metadata.date,
-            path_to_css = self.dst_path.path_to_dst().join("style.css").to_str().unwrap(),
+            path_to_root = self.dst_path.path_to_dst().to_str().unwrap(),
             body = self.body,
         };
 
