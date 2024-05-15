@@ -10,6 +10,7 @@ base64 = "0.22.1"
 cbc = { version = "0.1.2", features = ["std"] }
 clap = { version = "4.5.4", features = ["derive"] }
 derive_builder = "0.20.0"
+dialoguer = "0.11.0"
 indoc = "2.0.5"
 latex2mathml = "0.2.3"
 pathdiff = "0.2.1"

@@ -8,6 +8,7 @@ use crate::{
 use anyhow::Result;
 use base64::prelude::*;
 use derive_builder::Builder;
+use dialoguer::Password;
 use indoc::formatdoc;
 use pulldown_cmark::Options;
 use serde::Serialize;
@@ -221,11 +222,9 @@ impl Page {
 fn get_password() -> &'static String {
     static PASSWORD: OnceLock<String> = OnceLock::new();
     PASSWORD.get_or_init(|| {
-        print!("Input password for hidden pages:\n> ");
-        let mut password = String::new();
-        while std::io::stdin().read_line(&mut password).is_err() {
-            print!("Input password for hidden pages:\n> ");
-        }
-        password.trim_end().to_owned()
+        Password::new()
+            .with_prompt("Password for hidden pages")
+            .interact()
+            .unwrap()
     })
 }
