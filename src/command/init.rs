@@ -7,9 +7,10 @@ macro_rules! copy_asset {
     ($fname:literal) => {{
         let path = crate::path::src_dir().join($fname);
         if path.exists() {
-            return Ok(());
+            Ok(())
+        } else {
+            write_file(path, include_str!(asset_path!($fname)))
         }
-        write_file(path, include_str!(asset_path!($fname)))
     }};
 }
 
