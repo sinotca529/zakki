@@ -27,14 +27,13 @@
     return li;
   }
 
-  window.addEventListener("DOMContentLoaded", function () {
+  window.addEventListener("DOMContentLoaded", () => {
     const params = new URLSearchParams(window.location.search);
     if (!params.has("tag")) return;
     const tag = params.get("tag");
 
-    document.getElementById("h1").innerHTML =
-      "タグ : " + tag + " のついたページ :";
-    document.getElementsByTagName("title")[0].innerHTML = "タグ : " + tag;
+    document.getElementById("h1").innerHTML = `タグ : ${tag} のついたページ`;
+    document.getElementsByTagName("title")[0].innerHTML = `タグ: ${tag}`;
 
     const fragment = document.createDocumentFragment();
     METADATA.filter((page) => page.tags.includes(tag))
