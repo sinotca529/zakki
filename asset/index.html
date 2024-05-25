@@ -1,70 +1,10 @@
 <!doctype html>
-
-<script>
-  function createTagElem(tagName) {
-    const a = document.createElement("a");
-    a.className = "tag";
-    a.href = `tag.html?tag=${tagName}`;
-    a.innerHTML = tagName;
-    return a;
-  }
-
-  function createListItem(page) {
-    const nsbp = "\u00a0";
-
-    const linkToPage = `<a href="${page.path}">${page.title}</a>`;
-    const date = `${page.date}`;
-
-    const li = document.createElement("li");
-    li.innerHTML = date + nsbp + linkToPage;
-
-    page.tags.forEach((tagName) => {
-      const tag = createTagElem(tagName);
-      li.appendChild(document.createTextNode(nsbp));
-      li.appendChild(tag);
-    });
-
-    return li;
-  }
-
-  function renderPageList(metadata) {
-    const fragment = document.createDocumentFragment();
-
-    metadata
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .forEach((page) => fragment.appendChild(createListItem(page)));
-
-    document.getElementById("contents-list").appendChild(fragment);
-  }
-
-  function renderTagSet(metadata) {
-    const tagSet = new Set(
-      Object.keys(metadata)
-        .map((key) => metadata[key].tags)
-        .flat(),
-    );
-
-    const fragment = document.createDocumentFragment();
-    tagSet.forEach((tagName) => {
-      const tag = createTagElem(tagName);
-      fragment.appendChild(tag);
-      fragment.appendChild(document.createTextNode(" "));
-    });
-
-    document.getElementById("tags-list").appendChild(fragment);
-  }
-
-  window.addEventListener("DOMContentLoaded", () => {
-    renderPageList(METADATA);
-    renderTagSet(METADATA);
-  });
-</script>
-
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
     <link rel="stylesheet" type="text/css" href="style.css" />
     <script type="text/javascript" src="metadata.js"></script>
+    <script type="text/javascript" src="script.js"></script>
     <title>Note</title>
   </head>
 
@@ -74,7 +14,7 @@
     }
   </style>
 
-  <body>
+  <body data-page="index">
     <h1>サイト</h1>
     <p>ここにサイトの説明を入力。</p>
     <hr />

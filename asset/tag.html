@@ -1,57 +1,14 @@
 <!doctype html>
 
-<script>
-  function createTagElem(tagName) {
-    const a = document.createElement("a");
-    a.className = "tag";
-    a.href = `tag.html?tag=${tagName}`;
-    a.innerHTML = tagName;
-    return a;
-  }
-
-  function createListItem(page) {
-    const nsbp = "\u00a0";
-
-    const linkToPage = `<a href="${page.path}">${page.title}</a>`;
-    const date = `${page.date}`;
-
-    const li = document.createElement("li");
-    li.innerHTML = date + nsbp + linkToPage;
-
-    page.tags.forEach((tagName) => {
-      const tag = createTagElem(tagName);
-      li.appendChild(document.createTextNode(nsbp));
-      li.appendChild(tag);
-    });
-
-    return li;
-  }
-
-  window.addEventListener("DOMContentLoaded", () => {
-    const params = new URLSearchParams(window.location.search);
-    if (!params.has("tag")) return;
-    const tag = params.get("tag");
-
-    document.getElementById("h1").innerHTML = `タグ : ${tag} のついたページ`;
-    document.getElementsByTagName("title")[0].innerHTML = `タグ: ${tag}`;
-
-    const fragment = document.createDocumentFragment();
-    METADATA.filter((page) => page.tags.includes(tag))
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .forEach((page) => fragment.appendChild(createListItem(page)));
-
-    document.getElementById("contents-list").appendChild(fragment);
-  });
-</script>
-
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
     <link rel="stylesheet" type="text/css" href="style.css" />
+    <script type="text/javascript" src="script.js"></script>
     <script type="text/javascript" src="metadata.js"></script>
     <title>Tag</title>
   </head>
-  <body>
+  <body data-page="tag">
     <h1 id="h1"></h1>
     <br />
     <ul id="contents-list"></ul>

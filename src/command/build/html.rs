@@ -124,7 +124,7 @@ impl Page {
             .fold(String::new(), |acc, e| format!("{acc}{nsbp}{e}"))
     }
 
-    fn crypto_html(html: &str) -> String {
+    fn crypto_html(&self, html: &str) -> String {
         let html = html.as_bytes();
         let cypher = encode_with_password(get_password(), html);
         let encoded = BASE64_STANDARD.encode(cypher);
@@ -134,49 +134,16 @@ impl Page {
             <html lang="ja">
             <head>
             <meta charset="UTF-8">
+            <script type="text/javascript" src="{path_to_root}/script.js"></script>
             </head>
-            <script>
-                const cypherBase64 = "{encoded}";
-
-                async function decryptAes256Cbc(data, iv, key) {{
-                    const aesKey = await crypto.subtle.importKey('raw', key, {{name: 'AES-CBC'}}, false, ['decrypt']);
-                    return crypto.subtle.decrypt({{name: 'AES-CBC', iv: iv}}, aesKey, data);
-                }}
-
-                async function getAesKey() {{
-                    const key = document.getElementById('keyInput').value;
-                    const keyData = new TextEncoder().encode(key);
-                    return await crypto.subtle.digest('SHA-256', keyData);
-                }}
-
-                function base64ToUint8Array(base64Str) {{
-                    const raw = atob(base64Str);
-                    return Uint8Array.from(Array.prototype.map.call(raw, (x) => {{
-                        return x.charCodeAt(0);
-                    }}));
-                }}
-
-                async function decodeCipher() {{
-                    const cipherData = base64ToUint8Array(cypherBase64);
-                    const iv = cipherData.slice(0, 16);
-                    const encryptedData = cipherData.slice(16);
-                    const keyObj = await getAesKey();
-
-                    try {{
-                        const decryptedData = await decryptAes256Cbc(encryptedData, iv, keyObj);
-                        const decryptedText = new TextDecoder().decode(decryptedData);
-                        document.documentElement.innerHTML = decryptedText;
-                    }} catch (error) {{
-                        console.error('Decryption failed:', error);
-                    }}
-                }}
-            </script>
-            <body>
+            <body data-cypher="{encoded}">
                 <input type="text" id="keyInput" placeholder="Enter your secret key">
-                <button onclick="decodeCipher()">Decode</button>
+                <button onclick="decodeCypher()">Decode</button>
             </body>
             </html>
-        "#}
+        "#,
+            path_to_root = self.dst_path.path_to_dst().to_str().unwrap(),
+        }
     }
 
     fn gen_html(&self) -> String {
@@ -204,7 +171,7 @@ impl Page {
         };
 
         if self.metadata.crypto {
-            Self::crypto_html(&html)
+            self.crypto_html(&html)
         } else {
             html
         }

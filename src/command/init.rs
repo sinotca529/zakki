@@ -6,17 +6,20 @@ use crate::util::write_file;
 macro_rules! copy_asset {
     ($fname:literal) => {{
         let path = crate::path::src_dir().join($fname);
-        if path.exists() {
+        let result: Result<()> = if path.exists() {
             Ok(())
         } else {
             write_file(path, include_str!(asset_path!($fname)))
         }
+        .map_err(Into::into);
+        result
     }};
 }
 
 pub fn init() -> Result<()> {
-    let sr: Result<()> = copy_asset!("style.css").map_err(Into::into);
-    let ir: Result<()> = copy_asset!("index.html").map_err(Into::into);
-    let tr: Result<()> = copy_asset!("tag.html").map_err(Into::into);
-    sr.or(ir).or(tr)
+    let sr = copy_asset!("style.css");
+    let jr = copy_asset!("script.js");
+    let ir = copy_asset!("index.html");
+    let tr = copy_asset!("tag.html");
+    sr.or(jr).or(ir).or(tr)
 }
