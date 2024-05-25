@@ -1,31 +1,23 @@
+:root {
+  --background-color-body: snow;
+  --background-color-pre: whitesmoke;
+  --border-color-table: black;
+  --color-tag: gray;
+  --color-footnote: gray;
+  --color-blockquote-border: gray;
+}
+
 body {
   font-size: large;
-  background-color: snow;
+  background-color: var(--background-color-body);
   padding: 2em;
   max-width: 90%;
   margin-inline: auto;
 }
 
-h1 {
-  border-bottom: solid 4px;
-}
-
-h2 {
-  border-bottom: solid 2px;
-}
-
-h3 {
-  border-bottom: solid 1px;
-}
-
-h4 {
-  border-bottom: dashed 1px;
-  margin-bottom: 2ex;
-}
-
 pre {
-  font-family: "Courier New", Courier, monospace;
-  background-color: whitesmoke;
+  font-family: monospace;
+  background-color: var(--background-color-pre);
   margin: 1em;
   padding: 1em;
 }
@@ -39,7 +31,7 @@ table {
 table,
 td,
 th {
-  border: 1px black solid;
+  border: 1px var(--border-color-table) solid;
   padding: 0.5em;
 }
 
@@ -53,12 +45,12 @@ th {
   padding-left: 0.5ch;
   white-space: nowrap;
   text-decoration: none;
-  color: gray;
+  color: var(--color-tag);
 }
 
 .footnote-definition {
   font-size: medium;
-  color: gray;
+  color: var(--color-footnote);
 }
 
 .footnote-definition>p {
@@ -70,6 +62,6 @@ th {
 }
 
 blockquote {
-  border-left: 5px solid gray;
+  border-left: 3px solid var(--color-blockquote-border);
   padding-left: 0.5em;
 }

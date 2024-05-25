@@ -113,6 +113,12 @@ async function decodeCypher() {
   }
 }
 
+function cryptoMain() {
+  document.getElementById("keyInput").onkeydown = (e) => {
+    if (e.key === "Enter") decodeCypher();
+  };
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   switch (document.body.dataset.page) {
     case "tag":
@@ -120,6 +126,9 @@ window.addEventListener("DOMContentLoaded", () => {
       break;
     case "index":
       indexMain();
+      break;
+    case "crypto":
+      cryptoMain();
       break;
   }
 });

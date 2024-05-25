@@ -136,8 +136,9 @@ impl Page {
             <meta charset="UTF-8">
             <script type="text/javascript" src="{path_to_root}/script.js"></script>
             </head>
-            <body data-cypher="{encoded}">
-                <input type="text" id="keyInput" placeholder="Enter your secret key">
+            <body data-page="crypto" data-cypher="{encoded}">
+                <h1>This page is protected.</h1>
+                <input autofocus type="password" id="keyInput" placeholder="Enter your secret key">
                 <button onclick="decodeCypher()">Decode</button>
             </body>
             </html>
@@ -156,8 +157,8 @@ impl Page {
             <link rel="stylesheet" href="{path_to_root}/style.css">
             </head>
             <body>
-            <a href="{path_to_root}/index.html">Top</a><br>
-            <span>{data}</span><br>
+            <a href="{path_to_root}/index.html">Top Page</a><br>
+            <span>{data}</span>
             {tag_elems}<br>
             <span></span>
             {body}
