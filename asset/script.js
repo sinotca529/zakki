@@ -6,24 +6,42 @@ function createTagElem(tagName) {
   return a;
 }
 
-function createListItem(page) {
-  const nsbp = "\u00a0";
+function createCard(page) {
+  const cardLink = document.createElement("a");
+  cardLink.className = "card-link";
+  cardLink.href = page.path;
 
-  const linkToPage = `<a href="${page.path}">${page.title}</a>`;
-  const date = `${page.date}`;
+  const card = document.createElement("div");
+  card.className = "card";
 
-  const li = document.createElement("li");
-  li.innerHTML = date + nsbp + linkToPage;
+  const header = document.createElement("div");
+  header.className = "card-header";
+  header.innerHTML = page.title;
 
+  const meta = document.createElement("div");
+  meta.className = "card-meta";
+
+  const date = document.createElement("div");
+  date.className = "card-date";
+  date.innerHTML = page.date;
+
+  const tags = document.createElement("div");
+  tags.className = "card-tags";
   page.tags.forEach((tagName) => {
     const tag = createTagElem(tagName);
-    li.appendChild(document.createTextNode(nsbp));
-    li.appendChild(tag);
+    tags.appendChild(tag);
   });
 
-  return li;
-}
+  meta.appendChild(date);
+  meta.appendChild(tags);
 
+  card.appendChild(header);
+  card.appendChild(meta);
+
+  cardLink.appendChild(card);
+
+  return cardLink;
+}
 function tagMain() {
   const params = new URLSearchParams(window.location.search);
   if (!params.has("tag")) return;
@@ -35,7 +53,7 @@ function tagMain() {
   const fragment = document.createDocumentFragment();
   METADATA.filter((page) => page.tags.includes(tag))
     .sort((a, b) => b.date.localeCompare(a.date))
-    .forEach((page) => fragment.appendChild(createListItem(page)));
+    .forEach((page) => fragment.appendChild(createCard(page)));
 
   document.getElementById("contents-list").appendChild(fragment);
 }
@@ -45,7 +63,7 @@ function renderPageList(metadata) {
 
   metadata
     .sort((a, b) => b.date.localeCompare(a.date))
-    .forEach((page) => fragment.appendChild(createListItem(page)));
+    .forEach((page) => fragment.appendChild(createCard(page)));
 
   document.getElementById("contents-list").appendChild(fragment);
 }

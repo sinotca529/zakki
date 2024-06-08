@@ -1,3 +1,4 @@
+use super::metadata::{Metadata, MetadataBuilder};
 use crate::{
     command::build::pass::{
         adjust_link_to_md, convert_math, get_h1, highlight_code, read_yaml_header,
@@ -7,68 +8,15 @@ use crate::{
 };
 use anyhow::Result;
 use base64::prelude::*;
-use derive_builder::Builder;
 use dialoguer::Password;
 use indoc::formatdoc;
-use pulldown_cmark::Options;
-use serde::Serialize;
-use std::{path::PathBuf, sync::OnceLock};
-use yaml_rust2::{Yaml, YamlLoader};
-
-#[derive(Builder, Serialize)]
-pub struct PageMetadata {
-    date: String,
-    #[serde(rename = "path")]
-    dst_rel_path: PathBuf,
-    title: String,
-    tags: Vec<String>,
-    crypto: bool,
-}
-
-impl PageMetadataBuilder {
-    pub fn read_yaml(&mut self, yaml: &str) -> &mut Self {
-        let yaml = YamlLoader::load_from_str(yaml)
-            .ok()
-            .and_then(|mut y| y.pop())
-            .and_then(|y| y.into_hash());
-
-        let Some(yaml) = yaml else {
-            return self;
-        };
-
-        let date = yaml
-            .get(&Yaml::String("date".to_owned()))
-            .and_then(|date| date.as_str().map(str::to_string));
-
-        if let Some(date) = date {
-            self.date(date);
-        }
-
-        let tags: Vec<String> = yaml
-            .get(&Yaml::String("tag".to_owned()))
-            .and_then(|tags| tags.as_vec())
-            .iter()
-            .flat_map(|tags| tags.iter())
-            .filter_map(|t| t.as_str().map(str::to_string))
-            .collect();
-
-        self.tags(tags);
-
-        let crypto = yaml
-            .get(&Yaml::String("crypto".to_owned()))
-            .and_then(|date| date.as_bool())
-            .unwrap_or(false);
-
-        self.crypto(crypto);
-
-        self
-    }
-}
+use pulldown_cmark::{Options, Parser};
+use std::sync::OnceLock;
 
 pub struct Page {
     body: String,
     dst_path: DstPath,
-    metadata: PageMetadata,
+    metadata: Metadata,
 }
 
 impl Page {
@@ -77,31 +25,23 @@ impl Page {
         let md_content = std::fs::read(src_path.get_ref())?;
         let md_content = std::str::from_utf8(&md_content)?;
 
+        let mut metadata_builder = MetadataBuilder::default();
         let dst_path = src_path.to_dst_path();
+        metadata_builder.path(dst_path.rel_path().to_owned());
 
-        let mut body = String::new();
-        let mut title = String::new();
+        let mut events: Vec<_> = Parser::new_ext(md_content, Options::all()).collect();
 
-        let mut metadata_builder = PageMetadataBuilder::default();
-
-        let parser = pulldown_cmark::Parser::new_ext(md_content, Options::all())
-            .map(adjust_link_to_md)
-            .map(convert_math)
-            .map(highlight_code)
-            .map(|e| get_h1(e, &mut title))
-            .map(|e| read_yaml_header(e, &mut metadata_builder));
-
-        pulldown_cmark::html::push_html(&mut body, parser);
-
-        if title.is_empty() {
-            title.push_str("(NoTitle)");
-        }
-
-        metadata_builder
-            .title(title)
-            .dst_rel_path(dst_path.rel_path().to_owned());
+        read_yaml_header(&events, &mut metadata_builder);
+        get_h1(&events, &mut metadata_builder);
 
         let metadata = metadata_builder.build()?;
+
+        adjust_link_to_md(&mut events);
+        convert_math(&mut events);
+        highlight_code(&mut events, metadata.highlights());
+
+        let mut body = String::new();
+        pulldown_cmark::html::push_html(&mut body, events.into_iter());
 
         Ok(Self {
             body,
@@ -151,34 +91,43 @@ impl Page {
         let html = formatdoc! {r#"
             <!DOCTYPE html>
             <html lang="ja">
-            <meta name="date" content="{data}">
             <head>
-            <meta charset="UTF-8">
-            <link rel="stylesheet" href="{path_to_root}/style.css">
+                <meta charset="UTF-8">
+                <meta name="date" content="{data}">
+                <link rel="stylesheet" href="{path_to_root}/style.css">
+                <title>Page Title</title>
             </head>
             <body>
-            <a href="{path_to_root}/index.html">Top Page</a><br>
-            <span>{data}</span>
-            {tag_elems}<br>
-            <span></span>
-            {body}
+                <header>
+                    <h1><a href="{path_to_root}/index.html">サイト</a></h1>
+                </header>
+                <main>
+                    <section>
+                        <span>{data}</span><br>
+                        {tag_elems}<br>
+                        {body}
+                    </section>
+                </main>
+                <footer>
+                    <p>&copy; 2024 Your Site Name. All rights reserved.</p>
+                </footer>
             </body>
             </html>
         "#,
-            tag_elems = self.tag_elems(&self.metadata.tags),
-            data = self.metadata.date,
+            tag_elems = self.tag_elems(self.metadata.tags()),
+            data = self.metadata.date(),
             path_to_root = self.dst_path.path_to_dst().to_str().unwrap(),
             body = self.body,
         };
 
-        if self.metadata.crypto {
+        if self.metadata.crypto() {
             self.crypto_html(&html)
         } else {
             html
         }
     }
 
-    pub fn metadata(self) -> PageMetadata {
+    pub fn metadata(self) -> Metadata {
         self.metadata
     }
 

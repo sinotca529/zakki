@@ -1,27 +1,30 @@
 <!doctype html>
 <html lang="ja">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="stylesheet" type="text/css" href="style.css" />
-    <script type="text/javascript" src="metadata.js"></script>
-    <script type="text/javascript" src="script.js"></script>
-    <title>Note</title>
-  </head>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" type="text/css" href="style.css" />
+  <script type="text/javascript" src="metadata.js"></script>
+  <script type="text/javascript" src="script.js"></script>
+  <title>Note</title>
+</head>
 
-  <style>
-    #contents-list li {
-      margin-bottom: 1ex;
-    }
-  </style>
-
-  <body data-page="index">
+<body data-page="index">
+  <header>
     <h1>サイト</h1>
     <p>ここにサイトの説明を入力。</p>
-    <h2>ページ一覧</h2>
-    <ul id="contents-list"></ul>
-    <h2>タグ一覧</h2>
-    <div style="overflow-wrap: keep-all">
-      <p id="tags-list"></p>
-    </div>
-  </body>
+  </header>
+
+  <main>
+    <section>
+      <div id="contents-list"></div>
+    </section>
+    <section>
+      <div id="tags-list" style="overflow-wrap: keep-all"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 Your Site Name. All rights reserved.</p>
+  </footer>
+</body>
 </html>

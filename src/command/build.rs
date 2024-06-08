@@ -1,7 +1,6 @@
 mod html;
+mod metadata;
 mod pass;
-
-use self::html::PageMetadata;
 
 use super::{clean::clean, init::init};
 use crate::{
@@ -10,6 +9,7 @@ use crate::{
     util::{copy_file, write_file},
 };
 use anyhow::Result;
+use metadata::Metadata;
 use std::path::{Path, PathBuf};
 
 pub fn build() -> Result<()> {
@@ -24,13 +24,13 @@ pub fn build() -> Result<()> {
     Ok(())
 }
 
-fn render_pages() -> Result<Vec<PageMetadata>> {
+fn render_pages() -> Result<Vec<Metadata>> {
     let mut metadata_list = vec![];
     visit_files_recursively(src_dir(), |p| render(p, &mut metadata_list))?;
     Ok(metadata_list)
 }
 
-fn save_metadata(metadata_list: &[PageMetadata]) -> Result<()> {
+fn save_metadata(metadata_list: &[Metadata]) -> Result<()> {
     let js = serde_json::to_string(metadata_list)?;
     let content = format!("const METADATA={js}");
     write_file(dst_metadata_path(), content).map_err(Into::into)
@@ -43,14 +43,14 @@ fn copy_non_md(src_path: &SrcPath) -> Result<()> {
         .map_err(Into::into)
 }
 
-fn render_md(src_path: &SrcPath) -> Result<PageMetadata> {
+fn render_md(src_path: &SrcPath) -> Result<Metadata> {
     assert!(src_path.is_md());
     let page = Page::from_md_file(src_path)?;
     page.save()?;
     Ok(page.metadata())
 }
 
-fn render(src_path: PathBuf, metadata_list: &mut Vec<PageMetadata>) -> Result<()> {
+fn render(src_path: PathBuf, metadata_list: &mut Vec<Metadata>) -> Result<()> {
     let src_path = SrcPath::new(src_path)?;
     if src_path.is_md() {
         metadata_list.push(render_md(&src_path)?);
