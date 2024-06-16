@@ -9,8 +9,9 @@ struct PartialMetadata {
     #[serde(rename(deserialize = "tag"))]
     #[serde(default)]
     tags: Vec<String>,
+    #[serde(rename(deserialize = "flag"))]
     #[serde(default)]
-    crypto: bool,
+    flags: Vec<String>,
     #[serde(rename(deserialize = "highlight"))]
     #[serde(default)]
     highlights: Vec<HighlightMacro>,
@@ -20,7 +21,7 @@ struct PartialMetadata {
 pub struct Metadata {
     date: String,
     tags: Vec<String>,
-    crypto: bool,
+    flags: Vec<String>,
     #[serde(skip_serializing)]
     highlights: Vec<HighlightMacro>,
     title: String,
@@ -41,7 +42,7 @@ impl Metadata {
     }
 
     pub fn crypto(&self) -> bool {
-        self.crypto
+        self.flags.contains(&"crypto".to_string())
     }
 }
 
@@ -50,7 +51,7 @@ impl MetadataBuilder {
         if let Ok(m) = serde_yaml::from_str::<PartialMetadata>(yaml) {
             self.date(m.date)
                 .tags(m.tags)
-                .crypto(m.crypto)
+                .flags(m.flags)
                 .highlights(m.highlights);
         }
         self
