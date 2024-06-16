@@ -66,7 +66,7 @@ pub struct HighlightMacro {
 impl HighlightMacro {
     pub fn replace_all<'a>(&self, code: &'a str) -> Cow<'a, str> {
         if let Ok(pat) = Regex::new(&self.before) {
-            pat.replace(code, &self.after)
+            pat.replace_all(code, &self.after)
         } else {
             code.into()
         }
