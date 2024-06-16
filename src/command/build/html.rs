@@ -3,13 +3,14 @@ use crate::{
     command::build::pass::{
         adjust_link_to_md, convert_math, get_h1, highlight_code, read_yaml_header,
     },
+    config::Config,
     path::{DstPath, SrcPath},
+    read_asset,
     util::{encode_with_password, write_file},
 };
 use anyhow::Result;
 use base64::prelude::*;
 use dialoguer::Password;
-use indoc::formatdoc;
 use pulldown_cmark::{Options, Parser};
 use std::sync::OnceLock;
 
@@ -69,56 +70,22 @@ impl Page {
         let cypher = encode_with_password(get_password(), html);
         let encoded = BASE64_STANDARD.encode(cypher);
 
-        formatdoc! {r#"
-            <!DOCTYPE html>
-            <html lang="ja">
-            <head>
-            <meta charset="UTF-8">
-            <script type="text/javascript" src="{path_to_root}/script.js"></script>
-            </head>
-            <body data-page="crypto" data-cypher="{encoded}">
-                <h1>This page is protected.</h1>
-                <input autofocus type="password" id="keyInput" placeholder="Enter your secret key">
-                <button onclick="decodeCypher()">Decode</button>
-            </body>
-            </html>
-        "#,
-            path_to_root = self.dst_path.path_to_dst().to_str().unwrap(),
-        }
+        format!(
+            read_asset!("crypto.html"),
+            encoded = encoded,
+            path_to_root = self.dst_path.path_to_dst().to_str().unwrap()
+        )
     }
 
-    fn gen_html(&self) -> String {
-        let html = formatdoc! {r#"
-            <!DOCTYPE html>
-            <html lang="ja">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="date" content="{data}">
-                <link rel="stylesheet" href="{path_to_root}/style.css">
-                <title>Page Title</title>
-            </head>
-            <body>
-                <header>
-                    <h1><a href="{path_to_root}/index.html">サイト</a></h1>
-                </header>
-                <main>
-                    <section>
-                        <span>{data}</span><br>
-                        {tag_elems}<br>
-                        {body}
-                    </section>
-                </main>
-                <footer>
-                    <p>&copy; 2024 Your Site Name. All rights reserved.</p>
-                </footer>
-            </body>
-            </html>
-        "#,
+    fn gen_html(&self, cfg: &Config) -> String {
+        let html = format!(
+            read_asset!("page.html"),
             tag_elems = self.tag_elems(self.metadata.tags()),
             data = self.metadata.date(),
             path_to_root = self.dst_path.path_to_dst().to_str().unwrap(),
             body = self.body,
-        };
+            site_name = cfg.site_name(),
+        );
 
         if self.metadata.crypto() {
             self.crypto_html(&html)
@@ -131,8 +98,8 @@ impl Page {
         self.metadata
     }
 
-    pub fn save(&self) -> Result<()> {
-        let html = self.gen_html();
+    pub fn save(&self, cfg: &Config) -> Result<()> {
+        let html = self.gen_html(cfg);
         write_file(self.dst_path.get_ref(), html).map_err(Into::into)
     }
 }

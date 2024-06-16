@@ -2,7 +2,7 @@ mod build;
 mod clean;
 mod init;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Subcommand;
 
 #[derive(Debug, Subcommand)]
@@ -20,4 +20,18 @@ impl Command {
             Self::Clean => clean::clean(),
         }
     }
+}
+
+pub fn ensure_pwd_is_book_root_dir() -> Result<()> {
+    let pwd = std::env::current_dir()?;
+    let pwd_contains_cfg = std::fs::read_dir(pwd)?
+        .filter_map(|f| f.ok())
+        .map(|f| f.file_name())
+        .any(|f| &f == "config.toml");
+
+    if !pwd_contains_cfg {
+        bail!("Current directory does not have config.toml")
+    }
+
+    Ok(())
 }

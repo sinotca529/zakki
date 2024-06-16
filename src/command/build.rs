@@ -2,10 +2,13 @@ mod html;
 mod metadata;
 mod pass;
 
-use super::{clean::clean, init::init};
+use super::{clean::clean, ensure_pwd_is_book_root_dir};
 use crate::{
     command::build::html::Page,
-    path::{dst_metadata_path, src_dir, SrcPath},
+    config::Config,
+    copy_asset,
+    path::{dst_dir, dst_metadata_path, src_dir, SrcPath},
+    read_asset,
     util::{copy_file, write_file},
 };
 use anyhow::Result;
@@ -13,20 +16,37 @@ use metadata::Metadata;
 use std::path::{Path, PathBuf};
 
 pub fn build() -> Result<()> {
+    ensure_pwd_is_book_root_dir()?;
     clean()?;
 
-    // Initialization will be failed if asset files are already existing.
-    let _ = init();
+    let cfg = Config::load()?;
 
-    let metadata_list = render_pages()?;
+    render_index(&cfg)?;
+    render_tag(&cfg)?;
+    copy_asset!("style.css", "build")?;
+    copy_asset!("script.js", "build")?;
+
+    let metadata_list = render_pages(&cfg)?;
     save_metadata(&metadata_list)?;
 
     Ok(())
 }
 
-fn render_pages() -> Result<Vec<Metadata>> {
+fn render_index(cfg: &Config) -> Result<()> {
+    let content = format!(read_asset!("index.html"), site_name = cfg.site_name());
+    write_file(dst_dir().join("index.html"), content).map_err(Into::into)
+}
+
+fn render_tag(cfg: &Config) -> Result<()> {
+    let content = format!(read_asset!("tag.html"), site_name = cfg.site_name());
+    write_file(dst_dir().join("tag.html"), content).map_err(Into::into)
+}
+
+fn render_pages(cfg: &Config) -> Result<Vec<Metadata>> {
     let mut metadata_list = vec![];
-    visit_files_recursively(src_dir(), |p| render(p, &mut metadata_list))?;
+    visit_files_recursively(src_dir(), |p| {
+        render(SrcPath::new(p).unwrap(), &mut metadata_list, cfg)
+    })?;
     Ok(metadata_list)
 }
 
@@ -43,17 +63,16 @@ fn copy_non_md(src_path: &SrcPath) -> Result<()> {
         .map_err(Into::into)
 }
 
-fn render_md(src_path: &SrcPath) -> Result<Metadata> {
+fn render_md(src_path: &SrcPath, cfg: &Config) -> Result<Metadata> {
     assert!(src_path.is_md());
     let page = Page::from_md_file(src_path)?;
-    page.save()?;
+    page.save(cfg)?;
     Ok(page.metadata())
 }
 
-fn render(src_path: PathBuf, metadata_list: &mut Vec<Metadata>) -> Result<()> {
-    let src_path = SrcPath::new(src_path)?;
+fn render(src_path: SrcPath, metadata_list: &mut Vec<Metadata>, cfg: &Config) -> Result<()> {
     if src_path.is_md() {
-        metadata_list.push(render_md(&src_path)?);
+        metadata_list.push(render_md(&src_path, cfg)?);
     } else {
         copy_non_md(&src_path)?;
     }

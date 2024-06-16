@@ -28,10 +28,27 @@ pub fn dst_metadata_path() -> &'static PathBuf {
 }
 
 #[macro_export]
-macro_rules! asset_path {
+macro_rules! read_asset {
     ($fname:literal) => {
-        concat!(env!("CARGO_MANIFEST_DIR"), "/asset/", $fname)
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/asset/", $fname))
     };
+}
+
+#[macro_export]
+macro_rules! copy_asset {
+    ($fname:literal, $to:literal) => {{
+        let path = std::env::current_dir()?.join($to).join($fname);
+        let result: Result<()> = if path.exists() {
+            Ok(())
+        } else {
+            write_file(
+                path,
+                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/asset/", $fname)),
+            )
+        }
+        .map_err(Into::into);
+        result
+    }};
 }
 
 #[derive(PartialEq, Eq, Hash)]

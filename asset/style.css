@@ -29,27 +29,22 @@ header {
   color: #fff;
 }
 
-header h1 {
+header>h1 {
   margin: 0;
   font-size: 2.5rem;
+}
+
+header>h1>a {
+  text-decoration: none;
+  color: #fff;
 }
 
 main {
   max-width: 90%;
   margin-inline: auto;
-  /* margin: 2rem auto; */
-  padding: 0 1rem;
-}
-
-section {
+  margin-top: 2rem;
   margin-bottom: 2rem;
-}
-
-section h2 {
-  font-size: 1.8rem;
-  /* border-bottom: 2px solid #007bff; */
-  padding-bottom: 0.5rem;
-  margin-bottom: 1rem;
+  padding: 0 1rem;
 }
 
 /* フッター */
@@ -58,12 +53,10 @@ footer {
   padding: 1rem 0;
   background-color: var(--header-bg);
   color: #fff;
-  /* position: absolute; */
-  /* bottom: 0; */
   width: 100%;
 }
 
-footer p {
+footer>p {
   margin: 0;
 }
 
@@ -149,6 +142,7 @@ th {
 }
 
 .tag {
+  font-family: Consolas, "Meiryo UI", "Courier New", Monaco, monospace;
   font-size: 0.875em;
   padding-right: 0.5ch;
   padding-left: 0.5ch;

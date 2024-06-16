@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <script type="text/javascript" src="{path_to_root}/script.js"></script>
+  </head>
+  <body data-page="crypto" data-cypher="{encoded}">
+    <h1>This page is protected.</h1>
+    <input
+      autofocus
+      type="password"
+      id="keyInput"
+      placeholder="Enter your secret key"
+    />
+    <button onclick="decodeCypher()">Decode</button>
+  </body>
+</html>
