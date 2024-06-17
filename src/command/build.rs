@@ -15,7 +15,7 @@ use anyhow::Result;
 use metadata::Metadata;
 use std::path::{Path, PathBuf};
 
-pub fn build() -> Result<()> {
+pub fn build(render_draft: bool) -> Result<()> {
     ensure_pwd_is_book_root_dir()?;
     clean()?;
 
@@ -26,7 +26,7 @@ pub fn build() -> Result<()> {
     copy_asset!("style.css", "build")?;
     copy_asset!("script.js", "build")?;
 
-    let metadata_list = render_pages(&cfg)?;
+    let metadata_list = render_pages(&cfg, render_draft)?;
     save_metadata(&metadata_list)?;
 
     Ok(())
@@ -42,10 +42,15 @@ fn render_tag(cfg: &Config) -> Result<()> {
     write_file(dst_dir().join("tag.html"), content).map_err(Into::into)
 }
 
-fn render_pages(cfg: &Config) -> Result<Vec<Metadata>> {
+fn render_pages(cfg: &Config, render_draft: bool) -> Result<Vec<Metadata>> {
     let mut metadata_list = vec![];
     visit_files_recursively(src_dir(), |p| {
-        render(SrcPath::new(p).unwrap(), &mut metadata_list, cfg)
+        render(
+            SrcPath::new(p).unwrap(),
+            &mut metadata_list,
+            cfg,
+            render_draft,
+        )
     })?;
     Ok(metadata_list)
 }
@@ -63,16 +68,28 @@ fn copy_non_md(src_path: &SrcPath) -> Result<()> {
         .map_err(Into::into)
 }
 
-fn render_md(src_path: &SrcPath, cfg: &Config) -> Result<Metadata> {
+fn render_md(src_path: &SrcPath, cfg: &Config, render_draft: bool) -> Result<Metadata> {
     assert!(src_path.is_md());
     let page = Page::from_md_file(src_path)?;
-    page.save(cfg)?;
-    Ok(page.metadata())
+
+    if render_draft || !page.metadata().draft() {
+        page.save(cfg)?;
+    }
+
+    Ok(page.into_metadata())
 }
 
-fn render(src_path: SrcPath, metadata_list: &mut Vec<Metadata>, cfg: &Config) -> Result<()> {
+fn render(
+    src_path: SrcPath,
+    metadata_list: &mut Vec<Metadata>,
+    cfg: &Config,
+    render_draft: bool,
+) -> Result<()> {
     if src_path.is_md() {
-        metadata_list.push(render_md(&src_path, cfg)?);
+        let metadata = render_md(&src_path, cfg, render_draft)?;
+        if render_draft || !metadata.draft() {
+            metadata_list.push(metadata);
+        }
     } else {
         copy_non_md(&src_path)?;
     }

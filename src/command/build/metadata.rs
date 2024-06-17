@@ -44,6 +44,10 @@ impl Metadata {
     pub fn crypto(&self) -> bool {
         self.flags.contains(&"crypto".to_string())
     }
+
+    pub fn draft(&self) -> bool {
+        self.flags.contains(&"draft".to_string())
+    }
 }
 
 impl MetadataBuilder {

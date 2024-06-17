@@ -94,8 +94,12 @@ impl Page {
         }
     }
 
-    pub fn metadata(self) -> Metadata {
+    pub fn into_metadata(self) -> Metadata {
         self.metadata
+    }
+
+    pub fn metadata(&self) -> &Metadata {
+        &self.metadata
     }
 
     pub fn save(&self, cfg: &Config) -> Result<()> {

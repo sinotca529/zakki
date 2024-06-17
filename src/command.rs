@@ -8,7 +8,10 @@ use clap::Subcommand;
 #[derive(Debug, Subcommand)]
 pub enum Command {
     Init,
-    Build,
+    Build {
+        #[arg(short = 'd', long)]
+        render_draft: bool,
+    },
     Clean,
 }
 
@@ -16,7 +19,7 @@ impl Command {
     pub fn exec(&self) -> Result<()> {
         match &self {
             Self::Init => init::init(),
-            Self::Build => build::build(),
+            Self::Build { render_draft } => build::build(*render_draft),
             Self::Clean => clean::clean(),
         }
     }
