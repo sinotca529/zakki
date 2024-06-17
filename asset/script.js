@@ -13,6 +13,9 @@ function createCard(page) {
 
   const card = document.createElement("div");
   card.className = "card";
+  if (page.flags.includes("crypto")) {
+    card.classList.add("crypto");
+  }
 
   const header = document.createElement("div");
   header.className = "card-header";

@@ -87,6 +87,10 @@ footer>p {
   margin-bottom: 0.5rem;
 }
 
+.card.crypto .card-header::after {
+  content: "🔒";
+}
+
 .card-meta {
   display: flex;
   align-items: center;
