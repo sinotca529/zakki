@@ -22,11 +22,6 @@ pub fn dst_dir() -> &'static PathBuf {
     })
 }
 
-pub fn dst_metadata_path() -> &'static PathBuf {
-    static METADATA_PATH: OnceLock<PathBuf> = OnceLock::new();
-    METADATA_PATH.get_or_init(|| dst_dir().join("metadata.js"))
-}
-
 #[macro_export]
 macro_rules! read_asset {
     ($fname:literal) => {

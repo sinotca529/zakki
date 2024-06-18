@@ -7,7 +7,7 @@ use crate::{
     command::build::html::Page,
     config::{Config, FileConfig},
     copy_asset,
-    path::{dst_dir, dst_metadata_path, src_dir, SrcPath},
+    path::{dst_dir, src_dir, SrcPath},
     read_asset,
     util::{copy_file, write_file},
 };
@@ -56,7 +56,7 @@ fn render_pages(cfg: &Config) -> Result<Vec<Metadata>> {
 fn save_metadata(metadata_list: &[Metadata]) -> Result<()> {
     let js = serde_json::to_string(metadata_list)?;
     let content = format!("const METADATA={js}");
-    write_file(dst_metadata_path(), content).map_err(Into::into)
+    write_file(dst_dir().join("metadata.js"), content).map_err(Into::into)
 }
 
 fn copy_non_md(src_path: &SrcPath) -> Result<()> {
