@@ -48,7 +48,7 @@ fn render_tag(cfg: &Config) -> Result<()> {
 fn render_pages(cfg: &Config) -> Result<Vec<Metadata>> {
     let mut metadata_list = vec![];
     visit_files_recursively(src_dir(), |p| {
-        render(SrcPath::new(p).unwrap(), &mut metadata_list, cfg)
+        render_page(SrcPath::new(p).unwrap(), &mut metadata_list, cfg)
     })?;
     Ok(metadata_list)
 }
@@ -77,7 +77,7 @@ fn render_md(src_path: &SrcPath, cfg: &Config) -> Result<Metadata> {
     Ok(page.into_metadata())
 }
 
-fn render(src_path: SrcPath, metadata_list: &mut Vec<Metadata>, cfg: &Config) -> Result<()> {
+fn render_page(src_path: SrcPath, metadata_list: &mut Vec<Metadata>, cfg: &Config) -> Result<()> {
     if src_path.is_md() {
         let metadata = render_md(&src_path, cfg)?;
         if cfg.render_draft() || !metadata.draft() {
