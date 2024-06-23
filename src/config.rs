@@ -1,4 +1,7 @@
+use std::cell::{Ref, RefCell};
+
 use anyhow::bail;
+use dialoguer::Password;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -28,6 +31,7 @@ impl FileConfig {
 pub struct Config {
     site_name: String,
     render_draft: bool,
+    password: RefCell<Option<String>>,
 }
 
 impl Config {
@@ -35,6 +39,7 @@ impl Config {
         Self {
             site_name: file_config.site_name,
             render_draft,
+            password: RefCell::new(None),
         }
     }
 
@@ -44,5 +49,16 @@ impl Config {
 
     pub fn site_name(&self) -> &str {
         &self.site_name
+    }
+
+    pub fn password(&self) -> Ref<String> {
+        if self.password.borrow().is_none() {
+            let password = Password::new()
+                .with_prompt("Password for hidden pages")
+                .interact()
+                .unwrap();
+            *self.password.borrow_mut() = Some(password);
+        }
+        Ref::map(self.password.borrow(), |p| p.as_ref().unwrap())
     }
 }
