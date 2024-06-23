@@ -7,6 +7,8 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 pub struct FileConfig {
     site_name: String,
+    #[serde(default)]
+    password: Option<String>,
 }
 
 impl FileConfig {
@@ -39,7 +41,7 @@ impl Config {
         Self {
             site_name: file_config.site_name,
             render_draft,
-            password: RefCell::new(None),
+            password: RefCell::new(file_config.password),
         }
     }
 
