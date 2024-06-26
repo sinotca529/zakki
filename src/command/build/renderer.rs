@@ -129,6 +129,7 @@ impl Renderer {
             path_to_root = path_to_root.to_str().unwrap(),
             body = body,
             site_name = self.config.site_name(),
+            page_title = meta.title,
         );
 
         if meta.flags.contains(&"crypto".to_owned()) {
