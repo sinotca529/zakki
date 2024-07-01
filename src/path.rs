@@ -38,7 +38,7 @@ macro_rules! copy_asset {
         } else {
             write_file(
                 path,
-                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/asset/", $fname)),
+                include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/asset/", $fname)),
             )
         }
         .map_err(Into::into);
