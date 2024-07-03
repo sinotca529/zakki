@@ -60,14 +60,10 @@ footer>p {
   margin: 0;
 }
 
-/* CSS for card layout */
-.card-link {
+.card {
   text-decoration: none;
   color: inherit;
   display: block;
-}
-
-.card {
   border: 1px solid #ccc;
   border-radius: 8px;
   padding: 1rem;
@@ -110,8 +106,6 @@ footer>p {
   color: var(--color-tag-fg);
   border-radius: 4px;
   text-decoration: none;
-  /* height: 1rem; */
-  /* line-height: 1.5rem; */
 }
 
 .tag:hover {

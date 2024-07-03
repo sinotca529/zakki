@@ -7,22 +7,9 @@ function createTagElem(tagName) {
 }
 
 function createCard(page) {
-  const cardLink = document.createElement("a");
-  cardLink.className = "card-link";
-  cardLink.href = page.path;
-
-  const card = document.createElement("div");
-  card.className = "card";
-  if (page.flags.includes("crypto")) {
-    card.classList.add("crypto");
-  }
-
   const header = document.createElement("div");
   header.className = "card-header";
   header.innerHTML = page.title;
-
-  const meta = document.createElement("div");
-  meta.className = "card-meta";
 
   const date = document.createElement("div");
   date.className = "card-date";
@@ -35,22 +22,27 @@ function createCard(page) {
     tags.appendChild(tag);
   });
 
+  const meta = document.createElement("div");
+  meta.className = "card-meta";
   meta.appendChild(date);
   meta.appendChild(tags);
 
+  const card = document.createElement("a");
+  card.className = "card";
+  card.href = page.path;
+  if (page.flags.includes("crypto")) card.classList.add("crypto");
   card.appendChild(header);
   card.appendChild(meta);
 
-  cardLink.appendChild(card);
-
-  return cardLink;
+  return card;
 }
+
 function tagMain() {
   const params = new URLSearchParams(window.location.search);
   if (!params.has("tag")) return;
   const tag = params.get("tag");
 
-  document.getElementById("h1").innerHTML = `タグ : ${tag} のついたページ`;
+  document.getElementById("title").innerHTML = `タグ : ${tag} のついたページ`;
   document.getElementsByTagName("title")[0].innerHTML = `タグ: ${tag}`;
 
   const fragment = document.createDocumentFragment();
@@ -61,20 +53,20 @@ function tagMain() {
   document.getElementById("contents-list").appendChild(fragment);
 }
 
-function renderPageList(metadata) {
+function renderPageList() {
   const fragment = document.createDocumentFragment();
 
-  metadata
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .forEach((page) => fragment.appendChild(createCard(page)));
+  METADATA.sort((a, b) => b.date.localeCompare(a.date)).forEach((page) =>
+    fragment.appendChild(createCard(page)),
+  );
 
   document.getElementById("contents-list").appendChild(fragment);
 }
 
-function renderTagSet(metadata) {
+function renderTagSet() {
   const tagSet = new Set(
-    Object.keys(metadata)
-      .map((key) => metadata[key].tags)
+    Object.keys(METADATA)
+      .map((key) => METADATA[key].tags)
       .flat(),
   );
 
@@ -89,8 +81,8 @@ function renderTagSet(metadata) {
 }
 
 function indexMain() {
-  renderPageList(METADATA);
-  renderTagSet(METADATA);
+  renderPageList();
+  renderTagSet();
 }
 
 async function decryptAes256Cbc(data, iv, key) {
