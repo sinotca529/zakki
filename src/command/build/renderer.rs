@@ -130,6 +130,7 @@ impl Renderer {
             body = body,
             site_name = self.config.site_name(),
             page_title = meta.title,
+            footer = self.config.footer(),
         );
 
         if meta.flags.contains(&"crypto".to_owned()) {
@@ -181,13 +182,18 @@ impl Renderer {
     fn render_index(&self) -> Result<()> {
         let content = format!(
             read_asset!("index.html"),
-            site_name = self.config.site_name()
+            site_name = self.config.site_name(),
+            footer = self.config.footer(),
         );
         write_file(dst_dir().join("index.html"), content).map_err(Into::into)
     }
 
     fn render_tag(&self) -> Result<()> {
-        let content = format!(read_asset!("tag.html"), site_name = self.config.site_name());
+        let content = format!(
+            read_asset!("tag.html"),
+            site_name = self.config.site_name(),
+            footer = self.config.footer(),
+        );
         write_file(dst_dir().join("tag.html"), content).map_err(Into::into)
     }
 

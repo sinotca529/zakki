@@ -9,6 +9,8 @@ pub struct FileConfig {
     site_name: String,
     #[serde(default)]
     password: Option<String>,
+    #[serde(default)]
+    footer: Option<String>,
 }
 
 impl FileConfig {
@@ -34,11 +36,16 @@ pub struct Config {
     site_name: String,
     render_draft: bool,
     password: RefCell<Option<String>>,
+    footer: String,
 }
 
 impl Config {
     pub fn new(file_config: FileConfig, render_draft: bool) -> Self {
         Self {
+            footer: file_config.footer.unwrap_or(format!(
+                "&copy; {}. All rights reserved.",
+                &file_config.site_name
+            )),
             site_name: file_config.site_name,
             render_draft,
             password: RefCell::new(file_config.password),
@@ -62,5 +69,9 @@ impl Config {
             *self.password.borrow_mut() = Some(password);
         }
         Ref::map(self.password.borrow(), |p| p.as_ref().unwrap())
+    }
+
+    pub fn footer(&self) -> &str {
+        &self.footer
     }
 }
