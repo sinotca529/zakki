@@ -1,6 +1,6 @@
 use crate::path::ContentPath;
 use crate::util::PathExt;
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use metadata::YamlHeader;
 use std::{fs::File, io::Read, path::PathBuf};
 
@@ -47,8 +47,7 @@ impl Content {
             content
         };
 
-        let yaml_header = Self::read_yaml_header(&markdown)
-            .with_context(|| path.src_path().to_str().unwrap().to_owned())?;
+        let yaml_header = Self::read_yaml_header(&markdown)?;
         let title = Self::get_page_title(&markdown)?;
 
         let metadata = Metadata {

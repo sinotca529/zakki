@@ -6,7 +6,7 @@ use crate::{
     config::{Config, FileConfig},
     path::src_dir,
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use content::Content;
 use renderer::Renderer;
 use std::path::{Path, PathBuf};
@@ -24,7 +24,7 @@ pub fn build(render_draft: bool) -> Result<()> {
     renderer.render_assets()?;
 
     visit_files_recursively(src_dir(), |p| {
-        let content = Content::new(p)?;
+        let content = Content::new(p.clone()).with_context(|| p.to_str().unwrap().to_owned())?;
         renderer.render(content)?;
         Ok(())
     })?;
