@@ -1,7 +1,7 @@
 mod content;
 mod renderer;
 
-use super::{clean::clean, ensure_pwd_is_book_root_dir};
+use super::{clean::clean, goto_zakki_root};
 use crate::{
     config::{Config, FileConfig},
     path::src_dir,
@@ -12,7 +12,7 @@ use renderer::Renderer;
 use std::path::{Path, PathBuf};
 
 pub fn build(render_draft: bool) -> Result<()> {
-    ensure_pwd_is_book_root_dir()?;
+    goto_zakki_root()?;
     clean()?;
 
     let cfg = {

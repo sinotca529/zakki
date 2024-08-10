@@ -21,7 +21,7 @@ Markdown から HTML への変換には [`pulldown-cmark`](https://docs.rs/pulld
 
 ### 設定ファイル
 
-設定は `config.toml` に記述します。
+設定は `zakki.toml` に記述します。
 
 ```toml
 site_name = "(必須) サイト名を指摘します。"

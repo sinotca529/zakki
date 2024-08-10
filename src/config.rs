@@ -19,10 +19,10 @@ impl FileConfig {
         let cfg = std::fs::read_dir(pwd)?
             .filter_map(|f| f.ok())
             .map(|f| f.file_name())
-            .find(|f| f == "config.toml");
+            .find(|f| f == "zakki.toml");
 
         let Some(cfg) = cfg else {
-            bail!("config.toml is not found.");
+            bail!("zakki.toml is not found.");
         };
 
         let cfg = std::fs::read(cfg)?;
