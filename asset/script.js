@@ -112,17 +112,17 @@ function base64ToUint8Array(base64Str) {
 }
 
 async function decodeCypher() {
-  const cypherData = base64ToUint8Array(document.body.dataset.cypher);
-  const iv = cypherData.slice(0, 16);
-  const encryptedData = cypherData.slice(16);
-  const keyObj = await getAesKey();
-
   try {
-    const decryptedData = await decryptAes256Cbc(encryptedData, iv, keyObj);
-    const decryptedText = new TextDecoder().decode(decryptedData);
-    document.documentElement.innerHTML = decryptedText;
-  } catch (error) {
-    console.error("Decryption failed:", error);
+    const ivCypher = base64ToUint8Array(document.body.dataset.cypher);
+    const iv = ivCypher.slice(0, 16);
+    const cypher = ivCypher.slice(16);
+
+    let plain = await decryptAes256Cbc(cypher, iv,  await getAesKey());
+    plain = new TextDecoder().decode(plain);
+
+    document.documentElement.innerHTML = plain;
+  } catch {
+    alert("Failed to decrypto");
   }
 }
 
