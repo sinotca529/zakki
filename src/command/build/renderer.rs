@@ -3,7 +3,7 @@ use crate::{
     config::Config,
     copy_asset,
     path::dst_dir,
-    read_asset,
+    include_asset,
     util::{copy_file, encode_with_password, write_file},
 };
 use anyhow::Result;
@@ -112,7 +112,7 @@ impl Renderer {
         let cypher = encode_with_password(&password, html);
         let encoded = BASE64_STANDARD.encode(cypher);
         format!(
-            read_asset!("crypto.html"),
+            include_asset!("crypto.html"),
             encoded = encoded,
             path_to_root = path_to_dst_dir.to_str().unwrap(),
         )
@@ -122,7 +122,7 @@ impl Renderer {
         let path_to_root = meta.path.path_to_dst_dir();
 
         let plain_html = format!(
-            read_asset!("page.html"),
+            include_asset!("page.html"),
             tag_elems = Self::tag_elems(&meta.tags, path_to_root),
             data = meta.date,
             path_to_root = path_to_root.to_str().unwrap(),
@@ -180,7 +180,7 @@ impl Renderer {
 
     fn render_index(&self) -> Result<()> {
         let content = format!(
-            read_asset!("index.html"),
+            include_asset!("index.html"),
             site_name = self.config.site_name(),
             footer = self.config.footer(),
         );
@@ -189,7 +189,7 @@ impl Renderer {
 
     fn render_tag(&self) -> Result<()> {
         let content = format!(
-            read_asset!("tag.html"),
+            include_asset!("tag.html"),
             site_name = self.config.site_name(),
             footer = self.config.footer(),
         );

@@ -23,7 +23,7 @@ pub fn dst_dir() -> &'static PathBuf {
 }
 
 #[macro_export]
-macro_rules! read_asset {
+macro_rules! include_asset {
     ($fname:literal) => {
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/asset/", $fname))
     };
