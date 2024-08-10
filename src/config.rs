@@ -1,5 +1,9 @@
-use std::cell::{Ref, RefCell};
+use std::{
+    cell::{Ref, RefCell},
+    path::{Path, PathBuf},
+};
 
+use crate::util::PathExt as _;
 use anyhow::bail;
 use dialoguer::Password;
 use serde::Deserialize;
@@ -37,10 +41,19 @@ pub struct Config {
     render_draft: bool,
     password: RefCell<Option<String>>,
     footer: String,
+    /// Markdown が配置されているディレクトリ
+    src_dir: PathBuf,
+    /// HTML を出力するディレクトリ
+    dst_dir: PathBuf,
 }
 
 impl Config {
-    pub fn new(file_config: FileConfig, render_draft: bool) -> Self {
+    pub fn new(
+        file_config: FileConfig,
+        render_draft: bool,
+        src_dir: PathBuf,
+        dst_dir: PathBuf,
+    ) -> Self {
         Self {
             footer: file_config.footer.unwrap_or(format!(
                 "&copy; {}. All rights reserved.",
@@ -49,6 +62,8 @@ impl Config {
             site_name: file_config.site_name,
             render_draft,
             password: RefCell::new(file_config.password),
+            src_dir,
+            dst_dir,
         }
     }
 
@@ -73,5 +88,23 @@ impl Config {
 
     pub fn footer(&self) -> &str {
         &self.footer
+    }
+
+    pub fn src_dir(&self) -> &PathBuf {
+        &self.src_dir
+    }
+
+    pub fn dst_dir(&self) -> &PathBuf {
+        &self.dst_dir
+    }
+
+    /// ソースファイルの出力先のをパスを返します。
+    pub fn dst_path_of(&self, src_path: impl AsRef<Path>) -> PathBuf {
+        let src_path = src_path.as_ref();
+        let mut rel = src_path.relative_path(&self.src_dir()).unwrap();
+        if rel.extension_is("md") {
+            rel = rel.with_extension("html");
+        }
+        self.dst_dir().join(rel)
     }
 }

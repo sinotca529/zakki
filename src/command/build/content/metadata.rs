@@ -1,7 +1,6 @@
-use crate::path::ContentPath;
 use regex::Regex;
 use serde::Deserialize;
-use std::borrow::Cow;
+use std::{borrow::Cow, path::PathBuf};
 
 #[derive(Deserialize, Debug)]
 pub struct YamlHeader {
@@ -26,7 +25,7 @@ pub struct Metadata {
     pub tags: Vec<String>,
     pub flags: Vec<String>,
     pub title: String,
-    pub path: ContentPath,
+    pub src_path: PathBuf,
     pub highlights: Vec<HighlightMacro>,
 }
 

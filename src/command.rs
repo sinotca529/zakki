@@ -7,7 +7,9 @@ use std::path::Path;
 use anyhow::{bail, Result};
 use clap::Subcommand;
 
-#[derive(Debug, Subcommand)]
+use crate::config::{Config, FileConfig};
+
+#[derive(PartialEq, Eq, Debug, Subcommand)]
 pub enum Command {
     Init,
     Build {
@@ -21,8 +23,17 @@ impl Command {
     pub fn exec(&self) -> Result<()> {
         match &self {
             Self::Init => init::init(),
-            Self::Build { render_draft } => build::build(*render_draft),
-            Self::Clean => clean::clean(),
+            Self::Build { render_draft } => {
+                goto_zakki_root()?;
+                let file_cfg = FileConfig::load()?;
+                let pwd = std::env::current_dir()?;
+                let cfg = Config::new(file_cfg, *render_draft, pwd.join("src"), pwd.join("build"));
+                build::build(&cfg)
+            }
+            Self::Clean => {
+                let dst_dir = std::env::current_dir()?.join("dst");
+                clean::clean(&dst_dir)
+            }
         }
     }
 }

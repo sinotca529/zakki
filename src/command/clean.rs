@@ -1,12 +1,10 @@
-use super::goto_zakki_root;
-use crate::path::dst_dir;
 use anyhow::Result;
-use std::fs::remove_dir_all;
+use std::{fs::remove_dir_all, path::Path};
 
-pub fn clean() -> Result<()> {
-    goto_zakki_root()?;
-    if dst_dir().exists() {
-        remove_dir_all(dst_dir()).map_err(Into::into)
+pub fn clean(dst_dir: impl AsRef<Path>) -> Result<()> {
+    let dst_dir = dst_dir.as_ref();
+    if dst_dir.exists() {
+        remove_dir_all(dst_dir).map_err(Into::into)
     } else {
         Ok(())
     }

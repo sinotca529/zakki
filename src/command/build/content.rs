@@ -1,4 +1,3 @@
-use crate::path::ContentPath;
 use crate::util::PathExt;
 use anyhow::{bail, Result};
 use metadata::YamlHeader;
@@ -10,7 +9,7 @@ pub use metadata::{HighlightMacro, Metadata};
 
 pub enum Content {
     Markdown { metadata: Metadata, content: String },
-    Other { path: ContentPath },
+    Other { src_path: PathBuf },
 }
 
 impl Content {
@@ -34,14 +33,13 @@ impl Content {
 
     pub fn new(src_path: PathBuf) -> Result<Self> {
         let is_md = src_path.extension_is("md");
-        let path = ContentPath::new(src_path)?;
 
         if !is_md {
-            return Ok(Self::Other { path });
+            return Ok(Self::Other { src_path });
         }
 
         let markdown = {
-            let mut file = File::open(path.src_path())?;
+            let mut file = File::open(&src_path)?;
             let mut content = String::new();
             file.read_to_string(&mut content)?;
             content
@@ -57,7 +55,7 @@ impl Content {
             flags: yaml_header.flags,
             highlights: yaml_header.highlights,
             title,
-            path,
+            src_path,
         };
 
         Ok(Self::Markdown {

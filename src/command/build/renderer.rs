@@ -1,9 +1,8 @@
 use super::content::{Content, HighlightMacro, Metadata};
+use crate::util::PathExt as _;
 use crate::{
     config::Config,
-    copy_asset,
-    path::dst_dir,
-    include_asset,
+    copy_asset, include_asset,
     util::{copy_file, encode_with_password, write_file},
 };
 use anyhow::Result;
@@ -11,15 +10,15 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 use latex2mathml::{latex_to_mathml, DisplayStyle};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use serde::Serialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-pub struct Renderer {
-    config: Config,
+pub struct Renderer<'a> {
+    config: &'a Config,
     metadatas: Vec<Metadata>,
 }
 
 // Passes
-impl Renderer {
+impl<'a> Renderer<'a> {
     fn adjust_link_to_md(event: &mut Vec<Event>) {
         for e in event {
             if let Event::Start(Tag::Link { dest_url, .. }) = e {
@@ -86,8 +85,8 @@ impl Renderer {
     }
 }
 
-impl Renderer {
-    pub fn new(config: Config) -> Self {
+impl<'a> Renderer<'a> {
+    pub fn new(config: &'a Config) -> Self {
         Self {
             config,
             metadatas: Vec::new(),
@@ -119,11 +118,15 @@ impl Renderer {
     }
 
     fn make_html(&self, body: &str, meta: &Metadata) -> String {
-        let path_to_root = meta.path.path_to_dst_dir();
+        let path_to_root = self
+            .config
+            .dst_dir()
+            .relative_path(self.config.dst_path_of(&meta.src_path).parent().unwrap())
+            .unwrap();
 
         let plain_html = format!(
             include_asset!("page.html"),
-            tag_elems = Self::tag_elems(&meta.tags, path_to_root),
+            tag_elems = Self::tag_elems(&meta.tags, &path_to_root),
             create_date = meta.create_date,
             last_update_date = meta.last_update_date,
             path_to_root = path_to_root.to_str().unwrap(),
@@ -134,7 +137,7 @@ impl Renderer {
         );
 
         if meta.flags.contains(&"crypto".to_owned()) {
-            self.crypto_html(&plain_html, meta.path.path_to_dst_dir())
+            self.crypto_html(&plain_html, &path_to_root)
         } else {
             plain_html
         }
@@ -142,8 +145,8 @@ impl Renderer {
 
     pub fn render(&mut self, content: Content) -> Result<()> {
         match content {
-            Content::Other { path } => {
-                copy_file(path.src_path(), path.dst_path())?;
+            Content::Other { src_path: path } => {
+                copy_file(&path, self.config.dst_path_of(&path))?;
             }
             Content::Markdown { metadata, content } => {
                 if !self.config.render_draft() && metadata.flags.contains(&"draft".to_owned()) {
@@ -162,7 +165,7 @@ impl Renderer {
                 };
 
                 let html = self.make_html(&body, &metadata);
-                write_file(metadata.path.dst_path(), html)?;
+                write_file(self.config.dst_path_of(&metadata.src_path), html)?;
 
                 self.metadatas.push(metadata);
             }
@@ -185,7 +188,8 @@ impl Renderer {
             site_name = self.config.site_name(),
             footer = self.config.footer(),
         );
-        write_file(dst_dir().join("index.html"), content).map_err(Into::into)
+        let dst = self.config.dst_dir().join("index.html");
+        write_file(dst, content).map_err(Into::into)
     }
 
     fn render_tag(&self) -> Result<()> {
@@ -194,14 +198,20 @@ impl Renderer {
             site_name = self.config.site_name(),
             footer = self.config.footer(),
         );
-        write_file(dst_dir().join("tag.html"), content).map_err(Into::into)
+        let dst = self.config.dst_dir().join("tag.html");
+        write_file(dst, content).map_err(Into::into)
     }
 
     pub fn save_metadata(&self) -> Result<()> {
-        let metas: Vec<MetadataToDump> = self.metadatas.iter().map(Into::into).collect();
+        let metas: Vec<MetadataToDump> = self
+            .metadatas
+            .iter()
+            .map(|m| MetadataToDump::from(m, &self.config))
+            .collect();
         let js = serde_json::to_string(&metas)?;
         let content = format!("const METADATA={js}");
-        write_file(dst_dir().join("metadata.js"), content).map_err(Into::into)
+        let dst = self.config.dst_dir().join("metadata.js");
+        write_file(dst, content).map_err(Into::into)
     }
 }
 
@@ -212,18 +222,21 @@ struct MetadataToDump<'a> {
     tags: &'a Vec<String>,
     flags: &'a Vec<String>,
     title: &'a String,
-    path: &'a Path,
+    path: PathBuf,
 }
 
-impl<'a> From<&'a Metadata> for MetadataToDump<'a> {
-    fn from(meta: &'a Metadata) -> Self {
+impl<'a> MetadataToDump<'a> {
+    fn from(meta: &'a Metadata, cfg: &Config) -> Self {
         Self {
             create: &meta.create_date,
             update: &meta.last_update_date,
             tags: &meta.tags,
             flags: &meta.flags,
             title: &meta.title,
-            path: meta.path.rel_path_from_dst_dir(),
+            path: cfg
+                .dst_path_of(&meta.src_path)
+                .relative_path(cfg.dst_dir())
+                .unwrap(),
         }
     }
 }
