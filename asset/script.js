@@ -13,7 +13,7 @@ function createCard(page) {
 
   const date = document.createElement("div");
   date.className = "card-date";
-  date.innerHTML = page.date;
+  date.innerHTML = page.update;
 
   const tags = document.createElement("div");
   tags.className = "card-tags";
@@ -47,7 +47,7 @@ function tagMain() {
 
   const fragment = document.createDocumentFragment();
   METADATA.filter((page) => page.tags.includes(tag))
-    .sort((a, b) => b.date.localeCompare(a.date))
+    .sort((a, b) => b.update.localeCompare(a.update))
     .forEach((page) => fragment.appendChild(createCard(page)));
 
   document.getElementById("contents-list").appendChild(fragment);
@@ -56,7 +56,7 @@ function tagMain() {
 function renderPageList() {
   const fragment = document.createDocumentFragment();
 
-  METADATA.sort((a, b) => b.date.localeCompare(a.date)).forEach((page) =>
+  METADATA.sort((a, b) => b.update.localeCompare(a.update)).forEach((page) =>
     fragment.appendChild(createCard(page)),
   );
 

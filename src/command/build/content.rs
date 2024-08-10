@@ -51,7 +51,8 @@ impl Content {
         let title = Self::get_page_title(&markdown)?;
 
         let metadata = Metadata {
-            date: yaml_header.date,
+            create_date: yaml_header.create_date,
+            last_update_date: yaml_header.last_update_date,
             tags: yaml_header.tags,
             flags: yaml_header.flags,
             highlights: yaml_header.highlights,

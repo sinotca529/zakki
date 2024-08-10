@@ -2,7 +2,7 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="date" content="{data}" />
+    <meta name="date" content="{last_update_date}" />
     <link rel="stylesheet" href="{path_to_root}/style.css" />
     <title>{page_title}</title>
   </head>
@@ -12,7 +12,8 @@
     </header>
     <main>
       <section>
-        <div>{data} {tag_elems}</div>
+        <div>Created: {create_date}, LastUpdate: {last_update_date}</div>
+        <div>{tag_elems}</div>
         {body}
       </section>
     </main>

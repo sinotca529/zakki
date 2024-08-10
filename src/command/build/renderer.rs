@@ -124,7 +124,8 @@ impl Renderer {
         let plain_html = format!(
             include_asset!("page.html"),
             tag_elems = Self::tag_elems(&meta.tags, path_to_root),
-            data = meta.date,
+            create_date = meta.create_date,
+            last_update_date = meta.last_update_date,
             path_to_root = path_to_root.to_str().unwrap(),
             body = body,
             site_name = self.config.site_name(),
@@ -206,7 +207,8 @@ impl Renderer {
 
 #[derive(Serialize)]
 struct MetadataToDump<'a> {
-    date: &'a String,
+    create: &'a String,
+    update: &'a String,
     tags: &'a Vec<String>,
     flags: &'a Vec<String>,
     title: &'a String,
@@ -216,7 +218,8 @@ struct MetadataToDump<'a> {
 impl<'a> From<&'a Metadata> for MetadataToDump<'a> {
     fn from(meta: &'a Metadata) -> Self {
         Self {
-            date: &meta.date,
+            create: &meta.create_date,
+            update: &meta.last_update_date,
             tags: &meta.tags,
             flags: &meta.flags,
             title: &meta.title,

@@ -5,7 +5,10 @@ use std::borrow::Cow;
 
 #[derive(Deserialize, Debug)]
 pub struct YamlHeader {
-    pub date: String,
+    #[serde(rename = "create")]
+    pub create_date: String,
+    #[serde(rename = "update")]
+    pub last_update_date: String,
     #[serde(default)]
     #[serde(alias = "tag")]
     pub tags: Vec<String>,
@@ -18,7 +21,8 @@ pub struct YamlHeader {
 }
 
 pub struct Metadata {
-    pub date: String,
+    pub create_date: String,
+    pub last_update_date: String,
     pub tags: Vec<String>,
     pub flags: Vec<String>,
     pub title: String,
