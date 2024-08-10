@@ -119,12 +119,11 @@ impl Renderer {
     }
 
     fn make_html(&self, body: &str, meta: &Metadata) -> String {
-        let dst_path = meta.path.dst_path();
         let path_to_root = meta.path.path_to_dst_dir();
 
         let plain_html = format!(
             read_asset!("page.html"),
-            tag_elems = Self::tag_elems(&meta.tags, dst_path),
+            tag_elems = Self::tag_elems(&meta.tags, path_to_root),
             data = meta.date,
             path_to_root = path_to_root.to_str().unwrap(),
             body = body,
