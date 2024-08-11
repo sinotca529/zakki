@@ -1,7 +1,7 @@
 use crate::{copy_asset, util::write_file};
-use anyhow::Result;
+use anyhow::{anyhow, Result, Context};
 
 pub fn init() -> Result<()> {
-    copy_asset!("zakki.toml", "")?;
+    copy_asset!("zakki.toml", std::env::current_dir()?)?;
     Ok(())
 }
