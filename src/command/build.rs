@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use content::{Content, Metadata};
 use renderer::Renderer;
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub fn build(cfg: &Config) -> Result<()> {
     clean(&cfg.dst_dir())?;
@@ -17,15 +17,15 @@ pub fn build(cfg: &Config) -> Result<()> {
     renderer.render_assets()?;
 
     let mut metadatas = Vec::new();
+    let files = cfg.src_dir().descendants_file_paths()?;
 
-    visit_files_recursively(cfg.src_dir(), |p| {
+    for p in &files {
         let content = Content::new(p.clone()).with_context(|| p.to_str().unwrap().to_owned())?;
         let metadata = renderer.render(content)?;
         if let Some(metadata) = metadata {
             metadatas.push(metadata);
         }
-        Ok(())
-    })?;
+    }
 
     // メタデータの書き出し
     let metas: Vec<_> = metadatas
@@ -37,25 +37,6 @@ pub fn build(cfg: &Config) -> Result<()> {
     let dst = cfg.dst_dir().join("metadata.js");
     write_file(dst, content)?;
 
-    Ok(())
-}
-
-fn visit_files_recursively(
-    dir: impl AsRef<Path>,
-    mut operator: impl FnMut(PathBuf) -> Result<()>,
-) -> Result<()> {
-    let dir = dir.as_ref();
-    let mut work_list: Vec<PathBuf> = vec![dir.into()];
-    while let Some(dir) = work_list.pop() {
-        for e in std::fs::read_dir(&dir)? {
-            let path = e?.path();
-            if path.is_dir() {
-                work_list.push(path);
-            } else {
-                operator(path)?;
-            }
-        }
-    }
     Ok(())
 }
 
