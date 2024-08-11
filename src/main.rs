@@ -1,6 +1,5 @@
 mod command;
 mod config;
-mod path;
 mod util;
 
 use anyhow::Result;
