@@ -1,6 +1,14 @@
 use regex::Regex;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, path::PathBuf};
+
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Debug)]
+pub enum Flag {
+    #[serde(rename = "draft")]
+    Draft,
+    #[serde(rename = "crypto")]
+    Crypto,
+}
 
 #[derive(Deserialize, Debug)]
 pub struct YamlHeader {
@@ -13,7 +21,7 @@ pub struct YamlHeader {
     pub tags: Vec<String>,
     #[serde(default)]
     #[serde(alias = "flag")]
-    pub flags: Vec<String>,
+    pub flags: Vec<Flag>,
     #[serde(alias = "highlight")]
     #[serde(default)]
     pub highlights: Vec<HighlightMacro>,
@@ -23,7 +31,7 @@ pub struct Metadata {
     pub create_date: String,
     pub last_update_date: String,
     pub tags: Vec<String>,
-    pub flags: Vec<String>,
+    pub flags: Vec<Flag>,
     pub title: String,
     pub src_path: PathBuf,
     pub highlights: Vec<HighlightMacro>,

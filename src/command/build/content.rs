@@ -5,7 +5,7 @@ use std::{fs::File, io::Read, path::PathBuf};
 
 mod metadata;
 
-pub use metadata::{HighlightMacro, Metadata};
+pub use metadata::{HighlightMacro, Metadata, Flag};
 
 pub enum Content {
     Markdown { metadata: Metadata, content: String },

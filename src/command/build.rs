@@ -5,7 +5,7 @@ use super::clean::clean;
 use crate::util::PathExt as _;
 use crate::{config::Config, util::write_file};
 use anyhow::{Context, Result};
-use content::{Content, Metadata};
+use content::{Content, Flag, Metadata};
 use rayon::prelude::*;
 use renderer::Renderer;
 use serde::Serialize;
@@ -48,7 +48,7 @@ struct MetadataToDump<'a> {
     create: &'a String,
     update: &'a String,
     tags: &'a Vec<String>,
-    flags: &'a Vec<String>,
+    flags: &'a Vec<Flag>,
     title: &'a String,
     path: PathBuf,
 }

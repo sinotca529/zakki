@@ -1,4 +1,4 @@
-use super::content::{Content, HighlightMacro, Metadata};
+use super::content::{Content, Flag, HighlightMacro, Metadata};
 use crate::util::PathExt as _;
 use crate::{
     config::Config,
@@ -134,7 +134,7 @@ impl<'a> Renderer<'a> {
             footer = self.config.footer(),
         );
 
-        if meta.flags.contains(&"crypto".to_owned()) {
+        if meta.flags.contains(&Flag::Crypto) {
             self.crypto_html(&plain_html, &path_to_root)
         } else {
             Ok(plain_html)
@@ -148,7 +148,7 @@ impl<'a> Renderer<'a> {
                 Ok(None)
             }
             Content::Markdown { metadata, content } => {
-                if !self.config.render_draft() && metadata.flags.contains(&"draft".to_owned()) {
+                if !self.config.render_draft() && metadata.flags.contains(&Flag::Draft) {
                     return Ok(None);
                 }
 
