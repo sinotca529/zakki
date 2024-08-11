@@ -8,8 +8,7 @@ use anyhow::Result;
 use base64::{prelude::BASE64_STANDARD, Engine};
 use latex2mathml::{latex_to_mathml, DisplayStyle};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
-use serde::Serialize;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// 本プロジェクトの asset ディレクトリ下にあるファイルの内容を読み込みます
 #[macro_export]
@@ -40,7 +39,6 @@ macro_rules! copy_asset {
 
 pub struct Renderer<'a> {
     config: &'a Config,
-    metadatas: Vec<Metadata>,
 }
 
 // Passes
@@ -113,10 +111,7 @@ impl<'a> Renderer<'a> {
 
 impl<'a> Renderer<'a> {
     pub fn new(config: &'a Config) -> Self {
-        Self {
-            config,
-            metadatas: Vec::new(),
-        }
+        Self { config }
     }
 
     fn tag_elems(tags: &[String], path_to_dst_dir: &Path) -> String {
@@ -169,14 +164,15 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn render(&mut self, content: Content) -> Result<()> {
+    pub fn render(&mut self, content: Content) -> Result<Option<Metadata>> {
         match content {
             Content::Other { src_path: path } => {
                 copy_file(&path, self.config.dst_path_of(&path))?;
+                Ok(None)
             }
             Content::Markdown { metadata, content } => {
                 if !self.config.render_draft() && metadata.flags.contains(&"draft".to_owned()) {
-                    return Ok(());
+                    return Ok(None);
                 }
 
                 let mut events: Vec<_> = Parser::new_ext(&content, Options::all()).collect();
@@ -193,11 +189,9 @@ impl<'a> Renderer<'a> {
                 let html = self.make_html(&body, &metadata);
                 write_file(self.config.dst_path_of(&metadata.src_path), html)?;
 
-                self.metadatas.push(metadata);
+                Ok(Some(metadata))
             }
         }
-
-        Ok(())
     }
 
     pub fn render_assets(&self) -> Result<()> {
@@ -226,43 +220,5 @@ impl<'a> Renderer<'a> {
         );
         let dst = self.config.dst_dir().join("tag.html");
         write_file(dst, content).map_err(Into::into)
-    }
-
-    pub fn save_metadata(&self) -> Result<()> {
-        let metas: Vec<MetadataToDump> = self
-            .metadatas
-            .iter()
-            .map(|m| MetadataToDump::from(m, &self.config))
-            .collect();
-        let js = serde_json::to_string(&metas)?;
-        let content = format!("const METADATA={js}");
-        let dst = self.config.dst_dir().join("metadata.js");
-        write_file(dst, content).map_err(Into::into)
-    }
-}
-
-#[derive(Serialize)]
-struct MetadataToDump<'a> {
-    create: &'a String,
-    update: &'a String,
-    tags: &'a Vec<String>,
-    flags: &'a Vec<String>,
-    title: &'a String,
-    path: PathBuf,
-}
-
-impl<'a> MetadataToDump<'a> {
-    fn from(meta: &'a Metadata, cfg: &Config) -> Self {
-        Self {
-            create: &meta.create_date,
-            update: &meta.last_update_date,
-            tags: &meta.tags,
-            flags: &meta.flags,
-            title: &meta.title,
-            path: cfg
-                .dst_path_of(&meta.src_path)
-                .relative_path(cfg.dst_dir())
-                .unwrap(),
-        }
     }
 }
