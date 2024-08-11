@@ -1,11 +1,7 @@
-use std::{
-    cell::{Ref, RefCell},
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use crate::util::PathExt as _;
 use anyhow::bail;
-use dialoguer::Password;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -39,7 +35,7 @@ impl FileConfig {
 pub struct Config {
     site_name: String,
     render_draft: bool,
-    password: RefCell<Option<String>>,
+    password: Option<String>,
     footer: String,
     /// Markdown が配置されているディレクトリ
     src_dir: PathBuf,
@@ -61,7 +57,7 @@ impl Config {
             )),
             site_name: file_config.site_name,
             render_draft,
-            password: RefCell::new(file_config.password),
+            password: file_config.password,
             src_dir,
             dst_dir,
         }
@@ -75,15 +71,8 @@ impl Config {
         &self.site_name
     }
 
-    pub fn password(&self) -> Ref<String> {
-        if self.password.borrow().is_none() {
-            let password = Password::new()
-                .with_prompt("Password for hidden pages")
-                .interact()
-                .unwrap();
-            *self.password.borrow_mut() = Some(password);
-        }
-        Ref::map(self.password.borrow(), |p| p.as_ref().unwrap())
+    pub fn password(&self) -> Option<&String> {
+        self.password.as_ref()
     }
 
     pub fn footer(&self) -> &str {

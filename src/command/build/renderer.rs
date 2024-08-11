@@ -4,7 +4,7 @@ use crate::{
     config::Config,
     util::{copy_file, encode_with_password, write_file},
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use latex2mathml::{latex_to_mathml, DisplayStyle};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
@@ -125,20 +125,23 @@ impl<'a> Renderer<'a> {
             .fold(String::new(), |acc, e| format!("{acc}{nsbp}{e}"))
     }
 
-    fn crypto_html(&self, html: &str, path_to_dst_dir: &Path) -> String {
+    fn crypto_html(&self, html: &str, path_to_dst_dir: &Path) -> Result<String> {
         let html = html.as_bytes();
-        let password = self.config.password();
+        let password = self
+            .config
+            .password()
+            .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
 
         let cypher = encode_with_password(&password, html);
         let encoded = BASE64_STANDARD.encode(cypher);
-        format!(
+        Ok(format!(
             include_asset!("crypto.html"),
             encoded = encoded,
             path_to_root = path_to_dst_dir.to_str().unwrap(),
-        )
+        ))
     }
 
-    fn make_html(&self, body: &str, meta: &Metadata) -> String {
+    fn make_html(&self, body: &str, meta: &Metadata) -> Result<String> {
         let path_to_root = self
             .config
             .dst_dir()
@@ -160,7 +163,7 @@ impl<'a> Renderer<'a> {
         if meta.flags.contains(&"crypto".to_owned()) {
             self.crypto_html(&plain_html, &path_to_root)
         } else {
-            plain_html
+            Ok(plain_html)
         }
     }
 
@@ -186,7 +189,7 @@ impl<'a> Renderer<'a> {
                     body
                 };
 
-                let html = self.make_html(&body, &metadata);
+                let html = self.make_html(&body, &metadata)?;
                 write_file(self.config.dst_path_of(&metadata.src_path), html)?;
 
                 Ok(Some(metadata))
