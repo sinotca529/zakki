@@ -6,6 +6,7 @@ use crate::util::PathExt as _;
 use crate::{config::Config, util::write_file};
 use anyhow::{Context, Result};
 use content::{Content, Metadata};
+use rayon::prelude::*;
 use renderer::Renderer;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -13,24 +14,26 @@ use std::path::PathBuf;
 pub fn build(cfg: &Config) -> Result<()> {
     clean(&cfg.dst_dir())?;
 
-    let mut renderer = Renderer::new(cfg);
+    let renderer = Renderer::new(cfg);
     renderer.render_assets()?;
 
-    let mut metadatas = Vec::new();
     let files = cfg.src_dir().descendants_file_paths()?;
 
-    for p in &files {
-        let content = Content::new(p.clone()).with_context(|| p.to_str().unwrap().to_owned())?;
-        let metadata = renderer.render(content)?;
-        if let Some(metadata) = metadata {
-            metadatas.push(metadata);
-        }
-    }
+    // 並列レンダリング
+    let metadatas: Vec<Option<Metadata>> = files
+        .par_iter()
+        .map(|p: &PathBuf| -> Result<Option<Metadata>> {
+            let content =
+                Content::new(p.clone()).with_context(|| p.to_string_lossy().to_string())?;
+            renderer.render(content)
+        })
+        .collect::<Result<Vec<Option<Metadata>>>>()?;
 
     // メタデータの書き出し
     let metas: Vec<_> = metadatas
         .iter()
-        .map(|m| MetadataToDump::from(m, &cfg))
+        .filter_map(|x| x.as_ref())
+        .map(|m| MetadataToDump::from(&m, &cfg))
         .collect();
     let js = serde_json::to_string(&metas)?;
     let content = format!("const METADATA={js}");

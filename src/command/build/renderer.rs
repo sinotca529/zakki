@@ -167,7 +167,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn render(&mut self, content: Content) -> Result<Option<Metadata>> {
+    pub fn render(&self, content: Content) -> Result<Option<Metadata>> {
         match content {
             Content::Other { src_path: path } => {
                 copy_file(&path, self.config.dst_path_of(&path))?;
