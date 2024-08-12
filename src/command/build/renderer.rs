@@ -146,30 +146,20 @@ impl<'a> Renderer<'a> {
             .fold(String::new(), |acc, e| format!("{acc}{nsbp}{e}"))
     }
 
-    fn crypto_html(&self, html: &str, path_to_dst_dir: &Path) -> Result<String> {
-        let html = html.as_bytes();
-        let password = self
-            .config
-            .password()
-            .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
+    fn events_to_html(&self, events: Vec<Event>, meta: &Metadata) -> Result<String> {
+        let body = {
+            let mut body = String::new();
+            pulldown_cmark::html::push_html(&mut body, events.into_iter());
+            body
+        };
 
-        let cypher = encode_with_password(&password, html);
-        let encoded = BASE64_STANDARD.encode(cypher);
-        Ok(format!(
-            include_asset!("crypto.html"),
-            encoded = encoded,
-            path_to_root = path_to_dst_dir.to_str().unwrap(),
-        ))
-    }
-
-    fn make_html(&self, body: &str, meta: &Metadata) -> Result<String> {
         let path_to_root = self
             .config
             .dst_dir()
             .path_from(meta.dst_path()?.parent().unwrap())
             .unwrap();
 
-        let plain_html = format!(
+        let html = format!(
             include_asset!("page.html"),
             tag_elems = Self::tag_elems(&meta.tags()?, &path_to_root),
             create_date = meta.create_date()?,
@@ -181,34 +171,57 @@ impl<'a> Renderer<'a> {
             footer = self.config.footer(),
         );
 
-        if meta.flags()?.contains(&Flag::Crypto) {
-            self.crypto_html(&plain_html, &path_to_root)
-        } else {
-            Ok(plain_html)
+        Ok(html)
+    }
+
+    /// 暗号化が必要な場合は HTML を暗号化する
+    fn encrypt(&self, html: &mut String, meta: &Metadata) -> Result<()> {
+        if !meta.flags()?.contains(&Flag::Crypto) {
+            return Ok(());
         }
+
+        let path_to_root = self
+            .config
+            .dst_dir()
+            .path_from(meta.dst_path()?.parent().unwrap())
+            .unwrap();
+
+        let password = self
+            .config
+            .password()
+            .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
+
+        let cypher = encode_with_password(&password, html.as_bytes());
+        let encoded = BASE64_STANDARD.encode(cypher);
+
+        *html = format!(
+            include_asset!("crypto.html"),
+            encoded = encoded,
+            path_to_root = path_to_root.to_str().unwrap(),
+        );
+
+        Ok(())
     }
 
     fn md_to_html(&self, markdown: &str, meta: &mut Metadata) -> Result<Option<String>> {
+        // Markdown を AST に変換
         let mut events: Vec<_> = Parser::new_ext(&markdown, Options::all()).collect();
 
+        // AST に対してパスを適用
         Self::read_header(&events, meta)?;
-
         if !self.config.render_draft() && meta.flags()?.contains(&Flag::Draft) {
             return Ok(None);
         }
-
         Self::adjust_link_to_md(&mut events);
         Self::convert_math(&mut events);
         Self::highlight_code(&mut events, meta.highlights()?);
         Self::get_page_title(&events, meta);
 
-        let body = {
-            let mut body = String::new();
-            pulldown_cmark::html::push_html(&mut body, events.into_iter());
-            body
-        };
+        // AST を HTML に変換
+        let mut html = self.events_to_html(events, &meta)?;
 
-        let html = self.make_html(&body, &meta)?;
+        // HTML に対してパスを適用
+        self.encrypt(&mut html, &meta)?;
 
         // TODO: Create a bloom filter.
 
