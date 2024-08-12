@@ -166,7 +166,7 @@ impl<'a> Renderer<'a> {
         let path_to_root = self
             .config
             .dst_dir()
-            .relative_path(self.config.dst_path_of(&meta.src_path()?).parent().unwrap())
+            .path_from(self.config.dst_path_of(&meta.src_path()?).parent().unwrap())
             .unwrap();
 
         let plain_html = format!(

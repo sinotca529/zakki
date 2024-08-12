@@ -63,7 +63,7 @@ impl<'a> MetadataToDump<'a> {
             title: meta.title()?,
             path: cfg
                 .dst_path_of(&meta.src_path()?)
-                .relative_path(cfg.dst_dir())
+                .path_from(cfg.dst_dir())
                 .unwrap(),
         })
     }

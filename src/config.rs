@@ -90,7 +90,7 @@ impl Config {
     /// ソースファイルの出力先のをパスを返します。
     pub fn dst_path_of(&self, src_path: impl AsRef<Path>) -> PathBuf {
         let src_path = src_path.as_ref();
-        let mut rel = src_path.relative_path(&self.src_dir()).unwrap();
+        let mut rel = src_path.path_from(&self.src_dir()).unwrap();
         if rel.extension_is("md") {
             rel = rel.with_extension("html");
         }
