@@ -1,11 +1,10 @@
-mod content;
 mod renderer;
 
 use super::clean::clean;
 use crate::util::PathExt as _;
 use crate::{config::Config, util::write_file};
 use anyhow::{Context, Result};
-use content::{Content, Flag, Metadata};
+use renderer::{Flag, Metadata};
 use rayon::prelude::*;
 use renderer::Renderer;
 use serde::Serialize;
@@ -23,18 +22,19 @@ pub fn build(cfg: &Config) -> Result<()> {
     let metadatas: Vec<Option<Metadata>> = files
         .par_iter()
         .map(|p: &PathBuf| -> Result<Option<Metadata>> {
-            let content =
-                Content::new(p.clone()).with_context(|| p.to_string_lossy().to_string())?;
-            renderer.render(content)
+            renderer
+                .render(p.clone())
+                .with_context(|| p.to_string_lossy().to_string())
         })
         .collect::<Result<Vec<Option<Metadata>>>>()?;
 
     // メタデータの書き出し
-    let metas: Vec<_> = metadatas
+    let metas = metadatas
         .iter()
         .filter_map(|x| x.as_ref())
         .map(|m| MetadataToDump::from(&m, &cfg))
-        .collect();
+        .collect::<Result<Vec<_>>>()?;
+
     let js = serde_json::to_string(&metas)?;
     let content = format!("const METADATA={js}");
     let dst = cfg.dst_dir().join("metadata.js");
@@ -54,17 +54,17 @@ struct MetadataToDump<'a> {
 }
 
 impl<'a> MetadataToDump<'a> {
-    fn from(meta: &'a Metadata, cfg: &Config) -> Self {
-        Self {
-            create: &meta.create_date,
-            update: &meta.last_update_date,
-            tags: &meta.tags,
-            flags: &meta.flags,
-            title: &meta.title,
+    fn from(meta: &'a Metadata, cfg: &Config) -> Result<Self> {
+        Ok(Self {
+            create: meta.create_date()?,
+            update: meta.last_update_date()?,
+            tags: meta.tags()?,
+            flags: meta.flags()?,
+            title: meta.title()?,
             path: cfg
-                .dst_path_of(&meta.src_path)
+                .dst_path_of(&meta.src_path()?)
                 .relative_path(cfg.dst_dir())
                 .unwrap(),
-        }
+        })
     }
 }

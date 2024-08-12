@@ -1,15 +1,23 @@
-use super::content::{Content, Flag, HighlightMacro, Metadata};
+mod metadata;
+mod yaml_header;
+
 use crate::util::PathExt as _;
 use crate::{
     config::Config,
     util::{copy_file, encode_with_password, write_file},
 };
 use crate::{copy_asset, include_asset};
-use anyhow::{anyhow, Result, Context};
+use anyhow::{anyhow, bail, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use latex2mathml::{latex_to_mathml, DisplayStyle};
-use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
-use std::path::Path;
+pub use metadata::{Flag, HighlightMacro, Metadata};
+use pulldown_cmark::{
+    CodeBlockKind, Event, HeadingLevel, MetadataBlockKind, Options, Parser, Tag, TagEnd,
+};
+use std::fs::File;
+use std::io::Read as _;
+use std::path::{Path, PathBuf};
+use yaml_header::YamlHeader;
 
 pub struct Renderer<'a> {
     config: &'a Config,
@@ -17,6 +25,45 @@ pub struct Renderer<'a> {
 
 // Passes
 impl<'a> Renderer<'a> {
+    /// イベント列から yaml ヘッダを取得して YamlHeader に変換する
+    fn read_header(events: &[Event], meta: &mut Metadata) -> Result<()> {
+        use MetadataBlockKind::YamlStyle;
+
+        let header = events
+            .iter()
+            .skip_while(|e| !matches!(e, Event::Start(Tag::MetadataBlock(YamlStyle))))
+            .take_while(|e| !matches!(e, Event::End(TagEnd::MetadataBlock(YamlStyle))))
+            .filter_map(|e| match e {
+                Event::Text(t) => Some(t),
+                _ => None,
+            })
+            .next();
+
+        let Some(header) = header else {
+            bail!("Yaml header is not existing.")
+        };
+
+        let header: YamlHeader = serde_yaml::from_str(header)?;
+        header.merge_into(meta);
+
+        Ok(())
+    }
+
+    /// イベント列からページのタイトルを取得する
+    fn get_page_title(events: &[Event], meta: &mut Metadata) {
+        let h1 = events
+            .iter()
+            .skip_while(|e| !matches!(e, Event::Start(Tag::Heading { level, .. }) if level == &HeadingLevel::H1))
+            .take_while(|e| !matches!(e, Event::End(TagEnd::Heading(HeadingLevel::H1))))
+            .filter_map(|e| match e {
+                Event::Text(t) => Some(t.to_string()),
+                _ => None,
+            })
+            .next();
+
+        meta.set_title(h1.unwrap_or("No Title".to_owned()));
+    }
+
     fn adjust_link_to_md(event: &mut Vec<Event>) {
         for e in event {
             if let Event::Start(Tag::Link { dest_url, .. }) = e {
@@ -88,11 +135,11 @@ impl<'a> Renderer<'a> {
         Self { config }
     }
 
-    fn tag_elems(tags: &[String], path_to_dst_dir: &Path) -> String {
+    fn tag_elems(tags: &[String], dst_root_dir: &Path) -> String {
         let nsbp = "\u{00a0}";
         tags.iter()
             .map(|n| {
-                let path = path_to_dst_dir.join("tag.html");
+                let path = dst_root_dir.join("tag.html");
                 let path = path.to_str().unwrap();
                 format!(r#"<a class="tag" href="{path}?tag={n}">{n}</a>"#)
             })
@@ -119,55 +166,76 @@ impl<'a> Renderer<'a> {
         let path_to_root = self
             .config
             .dst_dir()
-            .relative_path(self.config.dst_path_of(&meta.src_path).parent().unwrap())
+            .relative_path(self.config.dst_path_of(&meta.src_path()?).parent().unwrap())
             .unwrap();
 
         let plain_html = format!(
             include_asset!("page.html"),
-            tag_elems = Self::tag_elems(&meta.tags, &path_to_root),
-            create_date = meta.create_date,
-            last_update_date = meta.last_update_date,
+            tag_elems = Self::tag_elems(&meta.tags()?, &path_to_root),
+            create_date = meta.create_date()?,
+            last_update_date = meta.last_update_date()?,
             path_to_root = path_to_root.to_str().unwrap(),
             body = body,
             site_name = self.config.site_name(),
-            page_title = meta.title,
+            page_title = meta.title()?,
             footer = self.config.footer(),
         );
 
-        if meta.flags.contains(&Flag::Crypto) {
+        if meta.flags()?.contains(&Flag::Crypto) {
             self.crypto_html(&plain_html, &path_to_root)
         } else {
             Ok(plain_html)
         }
     }
 
-    pub fn render(&self, content: Content) -> Result<Option<Metadata>> {
-        match content {
-            Content::Other { src_path: path } => {
-                copy_file(&path, self.config.dst_path_of(&path))?;
-                Ok(None)
-            }
-            Content::Markdown { metadata, content } => {
-                if !self.config.render_draft() && metadata.flags.contains(&Flag::Draft) {
-                    return Ok(None);
-                }
+    fn md_to_html(&self, markdown: &str, meta: &mut Metadata) -> Result<Option<String>> {
+        let mut events: Vec<_> = Parser::new_ext(&markdown, Options::all()).collect();
 
-                let mut events: Vec<_> = Parser::new_ext(&content, Options::all()).collect();
-                Self::adjust_link_to_md(&mut events);
-                Self::convert_math(&mut events);
-                Self::highlight_code(&mut events, &metadata.highlights);
+        Self::read_header(&events, meta)?;
 
-                let body = {
-                    let mut body = String::new();
-                    pulldown_cmark::html::push_html(&mut body, events.into_iter());
-                    body
-                };
+        if !self.config.render_draft() && meta.flags()?.contains(&Flag::Draft) {
+            return Ok(None);
+        }
 
-                let html = self.make_html(&body, &metadata)?;
-                write_file(self.config.dst_path_of(&metadata.src_path), html)?;
+        Self::adjust_link_to_md(&mut events);
+        Self::convert_math(&mut events);
+        Self::highlight_code(&mut events, meta.highlights()?);
+        Self::get_page_title(&events, meta);
 
-                Ok(Some(metadata))
-            }
+        let body = {
+            let mut body = String::new();
+            pulldown_cmark::html::push_html(&mut body, events.into_iter());
+            body
+        };
+
+        let html = self.make_html(&body, &meta)?;
+
+        // TODO: Create a bloom filter.
+
+        Ok(Some(html))
+    }
+
+    pub fn render(&self, src: PathBuf) -> Result<Option<Metadata>> {
+        if src.extension_is("md") {
+            let mut meta = Metadata::default();
+            let markdown = {
+                let mut file = File::open(&src)?;
+                let mut content = String::new();
+                file.read_to_string(&mut content)?;
+                content
+            };
+
+            meta.set_src_path(src);
+            let Some(html) = self.md_to_html(&markdown, &mut meta)? else {
+                return Ok(None);
+            };
+
+            write_file(self.config.dst_path_of(&meta.src_path()?), html)?;
+
+            Ok(Some(meta))
+        } else {
+            copy_file(&src, self.config.dst_path_of(&src))?;
+            Ok(None)
         }
     }
 

@@ -1,12 +1,10 @@
-use std::ops::BitXor;
-
+use super::fxhash::fxhash32_multi;
 use icu_segmenter::WordSegmenter;
 use itertools::Itertools as _;
+use std::ops::BitXor;
 
-use super::fxhash::fxhash32_multi;
-
-const SEED: u64 = 0x517cc1b727220a95;
 fn fxhash64(word: &str) -> u64 {
+    const SEED: u64 = 0x517cc1b727220a95;
     let mut v = 0u64;
     word.bytes().for_each(|c| {
         v = v.rotate_left(5).bitxor(c as u64).wrapping_mul(SEED);
@@ -14,25 +12,25 @@ fn fxhash64(word: &str) -> u64 {
     v
 }
 
-/// FilterSize : byte length of the filter
-/// NumHash: The number of hash functions
-struct BloomFilter<const FilterSizeByte: usize, const NumHash: u8> {
-    filter: [u8; FilterSizeByte],
+/// FILTER_SIZE : Byte length of the filter
+/// NUM_HASH    : The number of hash functions
+struct BloomFilter<const FILTER_SIZE: usize, const NUM_HASH: u8> {
+    filter: [u8; FILTER_SIZE],
 }
 
-impl<const FilterSizeByte: usize, const NumHash: u8> BloomFilter<FilterSizeByte, NumHash> {
+impl<const FILTER_SIZE: usize, const NUM_HASH: u8> BloomFilter<FILTER_SIZE, NUM_HASH> {
     fn new() -> Self {
         Self {
-            filter: [0; FilterSizeByte],
+            filter: [0; FILTER_SIZE],
         }
     }
 
     fn insert_word(&mut self, word: &str) {
-        let filter_size_bit = FilterSizeByte as u32 * 8;
+        let filter_size_bit = FILTER_SIZE as u32 * 8;
 
         let hashes = fxhash32_multi(word)
             .map(|h| h % filter_size_bit)
-            .take(NumHash as usize);
+            .take(NUM_HASH as usize);
 
         hashes.for_each(|hash| {
             self.filter[hash as usize / 8] |= 1 << (hash % 8);
@@ -57,11 +55,11 @@ impl<const FilterSizeByte: usize, const NumHash: u8> BloomFilter<FilterSizeByte,
 
     #[cfg(test)]
     pub fn contains(&self, word: &str) -> bool {
-        let filter_size_bit = FilterSizeByte as u32 * 8;
+        let filter_size_bit = FILTER_SIZE as u32 * 8;
 
         let hashes = fxhash32_multi(word)
             .map(|h| h % filter_size_bit)
-            .take(NumHash as usize);
+            .take(NUM_HASH as usize);
 
         hashes
             .map(|hash| (self.filter[hash as usize / 8] & (1 << (hash % 8))) == 0)
