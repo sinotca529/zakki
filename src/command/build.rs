@@ -4,10 +4,9 @@ use super::clean::clean;
 use crate::util::PathExt as _;
 use crate::{config::Config, util::write_file};
 use anyhow::{Context, Result};
-use renderer::{Flag, Metadata};
 use rayon::prelude::*;
+use renderer::Metadata;
 use renderer::Renderer;
-use serde::Serialize;
 use std::path::PathBuf;
 
 pub fn build(cfg: &Config) -> Result<()> {
@@ -29,11 +28,7 @@ pub fn build(cfg: &Config) -> Result<()> {
         .collect::<Result<Vec<Option<Metadata>>>>()?;
 
     // メタデータの書き出し
-    let metas = metadatas
-        .iter()
-        .filter_map(|x| x.as_ref())
-        .map(|m| MetadataToDump::from(&m, &cfg))
-        .collect::<Result<Vec<_>>>()?;
+    let metas: Vec<_> = metadatas.into_iter().filter_map(|x| x).collect();
 
     let js = serde_json::to_string(&metas)?;
     let content = format!("const METADATA={js}");
@@ -41,30 +36,4 @@ pub fn build(cfg: &Config) -> Result<()> {
     write_file(dst, content)?;
 
     Ok(())
-}
-
-#[derive(Serialize)]
-struct MetadataToDump<'a> {
-    create: &'a String,
-    update: &'a String,
-    tags: &'a Vec<String>,
-    flags: &'a Vec<Flag>,
-    title: &'a String,
-    path: PathBuf,
-}
-
-impl<'a> MetadataToDump<'a> {
-    fn from(meta: &'a Metadata, cfg: &Config) -> Result<Self> {
-        Ok(Self {
-            create: meta.create_date()?,
-            update: meta.last_update_date()?,
-            tags: meta.tags()?,
-            flags: meta.flags()?,
-            title: meta.title()?,
-            path: cfg
-                .dst_path_of(&meta.src_path()?)
-                .path_from(cfg.dst_dir())
-                .unwrap(),
-        })
-    }
 }

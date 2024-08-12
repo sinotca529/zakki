@@ -166,7 +166,7 @@ impl<'a> Renderer<'a> {
         let path_to_root = self
             .config
             .dst_dir()
-            .path_from(self.config.dst_path_of(&meta.src_path()?).parent().unwrap())
+            .path_from(meta.dst_path()?.parent().unwrap())
             .unwrap();
 
         let plain_html = format!(
@@ -225,12 +225,17 @@ impl<'a> Renderer<'a> {
                 content
             };
 
-            meta.set_src_path(src);
+            let dst_path = self.config.dst_path_of(&src);
+            let dst_path_from_root = dst_path.path_from(self.config.dst_dir()).unwrap();
+
+            meta.set_dst_path(dst_path);
+            meta.set_dst_path_from_root(dst_path_from_root);
+
             let Some(html) = self.md_to_html(&markdown, &mut meta)? else {
                 return Ok(None);
             };
 
-            write_file(self.config.dst_path_of(&meta.src_path()?), html)?;
+            write_file(meta.dst_path()?, html)?;
 
             Ok(Some(meta))
         } else {
