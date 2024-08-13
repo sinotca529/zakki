@@ -1,65 +1,43 @@
+use base64::{prelude::BASE64_STANDARD, Engine as _};
+
 use super::fxhash::fxhash32_multi;
-use icu_segmenter::WordSegmenter;
-use itertools::Itertools as _;
-use std::ops::BitXor;
 
-fn fxhash64(word: &str) -> u64 {
-    const SEED: u64 = 0x517cc1b727220a95;
-    let mut v = 0u64;
-    word.bytes().for_each(|c| {
-        v = v.rotate_left(5).bitxor(c as u64).wrapping_mul(SEED);
-    });
-    v
+pub struct BloomFilter {
+    filter: Vec<u8>,
+    num_byte: u32,
+    num_hash: u8,
 }
 
-/// FILTER_SIZE : Byte length of the filter
-/// NUM_HASH    : The number of hash functions
-struct BloomFilter<const FILTER_SIZE: usize, const NUM_HASH: u8> {
-    filter: [u8; FILTER_SIZE],
-}
-
-impl<const FILTER_SIZE: usize, const NUM_HASH: u8> BloomFilter<FILTER_SIZE, NUM_HASH> {
-    fn new() -> Self {
+impl BloomFilter {
+    pub fn new(num_byte: u32, num_hash: u8) -> Self {
         Self {
-            filter: [0; FILTER_SIZE],
+            filter: vec![0; num_byte as usize],
+            num_byte,
+            num_hash,
         }
     }
 
-    fn insert_word(&mut self, word: &str) {
-        let filter_size_bit = FILTER_SIZE as u32 * 8;
-
+    pub fn insert_word(&mut self, word: &str) {
+        let num_bit = (self.num_byte as u32) * 8;
         let hashes = fxhash32_multi(word)
-            .map(|h| h % filter_size_bit)
-            .take(NUM_HASH as usize);
+            .map(|h| h % num_bit)
+            .take(self.num_hash as usize);
 
         hashes.for_each(|hash| {
             self.filter[hash as usize / 8] |= 1 << (hash % 8);
         });
     }
 
-    /// Tokenize the given text and insert obtained words into the filter.
-    pub fn insert_words(&mut self, text: &str) {
-        let segmenter = WordSegmenter::new_auto();
-        let words: Vec<_> = segmenter
-            .segment_str(text)
-            .iter_with_word_type()
-            .tuple_windows()
-            .filter(|(_, (_, segment_type))| segment_type.is_word_like())
-            .map(|((i, _), (j, _))| &text[i..j])
-            .collect();
-
-        for word in &words {
-            self.insert_word(word);
-        }
+    pub fn dump_as_base64(&self) -> String {
+        BASE64_STANDARD.encode(&self.filter)
     }
 
     #[cfg(test)]
     pub fn contains(&self, word: &str) -> bool {
-        let filter_size_bit = FILTER_SIZE as u32 * 8;
-
+        let num_bit = (self.num_byte as u32) * 8;
         let hashes = fxhash32_multi(word)
-            .map(|h| h % filter_size_bit)
-            .take(NUM_HASH as usize);
+            .map(|h| h % num_bit)
+            .take(self.num_hash as usize);
 
         hashes
             .map(|hash| (self.filter[hash as usize / 8] & (1 << (hash % 8))) == 0)
@@ -73,9 +51,33 @@ mod test {
 
     #[test]
     fn test() {
-        let s1 = "メロスは激怒した。必ず、かの邪智暴虐の王を除かなければならぬと決意した。";
-        let mut filter = BloomFilter::<128, 3>::new();
-        filter.insert_words(s1);
+        let mut filter = BloomFilter::new(128 * 8, 3);
+        filter.insert_word("メロス");
+        filter.insert_word("は");
+        filter.insert_word("激怒");
+        filter.insert_word("した");
+        filter.insert_word("。");
+        filter.insert_word("必ず");
+        filter.insert_word("、");
+        filter.insert_word("か");
+        filter.insert_word("の");
+        filter.insert_word("邪智");
+        filter.insert_word("暴虐");
+        filter.insert_word("の");
+        filter.insert_word("王");
+        filter.insert_word("を");
+        filter.insert_word("除");
+        filter.insert_word("かな");
+        filter.insert_word("け");
+        filter.insert_word("れ");
+        filter.insert_word("ば");
+        filter.insert_word("なら");
+        filter.insert_word("ぬ");
+        filter.insert_word("と");
+        filter.insert_word("決意");
+        filter.insert_word("した");
+        filter.insert_word("。");
+
         assert!(filter.contains("メロス"));
         assert!(filter.contains("激怒"));
         assert!(!filter.contains("めろす"));

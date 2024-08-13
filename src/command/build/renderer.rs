@@ -1,7 +1,7 @@
 mod metadata;
 mod yaml_header;
 
-use crate::util::PathExt as _;
+use crate::util::{BloomFilter, PathExt as _};
 use crate::{
     config::Config,
     util::{copy_file, encode_with_password, write_file},
@@ -9,11 +9,15 @@ use crate::{
 use crate::{copy_asset, include_asset};
 use anyhow::{anyhow, bail, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
+use icu_segmenter::WordSegmenter;
+use itertools::Itertools;
 use latex2mathml::{latex_to_mathml, DisplayStyle};
 pub use metadata::{Flag, HighlightMacro, Metadata};
 use pulldown_cmark::{
     CodeBlockKind, Event, HeadingLevel, MetadataBlockKind, Options, Parser, Tag, TagEnd,
 };
+use scraper::Html;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
@@ -203,6 +207,43 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
+    fn make_bloom_filter(&self, html: &String, meta: &mut Metadata) -> Result<()> {
+        // HTML からテキストを抜き出す
+        let text = Html::parse_document(html)
+            .root_element()
+            .text()
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        // テキストをワードに分割する
+        let segmenter = WordSegmenter::new_auto();
+        let words: HashSet<_> = segmenter
+            .segment_str(&text)
+            .iter_with_word_type()
+            .tuple_windows()
+            .filter(|(_, (_, segment_type))| segment_type.is_word_like())
+            .map(|((i, _), (j, _))| &text[i..j])
+            .collect();
+
+        // Bloom filter 用のパラメタを計算する
+        let fp = self.config.search_fp();
+        let num_words = words.len() as f64;
+        let num_bit = -num_words * fp.ln() / 2.0f64.ln().powi(2);
+        let num_byte = num_bit / 8.0;
+
+        // Bloom filter を構築する
+        let num_byte = num_byte.ceil() as u32;
+        let num_hash = (num_bit * 2.0f64.ln() / num_words).ceil() as u8;
+        let mut filter = BloomFilter::new(num_byte, num_hash);
+        words.iter().for_each(|w| filter.insert_word(w));
+
+        // 構築したフィルタをメタデータに登録する
+        meta.set_bloom_filter(filter.dump_as_base64());
+        meta.set_bloom_num_hash(num_hash);
+
+        Ok(())
+    }
+
     fn md_to_html(&self, markdown: &str, meta: &mut Metadata) -> Result<Option<String>> {
         // Markdown を AST に変換
         let mut events: Vec<_> = Parser::new_ext(&markdown, Options::all()).collect();
@@ -218,12 +259,11 @@ impl<'a> Renderer<'a> {
         Self::get_page_title(&events, meta);
 
         // AST を HTML に変換
-        let mut html = self.events_to_html(events, &meta)?;
+        let mut html = self.events_to_html(events, meta)?;
 
         // HTML に対してパスを適用
         self.encrypt(&mut html, &meta)?;
-
-        // TODO: Create a bloom filter.
+        self.make_bloom_filter(&html, meta)?;
 
         Ok(Some(html))
     }

@@ -38,6 +38,14 @@ pub struct Metadata {
     #[serde(rename = "path", serialize_with = "serialize_option")]
     dst_path_from_root: Option<PathBuf>,
 
+    /// Bloom filter のフィルタ
+    #[serde(serialize_with = "serialize_option")]
+    bloom_filter: Option<String>,
+
+    /// Bloom filter のハッシュ関数の数
+    #[serde(serialize_with = "serialize_option")]
+    bloom_num_hash: Option<u8>,
+
     /// 記事の出力先ディレクトリへ
     #[serde(skip)]
     dst_path: Option<PathBuf>,
@@ -123,6 +131,14 @@ impl Metadata {
 
     pub fn set_dst_path(&mut self, dst_path: PathBuf) {
         self.dst_path = Some(dst_path);
+    }
+
+    pub fn set_bloom_filter(&mut self, bloom_filter: String) {
+        self.bloom_filter = Some(bloom_filter);
+    }
+
+    pub fn set_bloom_num_hash(&mut self, bloom_num_hash: u8) {
+        self.bloom_num_hash = Some(bloom_num_hash);
     }
 
     pub fn set_dst_path_from_root(&mut self, dst_path_from_root: PathBuf) {

@@ -4,13 +4,28 @@ use crate::util::PathExt as _;
 use anyhow::bail;
 use serde::Deserialize;
 
+const fn default_search_fp() -> f64 {
+    0.0001f64
+}
+
 #[derive(Deserialize)]
 pub struct FileConfig {
+    /// サイトの名前
     site_name: String,
+
+    /// ページの暗号化に使うパスワード
     #[serde(default)]
     password: Option<String>,
+
+    /// ページの下部に表示する内容 (HTML形式)
     #[serde(default)]
     footer: Option<String>,
+
+    /// サイト内検索の偽陽性率
+    /// INFO: デフォルト値の即値による指定は現状できない。
+    /// see: https://github.com/serde-rs/serde/issues/368
+    #[serde(default = "default_search_fp")]
+    search_fp: f64,
 }
 
 impl FileConfig {
@@ -41,6 +56,8 @@ pub struct Config {
     src_dir: PathBuf,
     /// HTML を出力するディレクトリ
     dst_dir: PathBuf,
+    /// サイト内検索の偽陽性率
+    search_fp: f64,
 }
 
 impl Config {
@@ -60,6 +77,7 @@ impl Config {
             password: file_config.password,
             src_dir,
             dst_dir,
+            search_fp: file_config.search_fp,
         }
     }
 
@@ -85,6 +103,10 @@ impl Config {
 
     pub fn dst_dir(&self) -> &PathBuf {
         &self.dst_dir
+    }
+
+    pub fn search_fp(&self) -> f64 {
+        self.search_fp
     }
 
     /// ソースファイルの出力先のをパスを返します。
