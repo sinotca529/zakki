@@ -18,7 +18,7 @@ impl BloomFilter {
     }
 
     pub fn insert_word(&mut self, word: &str) {
-        let num_bit = (self.num_byte as u32) * 8;
+        let num_bit = self.num_byte * 8;
         let hashes = fxhash32_multi(word)
             .map(|h| h % num_bit)
             .take(self.num_hash as usize);

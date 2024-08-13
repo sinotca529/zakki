@@ -10,7 +10,7 @@ use renderer::Renderer;
 use std::path::PathBuf;
 
 pub fn build(cfg: &Config) -> Result<()> {
-    clean(&cfg.dst_dir())?;
+    clean(cfg.dst_dir())?;
 
     let renderer = Renderer::new(cfg);
     renderer.render_assets()?;
@@ -28,7 +28,7 @@ pub fn build(cfg: &Config) -> Result<()> {
         .collect::<Result<Vec<Option<Metadata>>>>()?;
 
     // メタデータの書き出し
-    let metas: Vec<_> = metadatas.into_iter().filter_map(|x| x).collect();
+    let metas: Vec<_> = metadatas.into_iter().flatten().collect();
 
     let js = serde_json::to_string(&metas)?;
     let content = format!("const METADATA={js}");

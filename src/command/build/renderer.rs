@@ -165,7 +165,7 @@ impl<'a> Renderer<'a> {
 
         let html = format!(
             include_asset!("page.html"),
-            tag_elems = Self::tag_elems(&meta.tags()?, &path_to_root),
+            tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
             create_date = meta.create_date()?,
             last_update_date = meta.last_update_date()?,
             path_to_root = path_to_root.to_str().unwrap(),
@@ -195,7 +195,7 @@ impl<'a> Renderer<'a> {
             .password()
             .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
 
-        let cypher = encode_with_password(&password, html.as_bytes());
+        let cypher = encode_with_password(password, html.as_bytes());
         let encoded = BASE64_STANDARD.encode(cypher);
 
         *html = format!(
@@ -207,7 +207,7 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
-    fn make_bloom_filter(&self, html: &String, meta: &mut Metadata) -> Result<()> {
+    fn make_bloom_filter(&self, html: &str, meta: &mut Metadata) -> Result<()> {
         // HTML からテキストを抜き出す
         let text = Html::parse_document(html)
             .root_element()
@@ -246,7 +246,7 @@ impl<'a> Renderer<'a> {
 
     fn md_to_html(&self, markdown: &str, meta: &mut Metadata) -> Result<Option<String>> {
         // Markdown を AST に変換
-        let mut events: Vec<_> = Parser::new_ext(&markdown, Options::all()).collect();
+        let mut events: Vec<_> = Parser::new_ext(markdown, Options::all()).collect();
 
         // AST に対してパスを適用
         Self::read_header(&events, meta)?;
@@ -262,7 +262,7 @@ impl<'a> Renderer<'a> {
         let mut html = self.events_to_html(events, meta)?;
 
         // HTML に対してパスを適用
-        self.encrypt(&mut html, &meta)?;
+        self.encrypt(&mut html, meta)?;
         self.make_bloom_filter(&html, meta)?;
 
         Ok(Some(html))
