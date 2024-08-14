@@ -163,16 +163,22 @@ impl<'a> Renderer<'a> {
             .path_from(meta.dst_path()?.parent().unwrap())
             .unwrap();
 
+        let header = format!(
+            include_asset!("header.html"),
+            path_to_root = path_to_root.to_str().unwrap(),
+            site_name = self.config.site_name(),
+        );
+
         let html = format!(
             include_asset!("page.html"),
+            path_to_root = path_to_root.to_str().unwrap(),
+            header = header,
             tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
             create_date = meta.create_date()?,
             last_update_date = meta.last_update_date()?,
-            path_to_root = path_to_root.to_str().unwrap(),
             body = body,
-            site_name = self.config.site_name(),
             page_title = meta.title()?,
-            footer = self.config.footer(),
+            footer_text = self.config.footer(),
         );
 
         Ok(html)
@@ -310,21 +316,36 @@ impl<'a> Renderer<'a> {
     }
 
     fn render_index(&self) -> Result<()> {
+        let header = format!(
+            include_asset!("header.html"),
+            path_to_root = ".",
+            site_name = self.config.site_name(),
+        );
+
         let content = format!(
             include_asset!("index.html"),
+            header = header,
             site_name = self.config.site_name(),
             footer = self.config.footer(),
         );
+
         let dst = self.config.dst_dir().join("index.html");
         write_file(dst, content).map_err(Into::into)
     }
 
     fn render_tag(&self) -> Result<()> {
+        let header = format!(
+            include_asset!("header.html"),
+            path_to_root = ".",
+            site_name = self.config.site_name(),
+        );
+
         let content = format!(
             include_asset!("tag.html"),
-            site_name = self.config.site_name(),
+            header = header,
             footer = self.config.footer(),
         );
+
         let dst = self.config.dst_dir().join("tag.html");
         write_file(dst, content).map_err(Into::into)
     }

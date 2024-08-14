@@ -25,19 +25,69 @@ body {
 
 header {
   text-align: center;
-  padding: 2rem 0;
+  padding: 0;
   background-color: var(--header-bg);
   color: var(--header-fg);
 
-  >h1 {
-    margin: 0;
-    font-size: 2.5rem;
+  h1 {
+    padding: .1rem 0;
+    font-size: 1.25rem;
 
-    >a {
+    a {
       text-decoration: none;
       color: inherit;
     }
   }
+}
+
+#menu-bar {
+  display: flex;
+  padding: 0 1em;
+}
+
+#menu-title {
+  flex: 1;
+}
+
+#search-toggle {
+  display: inline-block;
+  height: 100%;
+
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  color: var(--header-fg);
+
+  &:hover {
+    background: white;
+  }
+
+  &:before {
+    content: "Q"
+  }
+}
+
+#searchbar {
+  margin: 1em auto;
+  max-width: 90%;
+}
+
+#search_input {
+  width: 100%;
+  font-size: 1rem;
+  background-color: var(--body-bg);
+  margin: 1em 0;
+  border: none;
+}
+
+#search_result {
+
+
+}
+
+.hidden {
+  display: none;
 }
 
 main {
