@@ -223,6 +223,10 @@ impl<'a> Renderer<'a> {
             .tuple_windows()
             .filter(|(_, (_, segment_type))| segment_type.is_word_like())
             .map(|((i, _), (j, _))| &text[i..j])
+            // スペースのみの場合は無視する
+            .filter(|w| !w.trim().is_empty())
+            // 小文字に統一する
+            .map(|w| w.to_lowercase())
             .collect();
 
         // Bloom filter 用のパラメタを計算する
