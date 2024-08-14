@@ -35,13 +35,11 @@ impl BloomFilter {
     #[cfg(test)]
     pub fn contains(&self, word: &str) -> bool {
         let num_bit = (self.num_byte as u32) * 8;
-        let hashes = fxhash32_multi(word)
+        let mut hashes = fxhash32_multi(word)
             .map(|h| h % num_bit)
             .take(self.num_hash as usize);
 
-        hashes
-            .map(|hash| (self.filter[hash as usize / 8] & (1 << (hash % 8))) == 0)
-            .any(|c| !c)
+        hashes.all(|hash| (self.filter[hash as usize / 8] & (1 << (hash % 8))) != 0)
     }
 }
 
