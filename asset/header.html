@@ -1,0 +1,15 @@
+<header>
+  <div id="menu-bar">
+    <div id="menu-left-buttons">
+      <button id="search-toggle" onclick="toggleSearchInput()"></button>
+    </div>
+    <h1 id="menu-title"><a href="{path_to_root}/index.html">{site_name}</a></h1>
+  </div>
+</header>
+<div id="searchbar" class="hidden">
+  <search>
+    <input type="search" id="search_input" onkeyup="searchAndRender()" placeholder="Input to search...">
+  </search>
+  <div id="search_result"></div>
+  <hr>
+</div>

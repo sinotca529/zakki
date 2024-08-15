@@ -2,20 +2,19 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="date" content="{data}" />
+    <meta name="date" content="{last_update_date}" />
     <link rel="stylesheet" href="{path_to_root}/style.css" />
     <title>{page_title}</title>
   </head>
   <body>
-    <header>
-      <h1><a href="{path_to_root}/index.html">{site_name}</a></h1>
-    </header>
+    {header}
     <main>
       <section>
-        <div>{data} {tag_elems}</div>
+        <div>Created: {create_date}, LastUpdate: {last_update_date}</div>
+        <div>{tag_elems}</div>
         {body}
       </section>
     </main>
-    <footer>{footer}</footer>
+    <footer>{footer_text}</footer>
   </body>
 </html>

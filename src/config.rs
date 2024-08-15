@@ -1,16 +1,31 @@
-use std::cell::{Ref, RefCell};
+use std::path::{Path, PathBuf};
 
+use crate::util::PathExt as _;
 use anyhow::bail;
-use dialoguer::Password;
 use serde::Deserialize;
+
+const fn default_search_fp() -> f64 {
+    0.0001f64
+}
 
 #[derive(Deserialize)]
 pub struct FileConfig {
+    /// サイトの名前
     site_name: String,
+
+    /// ページの暗号化に使うパスワード
     #[serde(default)]
     password: Option<String>,
+
+    /// ページの下部に表示する内容 (HTML形式)
     #[serde(default)]
     footer: Option<String>,
+
+    /// サイト内検索の偽陽性率
+    /// INFO: デフォルト値の即値による指定は現状できない。
+    /// see: https://github.com/serde-rs/serde/issues/368
+    #[serde(default = "default_search_fp")]
+    search_fp: f64,
 }
 
 impl FileConfig {
@@ -19,10 +34,10 @@ impl FileConfig {
         let cfg = std::fs::read_dir(pwd)?
             .filter_map(|f| f.ok())
             .map(|f| f.file_name())
-            .find(|f| f == "config.toml");
+            .find(|f| f == "zakki.toml");
 
         let Some(cfg) = cfg else {
-            bail!("config.toml is not found.");
+            bail!("zakki.toml is not found.");
         };
 
         let cfg = std::fs::read(cfg)?;
@@ -35,12 +50,23 @@ impl FileConfig {
 pub struct Config {
     site_name: String,
     render_draft: bool,
-    password: RefCell<Option<String>>,
+    password: Option<String>,
     footer: String,
+    /// Markdown が配置されているディレクトリ
+    src_dir: PathBuf,
+    /// HTML を出力するディレクトリ
+    dst_dir: PathBuf,
+    /// サイト内検索の偽陽性率
+    search_fp: f64,
 }
 
 impl Config {
-    pub fn new(file_config: FileConfig, render_draft: bool) -> Self {
+    pub fn new(
+        file_config: FileConfig,
+        render_draft: bool,
+        src_dir: PathBuf,
+        dst_dir: PathBuf,
+    ) -> Self {
         Self {
             footer: file_config.footer.unwrap_or(format!(
                 "&copy; {}. All rights reserved.",
@@ -48,7 +74,10 @@ impl Config {
             )),
             site_name: file_config.site_name,
             render_draft,
-            password: RefCell::new(file_config.password),
+            password: file_config.password,
+            src_dir,
+            dst_dir,
+            search_fp: file_config.search_fp,
         }
     }
 
@@ -60,18 +89,33 @@ impl Config {
         &self.site_name
     }
 
-    pub fn password(&self) -> Ref<String> {
-        if self.password.borrow().is_none() {
-            let password = Password::new()
-                .with_prompt("Password for hidden pages")
-                .interact()
-                .unwrap();
-            *self.password.borrow_mut() = Some(password);
-        }
-        Ref::map(self.password.borrow(), |p| p.as_ref().unwrap())
+    pub fn password(&self) -> Option<&String> {
+        self.password.as_ref()
     }
 
     pub fn footer(&self) -> &str {
         &self.footer
+    }
+
+    pub fn src_dir(&self) -> &PathBuf {
+        &self.src_dir
+    }
+
+    pub fn dst_dir(&self) -> &PathBuf {
+        &self.dst_dir
+    }
+
+    pub fn search_fp(&self) -> f64 {
+        self.search_fp
+    }
+
+    /// ソースファイルの出力先のをパスを返します。
+    pub fn dst_path_of(&self, src_path: impl AsRef<Path>) -> PathBuf {
+        let src_path = src_path.as_ref();
+        let mut rel = src_path.path_from(self.src_dir()).unwrap();
+        if rel.extension_is("md") {
+            rel = rel.with_extension("html");
+        }
+        self.dst_dir().join(rel)
     }
 }

@@ -2,10 +2,14 @@ mod build;
 mod clean;
 mod init;
 
+use std::path::Path;
+
 use anyhow::{bail, Result};
 use clap::Subcommand;
 
-#[derive(Debug, Subcommand)]
+use crate::config::{Config, FileConfig};
+
+#[derive(PartialEq, Eq, Debug, Subcommand)]
 pub enum Command {
     Init,
     Build {
@@ -19,22 +23,39 @@ impl Command {
     pub fn exec(&self) -> Result<()> {
         match &self {
             Self::Init => init::init(),
-            Self::Build { render_draft } => build::build(*render_draft),
-            Self::Clean => clean::clean(),
+            Self::Build { render_draft } => {
+                goto_zakki_root()?;
+                let file_cfg = FileConfig::load()?;
+                let pwd = std::env::current_dir()?;
+                let cfg = Config::new(file_cfg, *render_draft, pwd.join("src"), pwd.join("build"));
+                build::build(&cfg)
+            }
+            Self::Clean => {
+                let dst_dir = std::env::current_dir()?.join("dst");
+                clean::clean(&dst_dir)
+            }
         }
     }
 }
 
-pub fn ensure_pwd_is_book_root_dir() -> Result<()> {
+/// Goto the root directory, which has the zakki.toml file.
+pub fn goto_zakki_root() -> Result<()> {
     let pwd = std::env::current_dir()?;
-    let pwd_contains_cfg = std::fs::read_dir(pwd)?
-        .filter_map(|f| f.ok())
-        .map(|f| f.file_name())
-        .any(|f| &f == "config.toml");
+    let mut dir: Option<&Path> = Some(pwd.as_ref());
 
-    if !pwd_contains_cfg {
-        bail!("Current directory does not have config.toml")
+    while let Some(d) = dir {
+        let dir_contains_cfg = std::fs::read_dir(d)?
+            .filter_map(|f| f.ok())
+            .map(|f| f.file_name())
+            .any(|f| &f == "zakki.toml");
+
+        if dir_contains_cfg {
+            std::env::set_current_dir(d)?;
+            return Ok(());
+        } else {
+            dir = d.parent();
+        }
     }
 
-    Ok(())
+    bail!("Failed to detect zakki root.");
 }

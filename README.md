@@ -1,7 +1,7 @@
 # zakki
 
 `zakki` は静的サイトジェネレーターです。<br>
-`zakki` の目的は、クライアント側の処理を減らすことです。
+`zakki` は、インターネットのない状況下でも `file://` 経由で完全に動作することを目的としています。
 
 Markdown から HTML への変換には [`pulldown-cmark`](https://docs.rs/pulldown-cmark/latest/pulldown_cmark/) を使っています。<br>
 `zakki` は `pulldown-cmark` が扱えない構文を扱えません。
@@ -12,6 +12,7 @@ Markdown から HTML への変換には [`pulldown-cmark`](https://docs.rs/pulld
 - 下書きを HTML に変換しない機能
 - コードハイライト
 - ページの暗号化
+- サイト内検索
 
 ## 使い方
 
@@ -21,12 +22,13 @@ Markdown から HTML への変換には [`pulldown-cmark`](https://docs.rs/pulld
 
 ### 設定ファイル
 
-設定は `config.toml` に記述します。
+設定は `zakki.toml` に記述します。
 
 ```toml
-site_name = "(必須) サイト名を指摘します。"
+site_name = "(必須) サイト名を指定します。"
 password = "(任意) 暗号化用のパスワードを指定します。"
-footer = "(任意) フッターの内容を HTML で記述します。"
+footer = "(任意) フッターの内容を HTML で指定します。"
+search_fp = "(任意) サイト内検索の偽陽性率を指定します。デフォルトは 0.0001 (0.01%) です。"
 ```
 
 ### ページのメタデータ
@@ -35,8 +37,9 @@ footer = "(任意) フッターの内容を HTML で記述します。"
 
 ```md
 ---
-date: 2024-05-13
-tag: [数学]
+create: 2024-05-13 # 記事の作成日
+update: 2024-08-15 # 記事の最終更新日
+tag: [数学, tips]  # 記事に付けるタグ
 ---
 
 # 見出し
@@ -50,7 +53,8 @@ tag: [数学]
 
 ```md
 ---
-date: 2024-05-12
+create: 2024-05-13
+update: 2024-08-15
 tag: [test]
 flag: [draft]
 ---
@@ -67,7 +71,8 @@ flag: [draft]
 
 ````md
 ---
-date: 2022-05-15
+create: 2024-05-13
+update: 2024-08-15
 tag: [misc]
 highlight:
   - { before: "r@(.*?)@", after: '<span style="color:red">$1</span>' }
@@ -88,7 +93,8 @@ r@ここは赤@g@ここは緑@b@ここは青@
 
 ```md
 ---
-date: 2024-05-12
+create: 2024-05-13
+update: 2024-08-15
 tag: [test]
 flag: [crypto]
 ---
@@ -103,3 +109,11 @@ flag: [crypto]
 [staticrypt](https://github.com/robinmoisson/staticrypt) と同様の仕組みでページを暗号化しています。<br>
 ページの生成時に、内容は aes256cbc で暗号化されます。<br>
 ページの表示時に、パスワードが入力されると javascript で復号します。<br>
+
+
+### サイト内検索
+
+サイト内検索には [bloom fileter](https://ja.wikipedia.org/wiki/%E3%83%96%E3%83%AB%E3%83%BC%E3%83%A0%E3%83%95%E3%82%A3%E3%83%AB%E3%82%BF) を用いています。
+Bloom filter はメタデータの小ささと引き換えに、偽陽性を許すアルゴリズムです。
+`zakki.toml` の `search_fp` を使うと、この偽陽性率の目安を指定できます。
+小さい数値を指定するほど、メタデータのサイズが大きくなります。

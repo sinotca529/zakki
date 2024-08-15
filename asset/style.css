@@ -1,12 +1,13 @@
 :root {
   --header-bg: #202020;
-  --background-color-body: snow;
-  --background-color-pre: whitesmoke;
-  --border-color-table: black;
-  --color-tag-fg: white;
-  --color-tag-bg: #202020;
-  --color-footnote: gray;
-  --color-blockquote-border: gray;
+  --header-fg: #ffffff;
+  --body-bg: snow;
+  --pre-bg: whitesmoke;
+  --table-border: black;
+  --tag-fg: white;
+  --tag-bg: #202020;
+  --footnote-fg: gray;
+  --blockquote-border: gray;
 }
 
 html {
@@ -17,26 +18,76 @@ html {
 }
 
 body {
-  background-color: var(--background-color-body);
+  background-color: var(--body-bg);
   font-size: 1rem;
   margin: 0;
 }
 
 header {
   text-align: center;
-  padding: 2rem 0;
+  padding: 0;
   background-color: var(--header-bg);
-  color: #fff;
+  color: var(--header-fg);
+
+  h1 {
+    padding: .1rem 0;
+    font-size: 1.25rem;
+
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
+  }
 }
 
-header>h1 {
-  margin: 0;
-  font-size: 2.5rem;
+#menu-bar {
+  display: flex;
+  padding: 0 1em;
 }
 
-header>h1>a {
-  text-decoration: none;
-  color: #fff;
+#menu-title {
+  flex: 1;
+}
+
+#search-toggle {
+  display: inline-block;
+  height: 100%;
+
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  color: var(--header-fg);
+
+  &:hover {
+    background: white;
+  }
+
+  &:before {
+    content: "Q"
+  }
+}
+
+#searchbar {
+  margin: 1em auto;
+  max-width: 90%;
+}
+
+#search_input {
+  width: 100%;
+  font-size: 1rem;
+  background-color: var(--body-bg);
+  margin: 1em 0;
+  border: none;
+}
+
+#search_result {
+
+
+}
+
+.hidden {
+  display: none;
 }
 
 main {
@@ -47,18 +98,18 @@ main {
   padding: 0 1rem;
 }
 
-/* フッター */
 footer {
   text-align: center;
   padding: 1rem 0;
   background-color: var(--header-bg);
-  color: #fff;
+  color: var(--header-fg);
   width: 100%;
+
+  >p {
+    margin: 0;
+  }
 }
 
-footer>p {
-  margin: 0;
-}
 
 .card {
   text-decoration: none;
@@ -70,7 +121,6 @@ footer>p {
   margin: 0.5rem 0;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   background-color: #fff;
-  transition: background-color 0.2s;
 }
 
 .card:hover {
@@ -102,24 +152,20 @@ footer>p {
   display: inline-block;
   margin-right: 0.5rem;
   padding: 0.25rem 0.5rem;
-  background-color: var(--color-tag-bg);
-  color: var(--color-tag-fg);
+  background-color: var(--tag-bg);
+  color: var(--tag-fg);
   border-radius: 4px;
   text-decoration: none;
 }
 
-.tag:hover {
-  background-color: var(--color-tag-bg);
-}
-
 code {
   font-family: Consolas, "Meiryo UI", "Courier New", Monaco, monospace;
-  background-color: var(--background-color-pre);
+  background-color: var(--pre-bg);
 }
 
 pre {
   font-size: 0.8rem;
-  background-color: var(--background-color-pre);
+  background-color: var(--pre-bg);
   white-space: pre-wrap;
   margin: 1em;
   padding: 1em;
@@ -135,7 +181,7 @@ table {
 table,
 td,
 th {
-  border: 1px var(--border-color-table) solid;
+  border: 1px var(--table-border) solid;
   padding: 0.5em;
 }
 
@@ -146,16 +192,16 @@ th {
   padding-left: 0.5ch;
   white-space: nowrap;
   text-decoration: none;
-  color: var(--color-tag-fg);
+  color: var(--tag-fg);
 }
 
 .footnote-definition {
   font-size: medium;
-  color: var(--color-footnote);
-}
+  color: var(--footnote-fg);
 
-.footnote-definition>p {
-  display: inline;
+  >p {
+    display: inline;
+  }
 }
 
 .footnote-definition-label {
@@ -163,6 +209,6 @@ th {
 }
 
 blockquote {
-  border-left: 3px solid var(--color-blockquote-border);
+  border-left: 3px solid var(--blockquote-border);
   padding-left: 0.5em;
 }

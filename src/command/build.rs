@@ -1,54 +1,39 @@
-mod content;
 mod renderer;
 
-use super::{clean::clean, ensure_pwd_is_book_root_dir};
-use crate::{
-    config::{Config, FileConfig},
-    path::src_dir,
-};
+use super::clean::clean;
+use crate::util::PathExt as _;
+use crate::{config::Config, util::write_file};
 use anyhow::{Context, Result};
-use content::Content;
+use rayon::prelude::*;
+use renderer::Metadata;
 use renderer::Renderer;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-pub fn build(render_draft: bool) -> Result<()> {
-    ensure_pwd_is_book_root_dir()?;
-    clean()?;
+pub fn build(cfg: &Config) -> Result<()> {
+    clean(cfg.dst_dir())?;
 
-    let cfg = {
-        let file_cfg = FileConfig::load()?;
-        Config::new(file_cfg, render_draft)
-    };
-
-    let mut renderer = Renderer::new(cfg);
+    let renderer = Renderer::new(cfg);
     renderer.render_assets()?;
 
-    visit_files_recursively(src_dir(), |p| {
-        let content = Content::new(p.clone()).with_context(|| p.to_str().unwrap().to_owned())?;
-        renderer.render(content)?;
-        Ok(())
-    })?;
+    let files = cfg.src_dir().descendants_file_paths()?;
 
-    renderer.save_metadata()?;
+    // 並列レンダリング
+    let metadatas: Vec<Option<Metadata>> = files
+        .par_iter()
+        .map(|p: &PathBuf| -> Result<Option<Metadata>> {
+            renderer
+                .render(p.clone())
+                .with_context(|| p.to_string_lossy().to_string())
+        })
+        .collect::<Result<Vec<Option<Metadata>>>>()?;
 
-    Ok(())
-}
+    // メタデータの書き出し
+    let metas: Vec<_> = metadatas.into_iter().flatten().collect();
 
-fn visit_files_recursively(
-    dir: impl AsRef<Path>,
-    mut operator: impl FnMut(PathBuf) -> Result<()>,
-) -> Result<()> {
-    let dir = dir.as_ref();
-    let mut work_list: Vec<PathBuf> = vec![dir.into()];
-    while let Some(dir) = work_list.pop() {
-        for e in std::fs::read_dir(&dir)? {
-            let path = e?.path();
-            if path.is_dir() {
-                work_list.push(path);
-            } else {
-                operator(path)?;
-            }
-        }
-    }
+    let js = serde_json::to_string(&metas)?;
+    let content = format!("const METADATA={js}");
+    let dst = cfg.dst_dir().join("metadata.js");
+    write_file(dst, content)?;
+
     Ok(())
 }

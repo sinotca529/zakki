@@ -1,6 +1,6 @@
 [package]
 name = "zakki"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 
 [dependencies]
@@ -10,11 +10,16 @@ base64 = "0.22.1"
 cbc = { version = "0.1.2", features = ["std"] }
 clap = { version = "4.5.4", features = ["derive"] }
 dialoguer = "0.11.0"
+icu_segmenter = { version = "1.5.0", features = ["compiled_data"] }
+itertools = "0.13.0"
 latex2mathml = "0.2.3"
 pathdiff = "0.2.1"
 pulldown-cmark = { version = "0.11.0", features = ["simd"] }
 rand = "0.8.5"
+rayon = "1.10.0"
 regex = "1.10.4"
+rust_icu = "5.0.0"
+scraper = "0.20.0"
 serde = { version = "1.0.200", features = ["derive"] }
 serde_json = "1.0.116"
 serde_yaml = "0.9.34"
