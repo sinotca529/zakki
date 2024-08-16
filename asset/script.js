@@ -36,7 +36,6 @@ function tagMain() {
 
   const fragment = document.createDocumentFragment();
   METADATA.filter((page) => page.tags.includes(tag))
-    .sort((a, b) => b.update.localeCompare(a.update))
     .forEach((page) => fragment.appendChild(createCard(page)));
 
   document.getElementById("contents-list").appendChild(fragment);
@@ -45,7 +44,7 @@ function tagMain() {
 function renderPageList() {
   const fragment = document.createDocumentFragment();
 
-  METADATA.sort((a, b) => b.update.localeCompare(a.update)).forEach((page) =>
+  METADATA.forEach((page) =>
     fragment.appendChild(createCard(page)),
   );
 

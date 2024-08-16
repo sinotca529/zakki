@@ -84,10 +84,6 @@ header {
   &:hover {
     background: var(--header-hover-bg);
   }
-
-  /* &:before { */
-  /*   content: "Q" */
-  /* } */
 }
 
 #searchbar {

@@ -28,7 +28,11 @@ pub fn build(cfg: &Config) -> Result<()> {
         .collect::<Result<Vec<Option<Metadata>>>>()?;
 
     // メタデータの書き出し
-    let metas: Vec<_> = metadatas.into_iter().flatten().collect();
+    let mut metas: Vec<_> = metadatas.into_iter().flatten().collect();
+    metas.sort_unstable_by(|a, b| match (a.last_update_date(), b.last_update_date()) {
+        (Ok(a), Ok(b)) => b.cmp(a),
+        _ => std::cmp::Ordering::Equal,
+    });
 
     let js = serde_json::to_string(&metas)?;
     let content = format!("const METADATA={js}");
