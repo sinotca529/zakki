@@ -15,7 +15,7 @@ pub use metadata::{Flag, HighlightMacro, Metadata};
 use pulldown_cmark::{
     CodeBlockKind, Event, HeadingLevel, MetadataBlockKind, Options, Parser, Tag, TagEnd,
 };
-use scraper::Html;
+use scraper::{Html, Selector};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read as _;
@@ -224,9 +224,17 @@ impl<'a> Renderer<'a> {
     }
 
     fn make_bloom_filter(&self, html: &str, meta: &mut Metadata) -> Result<()> {
+        if meta.flags()?.contains(&Flag::Crypto) {
+            meta.set_bloom_filter(String::new());
+            meta.set_bloom_num_hash(0);
+            return Ok(())
+        }
+
         // HTML からテキストを抜き出す
         let text = Html::parse_document(html)
-            .root_element()
+            .select(&Selector::parse("#main-content").unwrap())
+            .next()
+            .ok_or_else(|| anyhow!("No body element"))?
             .text()
             .collect::<Vec<_>>()
             .join(" ");
