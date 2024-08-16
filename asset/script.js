@@ -29,9 +29,10 @@ function tagMain() {
   const params = new URLSearchParams(window.location.search);
   if (!params.has("tag")) return;
   const tag = params.get("tag");
+  const tagElem = createTagElem(tag);
 
-  document.getElementById("title").innerHTML = `タグ : ${tag} のついたページ`;
-  document.getElementsByTagName("title")[0].innerHTML = `タグ: ${tag}`;
+  document.getElementById("tag-title").appendChild(tagElem);
+  document.getElementsByTagName("title")[0].innerHTML = `Filter: ${tag}`;
 
   const fragment = document.createDocumentFragment();
   METADATA.filter((page) => page.tags.includes(tag))

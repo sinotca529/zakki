@@ -172,6 +172,11 @@ main {
   white-space: nowrap;
 }
 
+#tag-title {
+  display: flex;
+  gap: 1rem;
+}
+
 pre {
   background-color: var(--pre-bg);
   white-space: pre;
