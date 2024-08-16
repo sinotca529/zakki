@@ -23,7 +23,7 @@ macro_rules! include_asset {
 /// ファイルの内容はコンパイル時にバイナリに埋め込まれます
 #[macro_export]
 macro_rules! copy_asset {
-    ($fname:literal, $to:expr) => {{
+    ($fname:expr, $to:expr) => {{
         let path = $to.join($fname);
         if path.exists() {
             Ok(())

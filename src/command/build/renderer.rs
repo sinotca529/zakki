@@ -11,7 +11,6 @@ use anyhow::{anyhow, bail, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use icu_segmenter::WordSegmenter;
 use itertools::Itertools;
-use latex2mathml::{latex_to_mathml, DisplayStyle};
 pub use metadata::{Flag, HighlightMacro, Metadata};
 use pulldown_cmark::{
     CodeBlockKind, Event, HeadingLevel, MetadataBlockKind, Options, Parser, Tag, TagEnd,
@@ -84,15 +83,26 @@ impl<'a> Renderer<'a> {
     }
 
     fn convert_math(events: &mut Vec<Event>) {
+        let opts_display = katex::Opts::builder()
+            .output_type(katex::opts::OutputType::Mathml)
+            .display_mode(true)
+            .build()
+            .unwrap();
+        let opts_inline = katex::Opts::builder()
+            .output_type(katex::opts::OutputType::Mathml)
+            .display_mode(false)
+            .build()
+            .unwrap();
+
         for e in events {
             match e {
                 Event::InlineMath(latex) => {
-                    let mathml = latex_to_mathml(latex, DisplayStyle::Inline).unwrap();
-                    *e = Event::InlineHtml(mathml.into());
+                    let math = katex::render_with_opts(latex, &opts_inline).unwrap();
+                    *e = Event::InlineHtml(math.into());
                 }
                 Event::DisplayMath(latex) => {
-                    let mathml = latex_to_mathml(latex, DisplayStyle::Block).unwrap();
-                    *e = Event::InlineHtml(mathml.into());
+                    let math = katex::render_with_opts(latex, &opts_display).unwrap();
+                    *e = Event::InlineHtml(math.into());
                 }
                 _ => {}
             }
@@ -312,6 +322,81 @@ impl<'a> Renderer<'a> {
         self.render_tag()?;
         copy_asset!("style.css", self.config.dst_dir())?;
         copy_asset!("script.js", self.config.dst_dir())?;
+
+        copy_asset!("katex/LICENSE", self.config.dst_dir())?;
+        copy_asset!("katex/katex.min.css", self.config.dst_dir())?;
+
+        macro_rules! copy_katex_fonts {
+            ($($font_name:literal),* $(,)?) => {
+                $(
+                    copy_asset!(concat!("katex/fonts/", $font_name), self.config.dst_dir())?;
+                )*
+            }
+        }
+
+        copy_katex_fonts!(
+            "KaTeX_AMS-Regular.ttf",
+            "KaTeX_AMS-Regular.woff",
+            "KaTeX_AMS-Regular.woff2",
+            "KaTeX_Caligraphic-Bold.ttf",
+            "KaTeX_Caligraphic-Bold.woff",
+            "KaTeX_Caligraphic-Bold.woff2",
+            "KaTeX_Caligraphic-Regular.ttf",
+            "KaTeX_Caligraphic-Regular.woff",
+            "KaTeX_Caligraphic-Regular.woff2",
+            "KaTeX_Fraktur-Bold.ttf",
+            "KaTeX_Fraktur-Bold.woff",
+            "KaTeX_Fraktur-Bold.woff2",
+            "KaTeX_Fraktur-Regular.ttf",
+            "KaTeX_Fraktur-Regular.woff",
+            "KaTeX_Fraktur-Regular.woff2",
+            "KaTeX_Main-BoldItalic.ttf",
+            "KaTeX_Main-BoldItalic.woff",
+            "KaTeX_Main-BoldItalic.woff2",
+            "KaTeX_Main-Bold.ttf",
+            "KaTeX_Main-Bold.woff",
+            "KaTeX_Main-Bold.woff2",
+            "KaTeX_Main-Italic.ttf",
+            "KaTeX_Main-Italic.woff",
+            "KaTeX_Main-Italic.woff2",
+            "KaTeX_Main-Regular.ttf",
+            "KaTeX_Main-Regular.woff",
+            "KaTeX_Main-Regular.woff2",
+            "KaTeX_Math-BoldItalic.ttf",
+            "KaTeX_Math-BoldItalic.woff",
+            "KaTeX_Math-BoldItalic.woff2",
+            "KaTeX_Math-Italic.ttf",
+            "KaTeX_Math-Italic.woff",
+            "KaTeX_Math-Italic.woff2",
+            "KaTeX_SansSerif-Bold.ttf",
+            "KaTeX_SansSerif-Bold.woff",
+            "KaTeX_SansSerif-Bold.woff2",
+            "KaTeX_SansSerif-Italic.ttf",
+            "KaTeX_SansSerif-Italic.woff",
+            "KaTeX_SansSerif-Italic.woff2",
+            "KaTeX_SansSerif-Regular.ttf",
+            "KaTeX_SansSerif-Regular.woff",
+            "KaTeX_SansSerif-Regular.woff2",
+            "KaTeX_Script-Regular.ttf",
+            "KaTeX_Script-Regular.woff",
+            "KaTeX_Script-Regular.woff2",
+            "KaTeX_Size1-Regular.ttf",
+            "KaTeX_Size1-Regular.woff",
+            "KaTeX_Size1-Regular.woff2",
+            "KaTeX_Size2-Regular.ttf",
+            "KaTeX_Size2-Regular.woff",
+            "KaTeX_Size2-Regular.woff2",
+            "KaTeX_Size3-Regular.ttf",
+            "KaTeX_Size3-Regular.woff",
+            "KaTeX_Size3-Regular.woff2",
+            "KaTeX_Size4-Regular.ttf",
+            "KaTeX_Size4-Regular.woff",
+            "KaTeX_Size4-Regular.woff2",
+            "KaTeX_Typewriter-Regular.ttf",
+            "KaTeX_Typewriter-Regular.woff",
+            "KaTeX_Typewriter-Regular.woff2",
+        );
+
         Ok(())
     }
 
