@@ -11,31 +11,18 @@ function toggleSearchInput() {
 }
 
 function createCard(page) {
-  const header = document.createElement("div");
-  header.className = "card-header";
-  header.innerHTML = page.title;
+  const card = document.getElementById('card-template');
 
-  const date = document.createElement("div");
-  date.className = "card-date";
-  date.innerHTML = page.update;
+  const content = card.content.cloneNode(true);
+  content.querySelector('.card').href = page.path;
+  content.querySelector('.card-header').innerHTML = page.title;
+  content.querySelector('.card-date').innerHTML = page.update;
 
-  const tags = document.createElement("div");
-  tags.className = "card-tags";
+  const tags = content.querySelector('.card-tags');
+  tags.innerHTML = '';
   page.tags.forEach(tagName => tags.appendChild(createTagElem(tagName)));
 
-  const meta = document.createElement("div");
-  meta.className = "card-meta";
-  meta.appendChild(date);
-  meta.appendChild(tags);
-
-  const card = document.createElement("a");
-  card.className = "card";
-  card.href = page.path;
-  if (page.flags.includes("crypto")) card.classList.add("crypto");
-  card.appendChild(header);
-  card.appendChild(meta);
-
-  return card;
+  return content;
 }
 
 function tagMain() {
