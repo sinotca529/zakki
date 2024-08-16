@@ -24,7 +24,26 @@ body {
   background-color: var(--body-bg);
   font-size: 1.2rem;
   margin: 0;
+  min-height: 100vh;
+  box-sizing: border-box;
+  position: relative;
+  padding-bottom: 10rex;
 }
+
+footer {
+  position: absolute;
+  bottom: 0;
+  text-align: center;
+  padding: 1rem 0;
+  background-color: var(--header-bg);
+  color: var(--header-fg);
+  width: 100%;
+
+  >p {
+    margin: 0;
+  }
+}
+
 
 header {
   text-align: center;
@@ -98,18 +117,6 @@ main {
   margin-top: 2rem;
   margin-bottom: 2rem;
   padding: 0 1rem;
-}
-
-footer {
-  text-align: center;
-  padding: 1rem 0;
-  background-color: var(--header-bg);
-  color: var(--header-fg);
-  width: 100%;
-
-  >p {
-    margin: 0;
-  }
 }
 
 
