@@ -149,11 +149,12 @@ function searchAndRender() {
     const query = document.getElementById("search_input").value;
 
     const result = search(query);
+    const path_to_root = document.head.querySelector('meta[name="path_to_root"]').content ?? "";
     const html = result
-      .map(
-        (r) =>
-          `<div><a href="${r.path}">${r.title}</a><span style="color:gray;margin-left:1em;">MatchRate:${r.rate}</span></div>`,
-      )
+      .map((r) => {
+        const path = r.path;
+        return `<div><a href="${path_to_root}/${path}">${r.title}</a><span style="color:gray;margin-left:1em;">MatchRate:${r.rate}</span></div>`;
+      })
       .join("");
 
     document.getElementById("search_result").innerHTML = html;

@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="date" content="{last_update_date}" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="path_to_root" content="{path_to_root}">
     <link rel="stylesheet" href="{path_to_root}/katex/katex.min.css" />
     <link rel="stylesheet" href="{path_to_root}/style.css" />
     <script defer type="text/javascript" src="{path_to_root}/metadata.js"></script>
@@ -13,11 +14,11 @@
   <body>
     {header}
     <main>
-      <section>
-        <div>Created: {create_date}, LastUpdate: {last_update_date}</div>
-        <div>{tag_elems}</div>
+      <div>Created: {create_date}, LastUpdate: {last_update_date}</div>
+      <div>{tag_elems}</div>
+      <div id="main-content">
         {body}
-      </section>
+      </div>
     </main>
     <footer>{footer_text}</footer>
   </body>
