@@ -136,11 +136,7 @@ main {
 }
 
 .card.crypto .card-header::after {
-  content: url('./icon/lock.svg');
-  display: inline-block;
-  color: red;
-  width: 1.4rch;
-  height: 1.4rcap;
+  content: "🔒";
 }
 
 .card-meta {
