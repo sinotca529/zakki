@@ -11,10 +11,13 @@ function toggleSearchInput() {
 }
 
 function createCard(page) {
-  const card = document.getElementById('card-template');
+  const template = document.getElementById('card-template');
 
-  const content = card.content.cloneNode(true);
-  content.querySelector('.card').href = page.path;
+  const content = template.content.cloneNode(true);
+  const card = content.querySelector('.card');
+  card.href = page.path;
+  if (page.flags.includes('crypto')) card.classList.add('crypto');
+
   content.querySelector('.card-header').innerHTML = page.title;
   content.querySelector('.card-date').innerHTML = page.update;
 
