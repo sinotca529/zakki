@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script type="text/javascript" src="{path_to_root}/script.js"></script>
+    <script>
+      // string -> ()
+      function setTheme(theme) {{
+        if (theme === '') document.documentElement.removeAttribute('theme');
+        else document.documentElement.setAttribute('theme', 'dark');
+        localStorage.setItem('theme', theme);
+      }}
+      setTheme(localStorage.getItem('theme') ?? '');
+    </script>
   </head>
   <body data-page="crypto" data-cypher="{encoded}">
     <h1>This page is protected.</h1>

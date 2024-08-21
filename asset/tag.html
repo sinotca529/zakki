@@ -9,6 +9,15 @@
     <script defer type="text/javascript" src="script.js"></script>
     <script defer type="text/javascript" src="metadata.js"></script>
     <title></title>
+    <script>
+      // string -> ()
+      function setTheme(theme) {{
+        if (theme === '') document.documentElement.removeAttribute('theme');
+        else document.documentElement.setAttribute('theme', 'dark');
+        localStorage.setItem('theme', theme);
+      }}
+      setTheme(localStorage.getItem('theme') ?? '');
+    </script>
   </head>
   <body data-page="tag">
     <template id="card-template">

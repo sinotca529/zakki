@@ -109,6 +109,19 @@ function tokenize(text) {
 }
 
 //-----------------------------------------------------
+// Theme
+//-----------------------------------------------------
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('theme');
+  if (currentTheme === 'dark') {
+    setTheme('');
+  } else {
+    setTheme('dark');
+  }
+}
+
+//-----------------------------------------------------
 // Search
 //-----------------------------------------------------
 

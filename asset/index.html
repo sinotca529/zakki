@@ -8,6 +8,15 @@
     <script defer type="text/javascript" src="metadata.js"></script>
     <script defer type="text/javascript" src="script.js"></script>
     <title>{site_name}</title>
+    <script>
+      // string -> ()
+      function setTheme(theme) {{
+        if (theme === '') document.documentElement.removeAttribute('theme');
+        else document.documentElement.setAttribute('theme', 'dark');
+        localStorage.setItem('theme', theme);
+      }}
+      setTheme(localStorage.getItem('theme') ?? '');
+    </script>
   </head>
 
   <body data-page="index">
