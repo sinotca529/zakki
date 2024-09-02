@@ -1,4 +1,9 @@
 :root {
+  --code-font: "Source Code Pro", Consolas, "Ubuntu Mono", Menlo, "DejaVu Sans Mono", monospace, monospace;
+  --main-font: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+}
+
+:root {
   --header-bg: #FFFAFA;
   --header-hover-bg: #ddd;
   --header-fg: black;
@@ -11,36 +16,38 @@
   --footnote-fg: gray;
   --supressed-fg: #666;
   --blockquote-border: gray;
-  --code-font: "Source Code Pro", Consolas, "Ubuntu Mono", Menlo, "DejaVu Sans Mono", monospace, monospace;
-  --main-font: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
   --card-border: #ccc;
   --card-bg: #FFFFFF;
   --card-hover-bg: #f5f5f5;
+  --a-fg: #567180;
 }
 
 :root[theme="dark"] {
-  --header-bg: #353535; /* ヘッダー背景色をダークグレーに */
-  --header-hover-bg: #333; /* ヘッダーのホバー時の背景色を少し明るめのダークグレーに */
-  --header-fg: #f2f2f2; /* ヘッダーテキスト色をライトグレーに */
-  --body-bg: #2A2A2A; /* ボディ背景色をほぼ黒に近いダークグレーに */
-  --text-fg: #D7D7D7; /* テキスト色を明るいグレーに */
-  --pre-bg: #2a2a2a; /* コードブロック背景色をミディアムグレーに */
-  --table-border: #666; /* テーブルの境界線を中程度のグレーに */
-  --tag-fg: #202020; /* タグのテキスト色を非常に濃いグレーに */
-  --tag-bg: #e0e0e0; /* タグ背景色を明るいグレーに変更 */
-  --footnote-fg: #bbbbbb; /* 脚注のテキスト色を薄いグレーに */
-  --supressed-fg: #999999; /* 抑制されたテキスト色をグレーに */
-  --blockquote-border: #555; /* 引用ブロックの境界線を中程度のダークグレーに */
-  --code-font: "Source Code Pro", Consolas, "Ubuntu Mono", Menlo, "DejaVu Sans Mono", monospace, monospace;
-  --main-font: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+  --header-bg: #2A2A2A;
+  --header-hover-bg: #333;
+  --header-fg: #f2f2f2;
+  --body-bg: #2A2A2A;
+  --text-fg: #D7D7D7;
+  --pre-bg: #2a2a2a;
+  --table-border: #666;
+  --tag-fg: #202020;
+  --tag-bg: #e0e0e0;
+  --footnote-fg: #bbbbbb;
+  --supressed-fg: #999999;
+  --blockquote-border: #555;
   --card-border: #ccc;
   --card-bg: #000000;
   --card-hover-bg: #0A0A0A;
+  --a-fg: #99c3db;
 }
 
 html {
   font-family: var(--main-font)
   padding: 0;
+}
+
+a {
+  color: var(--a-fg);
 }
 
 body {
@@ -112,12 +119,18 @@ header {
   max-width: 90%;
 }
 
-#search_input {
+#search-input {
   width: 100%;
   font-size: 1.4rem;
-  background-color: var(--body-bg);
+  background-color: inherit;
+  color: inherit;
   margin: 1rem 0;
   border: none;
+}
+
+#search-result {
+  background-color: inherit;
+  color: inherit;
 }
 
 .hidden {

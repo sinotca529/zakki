@@ -162,7 +162,7 @@ let debounceTimer;
 function searchAndRender() {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
-    const query = document.getElementById("search_input").value;
+    const query = document.getElementById("search-input").value;
 
     const result = search(query);
     const path_to_root = document.head.querySelector('meta[name="path_to_root"]').content ?? "";
@@ -173,7 +173,7 @@ function searchAndRender() {
       })
       .join("");
 
-    document.getElementById("search_result").innerHTML = html;
+    document.getElementById("search-result").innerHTML = html;
   }, 300);
 }
 
