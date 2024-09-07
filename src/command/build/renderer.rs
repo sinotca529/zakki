@@ -330,6 +330,7 @@ impl<'a> Renderer<'a> {
         self.render_tag()?;
         copy_asset!("style.css", self.config.dst_dir())?;
         copy_asset!("script.js", self.config.dst_dir())?;
+        copy_asset!("theme.js", self.config.dst_dir())?;
 
         copy_asset!("katex/LICENSE", self.config.dst_dir())?;
         copy_asset!("katex/katex.min.css", self.config.dst_dir())?;
