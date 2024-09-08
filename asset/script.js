@@ -7,54 +7,38 @@ function createTagElem(tagName) {
 }
 
 function toggleSearchInput() {
-  document
-    .getElementById('searchbar')
-    .classList
-    .toggle('hidden');
+  document.getElementById("searchbar").classList.toggle("hidden");
 }
 
 function createCard(page) {
-  const header = document.createElement("div");
-  header.className = "card-header";
-  header.innerHTML = page.title;
+  const template = document.getElementById('card-template');
 
-  const date = document.createElement("div");
-  date.className = "card-date";
-  date.innerHTML = page.update;
-
-  const tags = document.createElement("div");
-  tags.className = "card-tags";
-  page.tags.forEach((tagName) => {
-    const tag = createTagElem(tagName);
-    tags.appendChild(tag);
-  });
-
-  const meta = document.createElement("div");
-  meta.className = "card-meta";
-  meta.appendChild(date);
-  meta.appendChild(tags);
-
-  const card = document.createElement("a");
-  card.className = "card";
+  const content = template.content.cloneNode(true);
+  const card = content.querySelector('.card');
   card.href = page.path;
-  if (page.flags.includes("crypto")) card.classList.add("crypto");
-  card.appendChild(header);
-  card.appendChild(meta);
+  if (page.flags.includes('crypto')) card.classList.add('crypto');
 
-  return card;
+  content.querySelector('.card-header').innerHTML = page.title;
+  content.querySelector('.card-date').innerHTML = page.update;
+
+  const tags = content.querySelector('.card-tags');
+  tags.innerHTML = '';
+  page.tags.forEach(tagName => tags.appendChild(createTagElem(tagName)));
+
+  return content;
 }
 
 function tagMain() {
   const params = new URLSearchParams(window.location.search);
   if (!params.has("tag")) return;
   const tag = params.get("tag");
+  const tagElem = createTagElem(tag);
 
-  document.getElementById("title").innerHTML = `タグ : ${tag} のついたページ`;
-  document.getElementsByTagName("title")[0].innerHTML = `タグ: ${tag}`;
+  document.getElementById("tag-title").appendChild(tagElem);
+  document.getElementsByTagName("title")[0].innerHTML = `Filter: ${tag}`;
 
   const fragment = document.createDocumentFragment();
   METADATA.filter((page) => page.tags.includes(tag))
-    .sort((a, b) => b.update.localeCompare(a.update))
     .forEach((page) => fragment.appendChild(createCard(page)));
 
   document.getElementById("contents-list").appendChild(fragment);
@@ -63,7 +47,7 @@ function tagMain() {
 function renderPageList() {
   const fragment = document.createDocumentFragment();
 
-  METADATA.sort((a, b) => b.update.localeCompare(a.update)).forEach((page) =>
+  METADATA.forEach((page) =>
     fragment.appendChild(createCard(page)),
   );
 
@@ -78,9 +62,8 @@ function renderTagSet() {
   );
 
   const fragment = document.createDocumentFragment();
-  tagSet.forEach((tagName) => {
-    const tag = createTagElem(tagName);
-    fragment.appendChild(tag);
+  tagSet.forEach(tagName => {
+    fragment.appendChild(createTagElem(tagName));
     fragment.appendChild(document.createTextNode(" "));
   });
 
@@ -92,56 +75,30 @@ function indexMain() {
   renderTagSet();
 }
 
-async function decryptAes256Cbc(data, iv, key) {
-  const aesKey = await crypto.subtle.importKey(
-    "raw",
-    key,
-    { name: "AES-CBC" },
-    false,
-    ["decrypt"],
-  );
-  return crypto.subtle.decrypt({ name: "AES-CBC", iv: iv }, aesKey, data);
-}
+async function decryptPage() {
+  const pwd = document.getElementById("decrypt-key").value;
+  const key = await crypto.subtle.digest('SHA-256', Uint8Array.from(pwd, c => c.charCodeAt(0)));
 
-async function getAesKey() {
-  const key = document.getElementById("keyInput").value;
-  const keyData = new TextEncoder().encode(key);
-  return await crypto.subtle.digest("SHA-256", keyData);
-}
-
-function base64ToUint8Array(base64Str) {
-  const raw = atob(base64Str);
-  return Uint8Array.from(
-    Array.prototype.map.call(raw, (x) => {
-      return x.charCodeAt(0);
-    }),
-  );
-}
-
-async function decodeCypher() {
-  try {
-    const ivCypher = base64ToUint8Array(document.body.dataset.cypher);
-    const iv = ivCypher.slice(0, 16);
-    const cypher = ivCypher.slice(16);
-
-    let plain = await decryptAes256Cbc(cypher, iv,  await getAesKey());
-    plain = new TextDecoder().decode(plain);
-
-    document.documentElement.innerHTML = plain;
-  } catch {
-    alert("Failed to decrypto");
-  }
+  const ivCypher = document.body.dataset.cypher;
+  const plain = await decrypt(ivCypher, key);
+  document.getElementById('main-content').innerHTML = plain;
 }
 
 function cryptoMain() {
-  document.getElementById("keyInput").onkeydown = (e) => {
-    if (e.key === "Enter") decodeCypher();
-  };
+  document.getElementById("decrypt-key")
+    .addEventListener("keydown", async (e) => {
+      if (e.key === "Enter") await decryptPage();
+    });
+
+  document.getElementById("decrypt-btn")
+    .addEventListener("click", async (e) => {
+      await decryptPage();
+    });
 }
 
-// string -> [string]
+// (string) -> [string]
 function tokenize(text) {
-  if (!('Segmenter' in Intl)) {
+  if (!("Segmenter" in Intl)) {
     alert("このブラウザはSegmenterをサポートしていません。");
     return null;
   }
@@ -151,60 +108,53 @@ function tokenize(text) {
   return Array.from(segments.map(s => s.segment));
 }
 
-// string -> bigint
-function fxhash64(str) {
-  const SEED = 0x517cc1b727220a95n;
-  let v = 0n;
-  for (const c of new TextEncoder().encode(str)) {
-    v = (v << 5n) | (v >> 59n); // rotate left 5
-    v ^= BigInt(c);
-    v *= SEED;
-    v &= 0xffffffffffffffffn; // 64 bit に切り詰める
+//-----------------------------------------------------
+// Theme
+//-----------------------------------------------------
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('theme');
+  if (currentTheme === 'dark') {
+    setTheme('');
+  } else {
+    setTheme('dark');
   }
-  return v;
 }
 
-// str に対応する n 個のハッシュ値を返す
-// (string, number) -> [number; n]
-function fxhash32_multi(str, n) {
-  const hash64 = fxhash64(str);
-  const hash1 = Number(hash64 & 0xFFFFFFFFn);
-  const hash2 = Number(hash64 >> 32n);
+//-----------------------------------------------------
+// Search
+//-----------------------------------------------------
 
-  // INFO: 論理右シフトは符号なし 32 ビット整数を返す
-  // see: https://developer.mozilla.org/ja/docs/Web/JavaScript/Reference/Operators/Unsigned_right_shift
-  return Array.from({ length: n }, (_, i) => (hash1 + (hash2 * i)) >>> 0);
+// (json, Set<string>) -> json
+function searchPage(meta, words) {
+  const filter = b64ToU8Arr(meta.bloom_filter);
+  const num_hash = meta.bloom_num_hash;
+  const num_bit = filter.byteLength * 8;
+
+  let num_hit_word = 0;
+  for (const word of words) {
+    const hashes = fxhash32_multi(word, num_hash).map((h) => h % num_bit);
+    const hit = hashes.every(h => filter[(h / 8) | 0] & (1 << h % 8));
+    if (hit) num_hit_word += 1;
+  }
+
+  return {
+    title: meta.title,
+    path: meta.path,
+    rate: words.size === 0 ? 0 : num_hit_word / words.size,
+  };
 }
 
 function search(query) {
   if (!query) return [];
 
-  const words = new Set(
-    tokenize(query)
-      .filter(w => w.trim() !== "")
-      .map(w => w.toLowerCase())
-  );
+  const words = new Set(tokenize(query).flatMap(w => w.trim() ? w.toLowerCase() : []));
 
   return METADATA
-    .map(m => {
-      const filter = base64ToUint8Array(m.bloom_filter);
-      const num_hash = m.bloom_num_hash;
-      const num_bit = filter.byteLength * 8;
-
-      let num_hit_word = 0;
-      for (const word of words) {
-        const hashes = fxhash32_multi(word, num_hash).map(h => h % num_bit);
-        const hit = hashes.every(h => (filter[(h / 8) | 0] & (1 << (h % 8))) != 0);
-        if (hit) num_hit_word += 1;
-      }
-
-      return {
-        title: m.title,
-        path: m.path,
-        rate: num_hit_word / words.size
-      };
+    .flatMap((m) => {
+      const r = searchPage(m, words);
+      return r.rate ? r : [];
     })
-    .filter(d => d.rate !== 0)
     .sort((a, b) => b.rate - a.rate);
 }
 
@@ -212,18 +162,24 @@ let debounceTimer;
 function searchAndRender() {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
-    const query = document
-      .getElementById('search_input')
-      .value;
+    const query = document.getElementById("search-input").value;
 
     const result = search(query);
+    const path_to_root = document.head.querySelector('meta[name="path_to_root"]').content ?? "";
     const html = result
-      .map(r => `<div><a href="${r.path}">${r.title}</a><span style="color:gray;margin-left:1em;">MatchRate:${r.rate}</span></div>`)
-      .join('');
+      .map((r) => {
+        const path = r.path;
+        return `<div><a href="${path_to_root}/${path}">${r.title}</a><span style="color:gray;margin-left:1em;">MatchRate:${r.rate}</span></div>`;
+      })
+      .join("");
 
-    document.getElementById('search_result').innerHTML = html;
+    document.getElementById("search-result").innerHTML = html;
   }, 300);
 }
+
+//-----------------------------------------------------
+// Main
+//-----------------------------------------------------
 
 window.addEventListener("DOMContentLoaded", () => {
   switch (document.body.dataset.page) {
@@ -238,3 +194,63 @@ window.addEventListener("DOMContentLoaded", () => {
       break;
   }
 });
+
+//-----------------------------------------------------
+// Hash
+//-----------------------------------------------------
+
+// string -> bigint (64-bit)
+function fxhash64(str) {
+  const SEED = 0x517cc1b727220a95n;
+  let v = 0n;
+  for (const c of new TextEncoder().encode(str)) {
+    v = (v << 5n) | (v >> 59n); // rotate left 5
+    v ^= BigInt(c);
+    v *= SEED;
+    v &= 0xffffffffffffffffn; // 64-bit に切り詰める
+  }
+  return v;
+}
+
+// str に対応する n 個のハッシュ値を返す
+// (string, number) -> [number (32-bit); n]
+function fxhash32_multi(str, n) {
+  const hash64 = fxhash64(str);
+  const h1 = Number(hash64 & 0xffffffffn);
+  const h2 = Number(hash64 >> 32n);
+  // INFO: 論理右シフトは符号なし 32 ビット整数を返す
+  return Array.from({ length: n }, (_, i) => (h1 + h2 * i) >>> 0);
+}
+
+//-----------------------------------------------------
+// Crypto
+//-----------------------------------------------------
+
+// (string, string) -> string
+async function decrypt(ivCypher, key) {
+  ivCypher = b64ToU8Arr(ivCypher);
+  const iv = ivCypher.slice(0, 16);
+  const cypher = ivCypher.slice(16);
+
+  const aesKey = await crypto.subtle.importKey(
+      'raw',
+      key,
+      { name: 'AES-CBC' },
+      false,
+      ['decrypt'],
+    );
+
+  const plain = await crypto
+    .subtle
+    .decrypt({ name: 'AES-CBC', iv: iv}, aesKey, cypher);
+
+  return new TextDecoder().decode(plain);
+}
+
+//-----------------------------------------------------
+// Misc
+//-----------------------------------------------------
+
+function b64ToU8Arr(b64) {
+  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}

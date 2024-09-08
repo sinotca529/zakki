@@ -11,12 +11,11 @@ use anyhow::{anyhow, bail, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use icu_segmenter::WordSegmenter;
 use itertools::Itertools;
-use latex2mathml::{latex_to_mathml, DisplayStyle};
 pub use metadata::{Flag, HighlightMacro, Metadata};
 use pulldown_cmark::{
     CodeBlockKind, Event, HeadingLevel, MetadataBlockKind, Options, Parser, Tag, TagEnd,
 };
-use scraper::Html;
+use scraper::{Html, Selector};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read as _;
@@ -84,15 +83,26 @@ impl<'a> Renderer<'a> {
     }
 
     fn convert_math(events: &mut Vec<Event>) {
+        let opts_display = katex::Opts::builder()
+            .output_type(katex::opts::OutputType::Mathml)
+            .display_mode(true)
+            .build()
+            .unwrap();
+        let opts_inline = katex::Opts::builder()
+            .output_type(katex::opts::OutputType::Mathml)
+            .display_mode(false)
+            .build()
+            .unwrap();
+
         for e in events {
             match e {
                 Event::InlineMath(latex) => {
-                    let mathml = latex_to_mathml(latex, DisplayStyle::Inline).unwrap();
-                    *e = Event::InlineHtml(mathml.into());
+                    let math = katex::render_with_opts(latex, &opts_inline).unwrap();
+                    *e = Event::InlineHtml(math.into());
                 }
                 Event::DisplayMath(latex) => {
-                    let mathml = latex_to_mathml(latex, DisplayStyle::Block).unwrap();
-                    *e = Event::InlineHtml(mathml.into());
+                    let math = katex::render_with_opts(latex, &opts_display).unwrap();
+                    *e = Event::InlineHtml(math.into());
                 }
                 _ => {}
             }
@@ -169,54 +179,55 @@ impl<'a> Renderer<'a> {
             site_name = self.config.site_name(),
         );
 
-        let html = format!(
-            include_asset!("page.html"),
-            path_to_root = path_to_root.to_str().unwrap(),
-            header = header,
-            tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
-            create_date = meta.create_date()?,
-            last_update_date = meta.last_update_date()?,
-            body = body,
-            page_title = meta.title()?,
-            footer_text = self.config.footer(),
-        );
+        let crypto = meta.flags()?.contains(&Flag::Crypto);
+        let html = if crypto {
+            let password = self
+                .config
+                .password()
+                .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
+
+            let cypher = encode_with_password(password, body.as_bytes());
+            let encoded = BASE64_STANDARD.encode(cypher);
+
+            format!(
+                include_asset!("crypto.html"),
+                create_date = meta.create_date()?,
+                last_update_date = meta.last_update_date().unwrap(),
+                tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
+                header = header,
+                page_title = meta.title().unwrap(),
+                encoded = encoded,
+                path_to_root = path_to_root.to_str().unwrap(),
+            )
+        } else {
+            format!(
+                include_asset!("page.html"),
+                path_to_root = path_to_root.to_str().unwrap(),
+                header = header,
+                tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
+                create_date = meta.create_date()?,
+                last_update_date = meta.last_update_date()?,
+                body = body,
+                page_title = meta.title()?,
+                footer_text = self.config.footer(),
+            )
+        };
 
         Ok(html)
     }
 
-    /// 暗号化が必要な場合は HTML を暗号化する
-    fn encrypt(&self, html: &mut String, meta: &Metadata) -> Result<()> {
-        if !meta.flags()?.contains(&Flag::Crypto) {
+    fn make_bloom_filter(&self, html: &str, meta: &mut Metadata) -> Result<()> {
+        if meta.flags()?.contains(&Flag::Crypto) {
+            meta.set_bloom_filter(String::new());
+            meta.set_bloom_num_hash(0);
             return Ok(());
         }
 
-        let path_to_root = self
-            .config
-            .dst_dir()
-            .path_from(meta.dst_path()?.parent().unwrap())
-            .unwrap();
-
-        let password = self
-            .config
-            .password()
-            .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
-
-        let cypher = encode_with_password(password, html.as_bytes());
-        let encoded = BASE64_STANDARD.encode(cypher);
-
-        *html = format!(
-            include_asset!("crypto.html"),
-            encoded = encoded,
-            path_to_root = path_to_root.to_str().unwrap(),
-        );
-
-        Ok(())
-    }
-
-    fn make_bloom_filter(&self, html: &str, meta: &mut Metadata) -> Result<()> {
         // HTML からテキストを抜き出す
         let text = Html::parse_document(html)
-            .root_element()
+            .select(&Selector::parse("#main-content").unwrap())
+            .next()
+            .ok_or_else(|| anyhow!("No body element"))?
             .text()
             .collect::<Vec<_>>()
             .join(" ");
@@ -269,10 +280,10 @@ impl<'a> Renderer<'a> {
         Self::get_page_title(&events, meta);
 
         // AST を HTML に変換
-        let mut html = self.events_to_html(events, meta)?;
+        let html = self.events_to_html(events, meta)?;
 
         // HTML に対してパスを適用
-        self.encrypt(&mut html, meta)?;
+        // self.encrypt(&mut html, meta)?;
         self.make_bloom_filter(&html, meta)?;
 
         Ok(Some(html))
@@ -312,6 +323,82 @@ impl<'a> Renderer<'a> {
         self.render_tag()?;
         copy_asset!("style.css", self.config.dst_dir())?;
         copy_asset!("script.js", self.config.dst_dir())?;
+        copy_asset!("theme.js", self.config.dst_dir())?;
+
+        copy_asset!("katex/LICENSE", self.config.dst_dir())?;
+        copy_asset!("katex/katex.min.css", self.config.dst_dir())?;
+
+        macro_rules! copy_katex_fonts {
+            ($($font_name:literal),* $(,)?) => {
+                $(
+                    copy_asset!(concat!("katex/fonts/", $font_name), self.config.dst_dir())?;
+                )*
+            }
+        }
+
+        copy_katex_fonts!(
+            "KaTeX_AMS-Regular.ttf",
+            "KaTeX_AMS-Regular.woff",
+            "KaTeX_AMS-Regular.woff2",
+            "KaTeX_Caligraphic-Bold.ttf",
+            "KaTeX_Caligraphic-Bold.woff",
+            "KaTeX_Caligraphic-Bold.woff2",
+            "KaTeX_Caligraphic-Regular.ttf",
+            "KaTeX_Caligraphic-Regular.woff",
+            "KaTeX_Caligraphic-Regular.woff2",
+            "KaTeX_Fraktur-Bold.ttf",
+            "KaTeX_Fraktur-Bold.woff",
+            "KaTeX_Fraktur-Bold.woff2",
+            "KaTeX_Fraktur-Regular.ttf",
+            "KaTeX_Fraktur-Regular.woff",
+            "KaTeX_Fraktur-Regular.woff2",
+            "KaTeX_Main-BoldItalic.ttf",
+            "KaTeX_Main-BoldItalic.woff",
+            "KaTeX_Main-BoldItalic.woff2",
+            "KaTeX_Main-Bold.ttf",
+            "KaTeX_Main-Bold.woff",
+            "KaTeX_Main-Bold.woff2",
+            "KaTeX_Main-Italic.ttf",
+            "KaTeX_Main-Italic.woff",
+            "KaTeX_Main-Italic.woff2",
+            "KaTeX_Main-Regular.ttf",
+            "KaTeX_Main-Regular.woff",
+            "KaTeX_Main-Regular.woff2",
+            "KaTeX_Math-BoldItalic.ttf",
+            "KaTeX_Math-BoldItalic.woff",
+            "KaTeX_Math-BoldItalic.woff2",
+            "KaTeX_Math-Italic.ttf",
+            "KaTeX_Math-Italic.woff",
+            "KaTeX_Math-Italic.woff2",
+            "KaTeX_SansSerif-Bold.ttf",
+            "KaTeX_SansSerif-Bold.woff",
+            "KaTeX_SansSerif-Bold.woff2",
+            "KaTeX_SansSerif-Italic.ttf",
+            "KaTeX_SansSerif-Italic.woff",
+            "KaTeX_SansSerif-Italic.woff2",
+            "KaTeX_SansSerif-Regular.ttf",
+            "KaTeX_SansSerif-Regular.woff",
+            "KaTeX_SansSerif-Regular.woff2",
+            "KaTeX_Script-Regular.ttf",
+            "KaTeX_Script-Regular.woff",
+            "KaTeX_Script-Regular.woff2",
+            "KaTeX_Size1-Regular.ttf",
+            "KaTeX_Size1-Regular.woff",
+            "KaTeX_Size1-Regular.woff2",
+            "KaTeX_Size2-Regular.ttf",
+            "KaTeX_Size2-Regular.woff",
+            "KaTeX_Size2-Regular.woff2",
+            "KaTeX_Size3-Regular.ttf",
+            "KaTeX_Size3-Regular.woff",
+            "KaTeX_Size3-Regular.woff2",
+            "KaTeX_Size4-Regular.ttf",
+            "KaTeX_Size4-Regular.woff",
+            "KaTeX_Size4-Regular.woff2",
+            "KaTeX_Typewriter-Regular.ttf",
+            "KaTeX_Typewriter-Regular.woff",
+            "KaTeX_Typewriter-Regular.woff2",
+        );
+
         Ok(())
     }
 
