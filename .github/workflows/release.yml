@@ -53,7 +53,7 @@ jobs:
       - name: Rename artifacts
         shell: bash
         run: |
-          mv target/${{ matrix.job.target }}/release/${{ env.PROJECT_NAME }}{,-${{ github.ref_name }}-${{ matrix.job.target }}${{ matrix.job.extension }}}
+          mv target/${{ matrix.job.target }}/release/${{ env.PROJECT_NAME }}{,-${{ matrix.job.target }}${{ matrix.job.extension }}}
 
       # ビルド済みバイナリをReleasesに配置
       - name: Release
