@@ -58,6 +58,10 @@ body {
   min-height: 100dvh;
 }
 
+#date {
+  font-size: 0.9rem;
+}
+
 footer {
   position: sticky;
   top: 100%;
