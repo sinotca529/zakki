@@ -81,7 +81,7 @@ async function decryptPage() {
 
   const ivCypher = document.body.dataset.cypher;
   const plain = await decrypt(ivCypher, key);
-  document.documentElement.innerHTML = plain;
+  document.getElementById('main-content').innerHTML = plain;
 }
 
 function cryptoMain() {

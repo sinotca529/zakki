@@ -2,26 +2,31 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
+    <meta name="date" content="{last_update_date}" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script type="text/javascript" src="{path_to_root}/script.js"></script>
-    <script>
-      // string -> ()
-      function setTheme(theme) {{
-        if (theme === '') document.documentElement.removeAttribute('theme');
-        else document.documentElement.setAttribute('theme', 'dark');
-        localStorage.setItem('theme', theme);
-      }}
-      setTheme(localStorage.getItem('theme') ?? '');
-    </script>
+    <meta name="path_to_root" content="{path_to_root}">
+    <link rel="stylesheet" href="{path_to_root}/katex/katex.min.css" />
+    <link rel="stylesheet" href="{path_to_root}/style.css" />
+    <script defer type="text/javascript" src="{path_to_root}/metadata.js"></script>
+    <script defer type="text/javascript" src="{path_to_root}/script.js"></script>
+    <script type="text/javascript" src="{path_to_root}/theme.js"></script>
+    <title>{page_title}</title>
   </head>
   <body data-page="crypto" data-cypher="{encoded}">
-    <h1>This page is protected.</h1>
-    <input
-      autofocus
-      type="password"
-      id="decrypt-key"
-      placeholder="Enter your secret key"
-    />
-    <button id="decrypt-btn">Decode</button>
+    {header}
+    <main>
+      <div>Created: {create_date}, LastUpdate: {last_update_date}</div>
+      <div>{tag_elems}</div>
+      <div id="main-content">
+        <h1>This page is protected.</h1>
+        <input
+          autofocus
+          type="password"
+          id="decrypt-key"
+          placeholder="Enter your secret key"
+        />
+        <button id="decrypt-btn">Decode</button>
+      </div>
+    </main>
   </body>
 </html>

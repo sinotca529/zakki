@@ -179,55 +179,48 @@ impl<'a> Renderer<'a> {
             site_name = self.config.site_name(),
         );
 
-        let html = format!(
-            include_asset!("page.html"),
-            path_to_root = path_to_root.to_str().unwrap(),
-            header = header,
-            tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
-            create_date = meta.create_date()?,
-            last_update_date = meta.last_update_date()?,
-            body = body,
-            page_title = meta.title()?,
-            footer_text = self.config.footer(),
-        );
+        let crypto = meta.flags()?.contains(&Flag::Crypto);
+        let html = if crypto {
+            let password = self
+                .config
+                .password()
+                .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
+
+            let cypher = encode_with_password(password, body.as_bytes());
+            let encoded = BASE64_STANDARD.encode(cypher);
+
+            format!(
+                include_asset!("crypto.html"),
+                create_date = meta.create_date()?,
+                last_update_date = meta.last_update_date().unwrap(),
+                tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
+                header = header,
+                page_title = meta.title().unwrap(),
+                encoded = encoded,
+                path_to_root = path_to_root.to_str().unwrap(),
+            )
+        } else {
+            format!(
+                include_asset!("page.html"),
+                path_to_root = path_to_root.to_str().unwrap(),
+                header = header,
+                tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
+                create_date = meta.create_date()?,
+                last_update_date = meta.last_update_date()?,
+                body = body,
+                page_title = meta.title()?,
+                footer_text = self.config.footer(),
+            )
+        };
 
         Ok(html)
-    }
-
-    /// 暗号化が必要な場合は HTML を暗号化する
-    fn encrypt(&self, html: &mut String, meta: &Metadata) -> Result<()> {
-        if !meta.flags()?.contains(&Flag::Crypto) {
-            return Ok(());
-        }
-
-        let path_to_root = self
-            .config
-            .dst_dir()
-            .path_from(meta.dst_path()?.parent().unwrap())
-            .unwrap();
-
-        let password = self
-            .config
-            .password()
-            .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
-
-        let cypher = encode_with_password(password, html.as_bytes());
-        let encoded = BASE64_STANDARD.encode(cypher);
-
-        *html = format!(
-            include_asset!("crypto.html"),
-            encoded = encoded,
-            path_to_root = path_to_root.to_str().unwrap(),
-        );
-
-        Ok(())
     }
 
     fn make_bloom_filter(&self, html: &str, meta: &mut Metadata) -> Result<()> {
         if meta.flags()?.contains(&Flag::Crypto) {
             meta.set_bloom_filter(String::new());
             meta.set_bloom_num_hash(0);
-            return Ok(())
+            return Ok(());
         }
 
         // HTML からテキストを抜き出す
@@ -287,10 +280,10 @@ impl<'a> Renderer<'a> {
         Self::get_page_title(&events, meta);
 
         // AST を HTML に変換
-        let mut html = self.events_to_html(events, meta)?;
+        let html = self.events_to_html(events, meta)?;
 
         // HTML に対してパスを適用
-        self.encrypt(&mut html, meta)?;
+        // self.encrypt(&mut html, meta)?;
         self.make_bloom_filter(&html, meta)?;
 
         Ok(Some(html))
