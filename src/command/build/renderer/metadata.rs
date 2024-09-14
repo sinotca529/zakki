@@ -54,6 +54,10 @@ pub struct Metadata {
     /// HTML への変換時に利用する
     #[serde(skip)]
     highlights: Option<Vec<HighlightMacro>>,
+
+    /// 暗号化時のパスワード
+    #[serde(skip)]
+    password: Option<String>,
 }
 
 fn serialize_option<T: Serialize, S: serde::Serializer>(
@@ -147,6 +151,14 @@ impl Metadata {
 
     pub fn set_highlights(&mut self, highlights: Vec<HighlightMacro>) {
         self.highlights = Some(highlights);
+    }
+
+    pub fn password(&self) -> Option<&String> {
+        self.password.as_ref()
+    }
+
+    pub fn set_password(&mut self, password: Option<String>) {
+        self.password = password;
     }
 }
 

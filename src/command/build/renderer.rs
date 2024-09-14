@@ -181,10 +181,15 @@ impl<'a> Renderer<'a> {
 
         let crypto = meta.flags()?.contains(&Flag::Crypto);
         let html = if crypto {
-            let password = self
-                .config
-                .password()
-                .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
+            let password;
+            if let Some(pwd) = meta.password() {
+                password = pwd;
+            } else {
+                password = self
+                    .config
+                    .password()
+                    .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
+            }
 
             let cypher = encode_with_password(password, body.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);

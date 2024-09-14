@@ -10,20 +10,23 @@ pub struct YamlHeader {
     /// 記事の最終更新日
     #[serde(rename = "update")]
     pub last_update_date: String,
-    #[serde(default)]
-    #[serde(alias = "tag")]
 
     /// 記事につけられたタグ
-    pub tags: Vec<String>,
     #[serde(default)]
-    #[serde(alias = "flag")]
+    #[serde(alias = "tag")]
+    pub tags: Vec<String>,
 
     /// 記事を HTML に変換する際に使用するフラグ
-    pub flags: Vec<Flag>,
-    #[serde(alias = "highlight")]
     #[serde(default)]
+    #[serde(alias = "flag")]
+    pub flags: Vec<Flag>,
+
+    /// 暗号化時のパスワード
+    pub password: Option<String>,
 
     /// コードハイライトのルール
+    #[serde(alias = "highlight")]
+    #[serde(default)]
     pub highlights: Vec<HighlightMacro>,
 }
 
@@ -33,6 +36,7 @@ impl YamlHeader {
         md.set_last_update_date(self.last_update_date);
         md.set_tags(self.tags);
         md.set_flags(self.flags);
+        md.set_password(self.password);
         md.set_highlights(self.highlights);
     }
 }
