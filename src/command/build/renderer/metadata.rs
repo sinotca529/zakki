@@ -152,14 +152,14 @@ impl Metadata {
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct HighlightMacro {
-    before: String,
-    after: String,
+    delim: [String; 2],
+    style: String,
 }
 
 impl HighlightMacro {
     pub fn replace_all<'a>(&self, code: &'a str) -> Cow<'a, str> {
-        if let Ok(pat) = Regex::new(&self.before) {
-            pat.replace_all(code, &self.after)
+        if let Ok(pat) = Regex::new(&format!("{}(.*?){}", &self.delim[0], &self.delim[1])) {
+            pat.replace_all(code, format!("<span style=\"{}\">$1</span>", &self.style))
         } else {
             code.into()
         }
