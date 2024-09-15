@@ -6,22 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="path_to_root" content=".">
     <link rel="stylesheet" type="text/css" href="style.css" />
-    <script defer type="text/javascript" src="script.js"></script>
     <script defer type="text/javascript" src="metadata.js"></script>
+    <script defer type="text/javascript" src="script.js"></script>
+    <script type="text/javascript" src="theme.js"></script>
     <title></title>
-    <script>
-      // string -> ()
-      function setTheme(theme) {{
-        if (theme === '') document.documentElement.removeAttribute('theme');
-        else document.documentElement.setAttribute('theme', 'dark');
-        localStorage.setItem('theme', theme);
-      }}
-      setTheme(localStorage.getItem('theme') ?? '');
-    </script>
   </head>
   <body data-page="tag">
     <template id="card-template">
-      <a class="card" href="it/ref/js.html">
+      <a class="card" href="">
         <div class="card-header">TITLE</div>
         <div class="card-meta">
           <div class="card-date">DATE</div>
