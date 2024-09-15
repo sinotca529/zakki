@@ -3,6 +3,10 @@ name = "zakki"
 version = "0.6.0"
 edition = "2021"
 
+[profile.release]
+strip = true
+lto = true
+
 [dependencies]
 aes = "0.8.4"
 anyhow = "1.0.82"
