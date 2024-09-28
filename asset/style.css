@@ -42,7 +42,7 @@
 }
 
 html {
-  font-family: var(--main-font)
+  font-family: var(--main-font);
   padding: 0;
 }
 
