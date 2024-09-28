@@ -5,7 +5,6 @@ edition = "2021"
 
 [profile.release]
 strip = true
-lto = true
 
 [dependencies]
 aes = "0.8.4"
