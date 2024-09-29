@@ -66,8 +66,7 @@ flag: [draft]
 
 ### コードのハイライト
 
-正規表現を使用してコードブロックの中身を変更できます。<br>
-正規表現は [`regex`](https://docs.rs/regex/latest/regex/) で解釈されます。
+指定した区切り文字で囲まれた範囲にスタイルを適用できます。
 
 ````md
 ---
@@ -75,9 +74,11 @@ create: 2024-05-13
 update: 2024-08-15
 tag: [misc]
 highlight:
-  - { before: "r@(.*?)@", after: '<span style="color:red">$1</span>' }
-  - { before: "g@(.*?)@", after: '<span style="color:green">$1</span>' }
-  - { before: "b@(.*?)@", after: '<span style="color:blue">$1</span>' }
+  [
+    { delim: ["r@", "@"], style: font-weight:bold;color:red },
+    { delim: ["g@", "@"], style: font-weight:bold;color:green },
+    { delim: ["b@", "@"], style: font-weight:bold;color:blue },
+  ]
 ---
 
 # ハイライト
@@ -89,7 +90,9 @@ r@ここは赤@g@ここは緑@b@ここは青@
 
 ### ページの暗号化
 
-ページを暗号化するには、ヘッダで `crypto` フラグをセットします。
+ページを暗号化するには、ヘッダで `crypto` フラグをセットします。<br>
+パスワードは `password` で指定します。
+指定がない場合、 `zakki.toml` で指定したパスワードが使用されます。
 
 ```md
 ---
@@ -97,6 +100,7 @@ create: 2024-05-13
 update: 2024-08-15
 tag: [test]
 flag: [crypto]
+password: test
 ---
 
 # 暗号化テスト
@@ -109,7 +113,6 @@ flag: [crypto]
 [staticrypt](https://github.com/robinmoisson/staticrypt) と同様の仕組みでページを暗号化しています。<br>
 ページの生成時に、内容は aes256cbc で暗号化されます。<br>
 ページの表示時に、パスワードが入力されると javascript で復号します。<br>
-
 
 ### サイト内検索
 
