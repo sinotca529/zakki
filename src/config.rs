@@ -23,7 +23,7 @@ pub struct FileConfig {
 
     /// サイト内検索の偽陽性率
     /// INFO: デフォルト値の即値による指定は現状できない。
-    /// see: https://github.com/serde-rs/serde/issues/368
+    /// see: <https://github.com/serde-rs/serde/issues/368>
     #[serde(default = "default_search_fp")]
     search_fp: f64,
 }

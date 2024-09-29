@@ -54,6 +54,10 @@ pub struct Metadata {
     /// HTML への変換時に利用する
     #[serde(skip)]
     highlights: Option<Vec<HighlightMacro>>,
+
+    /// 暗号化時のパスワード
+    #[serde(skip)]
+    password: Option<String>,
 }
 
 fn serialize_option<T: Serialize, S: serde::Serializer>(
@@ -148,18 +152,26 @@ impl Metadata {
     pub fn set_highlights(&mut self, highlights: Vec<HighlightMacro>) {
         self.highlights = Some(highlights);
     }
+
+    pub fn password(&self) -> Option<&String> {
+        self.password.as_ref()
+    }
+
+    pub fn set_password(&mut self, password: Option<String>) {
+        self.password = password;
+    }
 }
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct HighlightMacro {
-    before: String,
-    after: String,
+    delim: [String; 2],
+    style: String,
 }
 
 impl HighlightMacro {
     pub fn replace_all<'a>(&self, code: &'a str) -> Cow<'a, str> {
-        if let Ok(pat) = Regex::new(&self.before) {
-            pat.replace_all(code, &self.after)
+        if let Ok(pat) = Regex::new(&format!("{}(.*?){}", &self.delim[0], &self.delim[1])) {
+            pat.replace_all(code, format!("<span style=\"{}\">$1</span>", &self.style))
         } else {
             code.into()
         }

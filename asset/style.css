@@ -42,7 +42,7 @@
 }
 
 html {
-  font-family: var(--main-font)
+  font-family: var(--main-font);
   padding: 0;
 }
 
@@ -53,7 +53,7 @@ a {
 body {
   background-color: var(--body-bg);
   color: var(--text-fg);
-  font-size: 1.2rem;
+  font-size: 1rem;
   margin: 0;
   min-height: 100dvh;
 }
@@ -125,7 +125,7 @@ header {
 
 #search-input {
   width: 100%;
-  font-size: 1.4rem;
+  font-size: 1rem;
   background-color: inherit;
   color: inherit;
   margin: 1rem 0;
@@ -167,19 +167,27 @@ main {
 }
 
 .card-header {
-  font-size: 1.4rem;
+  font-size: 1.2rem;
   font-weight: bold;
   margin-bottom: 0.5rem;
 }
 
 .card.crypto .card-header::after {
-  content: "🔒";
+  display: inline-block;
+  content: "";
+  width: 1rem;
+  height: 1rem;
+  margin-left: 0.5rem;
+  mask-image: url('data:image/svg+xml;utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M144 144l0 48 160 0 0-48c0-44.2-35.8-80-80-80s-80 35.8-80 80zM80 192l0-48C80 64.5 144.5 0 224 0s144 64.5 144 144l0 48 16 0c35.3 0 64 28.7 64 64l0 192c0 35.3-28.7 64-64 64L64 512c-35.3 0-64-28.7-64-64L0 256c0-35.3 28.7-64 64-64l16 0z"/></svg>');
+  mask-repeat: no-repeat;
+  mask-position: center;
+  background-color: currentColor;
 }
 
 .card-meta {
   display: flex;
   align-items: center;
-  font-size: 1.0rem;
+  font-size: 1rem;
   color: var(--supressed-fg);
   gap: 1rem;
 }
@@ -204,6 +212,7 @@ main {
 
 #tag-title {
   display: flex;
+  align-items: center;
   gap: 1rem;
 }
 
@@ -218,14 +227,14 @@ pre {
 code {
   background-color: var(--pre-bg);
   font-family: var(--code-font);
-  font-size: 1.2rem;
+  font-size: 1rem;
 }
 
 table {
   border-collapse: collapse;
   max-width: 100%;
   margin-inline: auto;
-  font-size: 1.2rem;
+  font-size: 1rem;
 }
 
 table,
@@ -252,4 +261,23 @@ th {
 blockquote {
   border-left: 3px solid var(--blockquote-border);
   padding-left: 0.5rem;
+}
+
+dt {
+  position: relative;
+  top: 0.5rlh;
+  left: 1rem;
+  width: fit-content;
+  border-radius: 5px;
+  padding: 0 5px;
+  z-index: 1;
+  margin-top: 1rem;
+  background-color: var(--body-bg);
+}
+
+dd {
+  border: 1px solid var(--table-border);
+  padding: 20px;
+  margin-left: 0;
+  border-radius: 5px;
 }
