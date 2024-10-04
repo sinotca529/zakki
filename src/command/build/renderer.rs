@@ -84,12 +84,12 @@ impl<'a> Renderer<'a> {
 
     fn convert_math(events: &mut Vec<Event>) {
         let opts_display = katex::Opts::builder()
-            .output_type(katex::opts::OutputType::Mathml)
+            .output_type(katex::opts::OutputType::Html)
             .display_mode(true)
             .build()
             .unwrap();
         let opts_inline = katex::Opts::builder()
-            .output_type(katex::opts::OutputType::Mathml)
+            .output_type(katex::opts::OutputType::Html)
             .display_mode(false)
             .build()
             .unwrap();
