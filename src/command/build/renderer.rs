@@ -69,14 +69,11 @@ impl<'a> Renderer<'a> {
 
     fn adjust_link_to_md(event: &mut Vec<Event>) {
         for e in event {
-            if let Event::Start(Tag::Link { dest_url, .. }) = e {
-                let is_local_file =
-                    !dest_url.starts_with("http://") && !dest_url.starts_with("https://");
-                let is_md_file = dest_url.ends_with(".md");
-
-                if is_local_file && is_md_file {
-                    *dest_url =
-                        format!("{}.html", &dest_url[..dest_url.len() - ".md".len()]).into();
+            if let Event::Start(Tag::Link { dest_url: url, .. }) = e {
+                let is_local = !url.starts_with("http://") && !url.starts_with("https://");
+                let is_md = url.ends_with(".md");
+                if is_local && is_md {
+                    *url = format!("{}.html", &url[..url.len() - ".md".len()]).into();
                 }
             }
         }
@@ -181,16 +178,10 @@ impl<'a> Renderer<'a> {
 
         let crypto = meta.flags()?.contains(&Flag::Crypto);
         let html = if crypto {
-            let password;
-            if let Some(pwd) = meta.password() {
-                password = pwd;
-            } else {
-                password = self
-                    .config
-                    .password()
-                    .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
-            }
-
+            let password = meta
+                .password()
+                .or_else(|| self.config.password())
+                .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
             let cypher = encode_with_password(password, body.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);
 
