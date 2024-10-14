@@ -4,6 +4,7 @@ mod file_io;
 mod fxhash;
 mod path_ext;
 mod vec_ext;
+mod segmenter;
 
 pub use aes_256_cbc::*;
 pub use bloom_filter::*;
