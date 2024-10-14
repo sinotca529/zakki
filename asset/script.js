@@ -144,7 +144,7 @@ function searchPage(meta, words) {
 function search(query) {
   if (!query) return [];
 
-  const words = new Set(tokenize(query).flatMap(w => w.trim() ? w.toLowerCase() : []));
+  const words = new Set(segment(query).flatMap(w => w.trim() ? w.toLowerCase() : []));
 
   return METADATA
     .flatMap((m) => {

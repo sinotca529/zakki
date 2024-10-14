@@ -9,8 +9,6 @@ use crate::{
 use crate::{copy_asset, include_asset};
 use anyhow::{anyhow, bail, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
-use icu_segmenter::WordSegmenter;
-use itertools::Itertools;
 pub use metadata::{Flag, HighlightMacro, Metadata};
 use pulldown_cmark::{
     CodeBlockKind, Event, HeadingLevel, MetadataBlockKind, Options, Parser, Tag, TagEnd,
@@ -229,13 +227,8 @@ impl<'a> Renderer<'a> {
             .join(" ");
 
         // テキストをワードに分割する
-        let segmenter = WordSegmenter::new_auto();
-        let words: HashSet<_> = segmenter
-            .segment_str(&text)
-            .iter_with_word_type()
-            .tuple_windows()
-            .filter(|(_, (_, segment_type))| segment_type.is_word_like())
-            .map(|((i, _), (j, _))| &text[i..j])
+        let words: HashSet<_> = crate::util::segment(&text)
+            .into_iter()
             // スペースのみの場合は無視する
             .filter(|w| !w.trim().is_empty())
             // 小文字に統一する
@@ -319,6 +312,7 @@ impl<'a> Renderer<'a> {
         self.render_tag()?;
         copy_asset!("style.css", self.config.dst_dir())?;
         copy_asset!("script.js", self.config.dst_dir())?;
+        copy_asset!("segmenter.js", self.config.dst_dir())?;
         copy_asset!("theme.js", self.config.dst_dir())?;
 
         copy_asset!("katex/LICENSE", self.config.dst_dir())?;
