@@ -11,7 +11,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
 pub use metadata::{Flag, HighlightMacro, Metadata};
 use pulldown_cmark::{
-    CodeBlockKind, Event, HeadingLevel, MetadataBlockKind, Options, Parser, Tag, TagEnd,
+    CodeBlockKind, Event, HeadingLevel, LinkType, MetadataBlockKind, Options, Parser, Tag, TagEnd,
 };
 use scraper::{Html, Selector};
 use std::collections::HashSet;
@@ -72,6 +72,48 @@ impl<'a> Renderer<'a> {
                 let is_md = url.ends_with(".md");
                 if is_local && is_md {
                     *url = format!("{}.html", &url[..url.len() - ".md".len()]).into();
+                }
+            }
+        }
+    }
+
+    fn convert_image(event: &mut Vec<Event>) {
+        for i in 1..event.len() {
+            let (a, b) = event.split_at_mut(i);
+            let first = a.last_mut().unwrap();
+            let second = b.first_mut().unwrap();
+            if let Event::Start(Tag::Image {
+                link_type: LinkType::Inline,
+                dest_url,
+                title,
+                id,
+            }) = first
+            {
+                let alt_text = if let Event::Text(a) = second {
+                    Some(&*a) // convert from &mut to &
+                } else {
+                    None
+                };
+                let alt_attr = alt_text
+                    .map(|a| format!(r#"alt="{a}""#))
+                    .unwrap_or_default();
+
+                let img = if dest_url.ends_with(".svg") {
+                    format!(
+                        r#"<object type="image/svg+xml" data="{dest_url}" title="{title}" id="{id}"></object>"#
+                    )
+                } else {
+                    format!(r#"<img src="{dest_url}" {alt_attr} id="{id}" />"#)
+                };
+
+                let title = alt_text
+                    .map(|a| format!(r#"<div>{a}</div>"#))
+                    .unwrap_or_default();
+                let html = format!(r#"<div class="zakki-img">{title}{img}</div>"#);
+
+                *first = Event::InlineHtml(html.into());
+                if alt_text.is_some() {
+                    *second = Event::InlineHtml("".into());
                 }
             }
         }
@@ -265,6 +307,7 @@ impl<'a> Renderer<'a> {
         }
         Self::adjust_link_to_md(&mut events);
         Self::convert_math(&mut events);
+        Self::convert_image(&mut events);
         Self::highlight_code(&mut events, meta.highlights()?);
         Self::get_page_title(&events, meta);
 
