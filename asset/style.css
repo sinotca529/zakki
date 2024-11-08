@@ -286,7 +286,9 @@ dd {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1rem;
-  color: black;
-  background-color: snow;
+
+  >object {
+    padding: 1rem;
+    background-color: snow;
+  }
 }
