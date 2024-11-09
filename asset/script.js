@@ -96,18 +96,6 @@ function cryptoMain() {
     });
 }
 
-// (string) -> [string]
-function tokenize(text) {
-  if (!("Segmenter" in Intl)) {
-    alert("このブラウザはSegmenterをサポートしていません。");
-    return null;
-  }
-
-  const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
-  const segments = segmenter.segment(text)[Symbol.iterator]();
-  return Array.from(segments.map(s => s.segment));
-}
-
 //-----------------------------------------------------
 // Theme
 //-----------------------------------------------------
