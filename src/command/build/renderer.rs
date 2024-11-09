@@ -254,8 +254,7 @@ impl<'a> Renderer<'a> {
 
     fn make_bloom_filter(&self, html: &str, meta: &mut Metadata) -> Result<()> {
         if meta.flags()?.contains(&Flag::Crypto) {
-            meta.set_bloom_filter(String::new());
-            meta.set_bloom_num_hash(0);
+            meta.set_bloom_filter(BloomFilter::default());
             return Ok(());
         }
 
@@ -290,8 +289,7 @@ impl<'a> Renderer<'a> {
         words.iter().for_each(|w| filter.insert_word(w));
 
         // 構築したフィルタをメタデータに登録する
-        meta.set_bloom_filter(filter.dump_as_base64());
-        meta.set_bloom_num_hash(num_hash);
+        meta.set_bloom_filter(filter);
 
         Ok(())
     }

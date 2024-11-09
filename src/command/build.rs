@@ -33,10 +33,20 @@ pub fn build(cfg: &Config) -> Result<()> {
         (Ok(a), Ok(b)) => b.cmp(a),
         _ => std::cmp::Ordering::Equal,
     });
-
     let js = serde_json::to_string(&metas)?;
     let content = format!("const METADATA={js}");
     let dst = cfg.dst_dir().join("metadata.js");
+    write_file(dst, content)?;
+
+
+    // Bloom filter の書き出し
+    let bloom: Vec<_> = metas
+        .iter_mut()
+        .map(|e| e.take_bloom_filter().unwrap())
+        .collect();
+    let js = serde_json::to_string(&bloom)?;
+    let content = format!("const BLOOM_FILTER={js}");
+    let dst = cfg.dst_dir().join("bloom_filter.js");
     write_file(dst, content)?;
 
     Ok(())

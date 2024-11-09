@@ -3,6 +3,8 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, path::PathBuf};
 
+use crate::util::BloomFilter;
+
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub enum Flag {
     #[serde(rename = "draft")]
@@ -38,13 +40,9 @@ pub struct Metadata {
     #[serde(rename = "path", serialize_with = "serialize_option")]
     dst_path_from_root: Option<PathBuf>,
 
-    /// Bloom filter のフィルタ
-    #[serde(serialize_with = "serialize_option")]
-    bloom_filter: Option<String>,
-
-    /// Bloom filter のハッシュ関数の数
-    #[serde(serialize_with = "serialize_option")]
-    bloom_num_hash: Option<u8>,
+    /// Bloom filter
+    #[serde(skip)]
+    bloom_filter: Option<BloomFilter>,
 
     /// 記事の出力先ディレクトリへ
     #[serde(skip)]
@@ -137,12 +135,8 @@ impl Metadata {
         self.dst_path = Some(dst_path);
     }
 
-    pub fn set_bloom_filter(&mut self, bloom_filter: String) {
+    pub fn set_bloom_filter(&mut self, bloom_filter: BloomFilter) {
         self.bloom_filter = Some(bloom_filter);
-    }
-
-    pub fn set_bloom_num_hash(&mut self, bloom_num_hash: u8) {
-        self.bloom_num_hash = Some(bloom_num_hash);
     }
 
     pub fn set_dst_path_from_root(&mut self, dst_path_from_root: PathBuf) {
@@ -159,6 +153,10 @@ impl Metadata {
 
     pub fn set_password(&mut self, password: Option<String>) {
         self.password = password;
+    }
+
+    pub fn take_bloom_filter(&mut self) -> Option<BloomFilter> {
+        self.bloom_filter.take()
     }
 }
 
