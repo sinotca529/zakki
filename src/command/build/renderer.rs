@@ -9,11 +9,9 @@ use crate::{
 use crate::{copy_asset, include_asset};
 use anyhow::{anyhow, bail, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
-use icu_segmenter::WordSegmenter;
-use itertools::Itertools;
 pub use metadata::{Flag, HighlightMacro, Metadata};
 use pulldown_cmark::{
-    CodeBlockKind, Event, HeadingLevel, MetadataBlockKind, Options, Parser, Tag, TagEnd,
+    CodeBlockKind, Event, HeadingLevel, LinkType, MetadataBlockKind, Options, Parser, Tag, TagEnd,
 };
 use scraper::{Html, Selector};
 use std::collections::HashSet;
@@ -69,14 +67,53 @@ impl<'a> Renderer<'a> {
 
     fn adjust_link_to_md(event: &mut Vec<Event>) {
         for e in event {
-            if let Event::Start(Tag::Link { dest_url, .. }) = e {
-                let is_local_file =
-                    !dest_url.starts_with("http://") && !dest_url.starts_with("https://");
-                let is_md_file = dest_url.ends_with(".md");
+            if let Event::Start(Tag::Link { dest_url: url, .. }) = e {
+                let is_local = !url.starts_with("http://") && !url.starts_with("https://");
+                let is_md = url.ends_with(".md");
+                if is_local && is_md {
+                    *url = format!("{}.html", &url[..url.len() - ".md".len()]).into();
+                }
+            }
+        }
+    }
 
-                if is_local_file && is_md_file {
-                    *dest_url =
-                        format!("{}.html", &dest_url[..dest_url.len() - ".md".len()]).into();
+    fn convert_image(event: &mut Vec<Event>) {
+        for i in 1..event.len() {
+            let (a, b) = event.split_at_mut(i);
+            let first = a.last_mut().unwrap();
+            let second = b.first_mut().unwrap();
+            if let Event::Start(Tag::Image {
+                link_type: LinkType::Inline,
+                dest_url,
+                title,
+                id,
+            }) = first
+            {
+                let alt_text = if let Event::Text(a) = second {
+                    Some(&*a) // convert from &mut to &
+                } else {
+                    None
+                };
+                let alt_attr = alt_text
+                    .map(|a| format!(r#"alt="{a}""#))
+                    .unwrap_or_default();
+
+                let img = if dest_url.ends_with(".svg") {
+                    format!(
+                        r#"<object type="image/svg+xml" data="{dest_url}" title="{title}" id="{id}"></object>"#
+                    )
+                } else {
+                    format!(r#"<img src="{dest_url}" {alt_attr} id="{id}" />"#)
+                };
+
+                let title = alt_text
+                    .map(|a| format!(r#"<div>{a}</div>"#))
+                    .unwrap_or_default();
+                let html = format!(r#"<div class="zakki-img">{title}{img}</div>"#);
+
+                *first = Event::InlineHtml(html.into());
+                if alt_text.is_some() {
+                    *second = Event::InlineHtml("".into());
                 }
             }
         }
@@ -181,16 +218,10 @@ impl<'a> Renderer<'a> {
 
         let crypto = meta.flags()?.contains(&Flag::Crypto);
         let html = if crypto {
-            let password;
-            if let Some(pwd) = meta.password() {
-                password = pwd;
-            } else {
-                password = self
-                    .config
-                    .password()
-                    .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
-            }
-
+            let password = meta
+                .password()
+                .or_else(|| self.config.password())
+                .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
             let cypher = encode_with_password(password, body.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);
 
@@ -223,8 +254,7 @@ impl<'a> Renderer<'a> {
 
     fn make_bloom_filter(&self, html: &str, meta: &mut Metadata) -> Result<()> {
         if meta.flags()?.contains(&Flag::Crypto) {
-            meta.set_bloom_filter(String::new());
-            meta.set_bloom_num_hash(0);
+            meta.set_bloom_filter(BloomFilter::default());
             return Ok(());
         }
 
@@ -238,13 +268,8 @@ impl<'a> Renderer<'a> {
             .join(" ");
 
         // テキストをワードに分割する
-        let segmenter = WordSegmenter::new_auto();
-        let words: HashSet<_> = segmenter
-            .segment_str(&text)
-            .iter_with_word_type()
-            .tuple_windows()
-            .filter(|(_, (_, segment_type))| segment_type.is_word_like())
-            .map(|((i, _), (j, _))| &text[i..j])
+        let words: HashSet<_> = crate::util::segment(&text)
+            .into_iter()
             // スペースのみの場合は無視する
             .filter(|w| !w.trim().is_empty())
             // 小文字に統一する
@@ -264,8 +289,7 @@ impl<'a> Renderer<'a> {
         words.iter().for_each(|w| filter.insert_word(w));
 
         // 構築したフィルタをメタデータに登録する
-        meta.set_bloom_filter(filter.dump_as_base64());
-        meta.set_bloom_num_hash(num_hash);
+        meta.set_bloom_filter(filter);
 
         Ok(())
     }
@@ -281,6 +305,7 @@ impl<'a> Renderer<'a> {
         }
         Self::adjust_link_to_md(&mut events);
         Self::convert_math(&mut events);
+        Self::convert_image(&mut events);
         Self::highlight_code(&mut events, meta.highlights()?);
         Self::get_page_title(&events, meta);
 
@@ -328,6 +353,7 @@ impl<'a> Renderer<'a> {
         self.render_tag()?;
         copy_asset!("style.css", self.config.dst_dir())?;
         copy_asset!("script.js", self.config.dst_dir())?;
+        copy_asset!("segmenter.js", self.config.dst_dir())?;
         copy_asset!("theme.js", self.config.dst_dir())?;
 
         copy_asset!("katex/LICENSE", self.config.dst_dir())?;

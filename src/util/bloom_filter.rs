@@ -1,10 +1,18 @@
 use base64::{prelude::BASE64_STANDARD, Engine as _};
+use serde::Serialize;
 
 use super::fxhash::fxhash32_multi;
 
+fn serialize_bytes_in_base64<S: serde::Serializer>(bytes: &[u8], s: S) -> Result<S::Ok, S::Error> {
+    BASE64_STANDARD.encode(bytes).serialize(s)
+}
+
+#[derive(Default, Serialize)]
 pub struct BloomFilter {
+    /// フィルター
+    #[serde(serialize_with = "serialize_bytes_in_base64")]
     filter: Vec<u8>,
-    num_byte: u32,
+    /// 使用するハッシュ関数の数
     num_hash: u8,
 }
 
@@ -12,13 +20,12 @@ impl BloomFilter {
     pub fn new(num_byte: u32, num_hash: u8) -> Self {
         Self {
             filter: vec![0; num_byte as usize],
-            num_byte,
             num_hash,
         }
     }
 
     pub fn insert_word(&mut self, word: &str) {
-        let num_bit = self.num_byte * 8;
+        let num_bit = self.filter.len() as u32 * 8;
         let hashes = fxhash32_multi(word)
             .map(|h| h % num_bit)
             .take(self.num_hash as usize);
@@ -28,13 +35,9 @@ impl BloomFilter {
         });
     }
 
-    pub fn dump_as_base64(&self) -> String {
-        BASE64_STANDARD.encode(&self.filter)
-    }
-
     #[cfg(test)]
     pub fn contains(&self, word: &str) -> bool {
-        let num_bit = (self.num_byte as u32) * 8;
+        let num_bit = (self.filter.len() as u32) * 8;
         let mut hashes = fxhash32_multi(word)
             .map(|h| h % num_bit)
             .take(self.num_hash as usize);

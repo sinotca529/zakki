@@ -96,18 +96,6 @@ function cryptoMain() {
     });
 }
 
-// (string) -> [string]
-function tokenize(text) {
-  if (!("Segmenter" in Intl)) {
-    alert("このブラウザはSegmenterをサポートしていません。");
-    return null;
-  }
-
-  const segmenter = new Intl.Segmenter("ja", { granularity: "word" });
-  const segments = segmenter.segment(text)[Symbol.iterator]();
-  return Array.from(segments.map(s => s.segment));
-}
-
 //-----------------------------------------------------
 // Theme
 //-----------------------------------------------------
@@ -121,10 +109,12 @@ function toggleTheme() {
 // Search
 //-----------------------------------------------------
 
-// (json, Set<string>) -> json
-function searchPage(meta, words) {
-  const filter = b64ToU8Arr(meta.bloom_filter);
-  const num_hash = meta.bloom_num_hash;
+// (json, Set<string>) -> integer
+function hitRate(bloom_filter, words) {
+  if (words.size == 0) return 0;
+
+  const filter = b64ToU8Arr(bloom_filter.filter);
+  const num_hash = bloom_filter.num_hash;
   const num_bit = filter.byteLength * 8;
 
   let num_hit_word = 0;
@@ -134,22 +124,23 @@ function searchPage(meta, words) {
     if (hit) num_hit_word += 1;
   }
 
-  return {
-    title: meta.title,
-    path: meta.path,
-    rate: words.size === 0 ? 0 : num_hit_word / words.size,
-  };
+  return num_hit_word / words.size;
 }
 
 function search(query) {
   if (!query) return [];
 
-  const words = new Set(tokenize(query).flatMap(w => w.trim() ? w.toLowerCase() : []));
+  const words = new Set(segment(query).flatMap(w => w.trim() ? w.toLowerCase() : []));
 
-  return METADATA
-    .flatMap((m) => {
-      const r = searchPage(m, words);
-      return r.rate ? r : [];
+  return BLOOM_FILTER
+    .flatMap((bf, i) => {
+      const r = hitRate(bf, words);
+      if (r == 0) return [];
+      return {
+        title: METADATA[i].title,
+        path: METADATA[i].path,
+        rate: r
+      };
     })
     .sort((a, b) => b.rate - a.rate);
 }
@@ -159,6 +150,16 @@ function searchAndRender() {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     const query = document.getElementById("search-input").value;
+
+    // Load filter lazily
+    if (typeof BLOOM_FILTER === "undefined") {
+      const script = document.createElement("script");
+      const path_to_root = document.head.querySelector('meta[name="path_to_root"]').content ?? "";
+      script.src = `${path_to_root}/bloom_filter.js`;
+      script.onload = () => { debounseTimer = null; searchAndRender(query); };
+      document.body.appendChild(script);
+      return;
+    }
 
     const result = search(query);
     const path_to_root = document.head.querySelector('meta[name="path_to_root"]').content ?? "";
