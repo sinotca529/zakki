@@ -109,7 +109,7 @@ impl<'a> Renderer<'a> {
                 let title = alt_text
                     .map(|a| format!(r#"<div>{a}</div>"#))
                     .unwrap_or_default();
-                let html = format!(r#"<div class="zakki-img">{title}{img}</div>"#);
+                let html = format!(r#"<div class="zakki-img">{img}{title}</div>"#);
 
                 *first = Event::InlineHtml(html.into());
                 if alt_text.is_some() {
