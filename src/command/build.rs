@@ -18,7 +18,7 @@ fn render_pages(cfg: &Config) -> Result<Vec<Metadata>> {
         .par_iter()
         .map(|p: &PathBuf| -> Result<Option<Metadata>> {
             renderer
-                .render(p.clone())
+                .render(p)
                 .with_context(|| p.to_string_lossy().to_string())
         })
         .collect::<Result<Vec<Option<Metadata>>>>()?

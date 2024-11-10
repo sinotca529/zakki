@@ -17,7 +17,7 @@ use scraper::{Html, Selector};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read as _;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use yaml_header::YamlHeader;
 
 pub struct Renderer<'a> {
@@ -319,17 +319,18 @@ impl<'a> Renderer<'a> {
         Ok(Some(html))
     }
 
-    pub fn render(&self, src: PathBuf) -> Result<Option<Metadata>> {
+    pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
+        let src = src.as_ref();
         if src.extension_is("md") {
             let mut meta = Metadata::default();
             let markdown = {
-                let mut file = File::open(&src)?;
+                let mut file = File::open(src)?;
                 let mut content = String::new();
                 file.read_to_string(&mut content)?;
                 content
             };
 
-            let dst_path = self.config.dst_path_of(&src);
+            let dst_path = self.config.dst_path_of(src);
             let dst_path_from_root = dst_path.path_from(self.config.dst_dir()).unwrap();
 
             meta.set_dst_path(dst_path);
@@ -343,7 +344,7 @@ impl<'a> Renderer<'a> {
 
             Ok(Some(meta))
         } else {
-            copy_file(&src, self.config.dst_path_of(&src))?;
+            copy_file(src, self.config.dst_path_of(src))?;
             Ok(None)
         }
     }
