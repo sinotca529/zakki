@@ -9,15 +9,11 @@ use renderer::Metadata;
 use renderer::Renderer;
 use std::path::PathBuf;
 
-pub fn build(cfg: &Config) -> Result<()> {
-    clean(cfg.dst_dir())?;
-
+fn render_pages(cfg: &Config) -> Result<Vec<Option<Metadata>>> {
     let renderer = Renderer::new(cfg);
     renderer.render_assets()?;
 
     let files = cfg.src_dir().descendants_file_paths()?;
-
-    // 並列レンダリング
     let metadatas: Vec<Option<Metadata>> = files
         .par_iter()
         .map(|p: &PathBuf| -> Result<Option<Metadata>> {
@@ -27,6 +23,10 @@ pub fn build(cfg: &Config) -> Result<()> {
         })
         .collect::<Result<Vec<Option<Metadata>>>>()?;
 
+    Ok(metadatas)
+}
+
+fn output_metadatas(cfg: &Config, metadatas: Vec<Option<Metadata>>) -> Result<()> {
     // メタデータの書き出し
     let mut metas: Vec<_> = metadatas.into_iter().flatten().collect();
     metas.sort_unstable_by(|a, b| match (a.last_update_date(), b.last_update_date()) {
@@ -47,6 +47,15 @@ pub fn build(cfg: &Config) -> Result<()> {
     let content = format!("const BLOOM_FILTER={js}");
     let dst = cfg.dst_dir().join("bloom_filter.js");
     write_file(dst, content)?;
+
+    Ok(())
+}
+
+pub fn build(cfg: &Config) -> Result<()> {
+    clean(cfg.dst_dir())?;
+
+    let metadatas = render_pages(cfg)?;
+    output_metadatas(cfg, metadatas)?;
 
     Ok(())
 }
