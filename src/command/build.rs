@@ -9,26 +9,28 @@ use renderer::Metadata;
 use renderer::Renderer;
 use std::path::PathBuf;
 
-fn render_pages(cfg: &Config) -> Result<Vec<Option<Metadata>>> {
+fn render_pages(cfg: &Config) -> Result<Vec<Metadata>> {
     let renderer = Renderer::new(cfg);
     renderer.render_assets()?;
 
     let files = cfg.src_dir().descendants_file_paths()?;
-    let metadatas: Vec<Option<Metadata>> = files
+    let metadatas: Vec<Metadata> = files
         .par_iter()
         .map(|p: &PathBuf| -> Result<Option<Metadata>> {
             renderer
                 .render(p.clone())
                 .with_context(|| p.to_string_lossy().to_string())
         })
-        .collect::<Result<Vec<Option<Metadata>>>>()?;
+        .collect::<Result<Vec<Option<Metadata>>>>()?
+        .into_iter()
+        .flatten()
+        .collect();
 
     Ok(metadatas)
 }
 
-fn output_metadatas(cfg: &Config, metadatas: Vec<Option<Metadata>>) -> Result<()> {
+fn output_metadatas(cfg: &Config, mut metas: Vec<Metadata>) -> Result<()> {
     // メタデータの書き出し
-    let mut metas: Vec<_> = metadatas.into_iter().flatten().collect();
     metas.sort_unstable_by(|a, b| match (a.last_update_date(), b.last_update_date()) {
         (Ok(a), Ok(b)) => b.cmp(a),
         _ => std::cmp::Ordering::Equal,
