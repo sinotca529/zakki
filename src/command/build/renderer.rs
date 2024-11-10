@@ -103,7 +103,7 @@ impl<'a> Renderer<'a> {
                         r#"<object type="image/svg+xml" data="{dest_url}" title="{title}" id="{id}"></object>"#
                     )
                 } else {
-                    format!(r#"<img src="{dest_url}" {alt_attr} id="{id}" />"#)
+                    format!(r#"<img loading="lazy" src="{dest_url}" {alt_attr} id="{id}" />"#)
                 };
 
                 let title = alt_text
