@@ -38,7 +38,6 @@ pub fn build(cfg: &Config) -> Result<()> {
     let dst = cfg.dst_dir().join("metadata.js");
     write_file(dst, content)?;
 
-
     // Bloom filter の書き出し
     let bloom: Vec<_> = metas
         .iter_mut()

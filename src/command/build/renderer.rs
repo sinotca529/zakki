@@ -65,7 +65,7 @@ impl<'a> Renderer<'a> {
         meta.set_title(h1.unwrap_or("No Title".to_owned()));
     }
 
-    fn adjust_link_to_md(event: &mut Vec<Event>) {
+    fn adjust_link_to_md(event: &mut [Event]) {
         for e in event {
             if let Event::Start(Tag::Link { dest_url: url, .. }) = e {
                 let is_local = !url.starts_with("http://") && !url.starts_with("https://");
@@ -77,7 +77,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    fn convert_image(event: &mut Vec<Event>) {
+    fn convert_image(event: &mut [Event]) {
         for i in 1..event.len() {
             let (a, b) = event.split_at_mut(i);
             let first = a.last_mut().unwrap();
@@ -119,7 +119,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    fn convert_math(events: &mut Vec<Event>) {
+    fn convert_math(events: &mut [Event]) {
         let opts_display = katex::Opts::builder()
             .output_type(katex::opts::OutputType::Html)
             .display_mode(true)
@@ -146,7 +146,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    fn highlight_code(events: &mut Vec<Event>, macros: &[HighlightMacro]) {
+    fn highlight_code(events: &mut [Event], macros: &[HighlightMacro]) {
         let mut is_code_block = false;
         for e in events {
             match e {
