@@ -17,7 +17,7 @@ use scraper::{Html, Selector};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read as _;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use yaml_header::YamlHeader;
 
 pub struct Renderer<'a> {
@@ -65,7 +65,7 @@ impl<'a> Renderer<'a> {
         meta.set_title(h1.unwrap_or("No Title".to_owned()));
     }
 
-    fn adjust_link_to_md(event: &mut Vec<Event>) {
+    fn adjust_link_to_md(event: &mut [Event]) {
         for e in event {
             if let Event::Start(Tag::Link { dest_url: url, .. }) = e {
                 let is_local = !url.starts_with("http://") && !url.starts_with("https://");
@@ -77,7 +77,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    fn convert_image(event: &mut Vec<Event>) {
+    fn convert_image(event: &mut [Event]) {
         for i in 1..event.len() {
             let (a, b) = event.split_at_mut(i);
             let first = a.last_mut().unwrap();
@@ -103,13 +103,13 @@ impl<'a> Renderer<'a> {
                         r#"<object type="image/svg+xml" data="{dest_url}" title="{title}" id="{id}"></object>"#
                     )
                 } else {
-                    format!(r#"<img src="{dest_url}" {alt_attr} id="{id}" />"#)
+                    format!(r#"<img loading="lazy" src="{dest_url}" {alt_attr} id="{id}" />"#)
                 };
 
                 let title = alt_text
                     .map(|a| format!(r#"<div>{a}</div>"#))
                     .unwrap_or_default();
-                let html = format!(r#"<div class="zakki-img">{title}{img}</div>"#);
+                let html = format!(r#"<div class="zakki-img">{img}{title}</div>"#);
 
                 *first = Event::InlineHtml(html.into());
                 if alt_text.is_some() {
@@ -119,7 +119,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    fn convert_math(events: &mut Vec<Event>) {
+    fn convert_math(events: &mut [Event]) {
         let opts_display = katex::Opts::builder()
             .output_type(katex::opts::OutputType::Html)
             .display_mode(true)
@@ -146,7 +146,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    fn highlight_code(events: &mut Vec<Event>, macros: &[HighlightMacro]) {
+    fn highlight_code(events: &mut [Event], macros: &[HighlightMacro]) {
         let mut is_code_block = false;
         for e in events {
             match e {
@@ -319,17 +319,18 @@ impl<'a> Renderer<'a> {
         Ok(Some(html))
     }
 
-    pub fn render(&self, src: PathBuf) -> Result<Option<Metadata>> {
+    pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
+        let src = src.as_ref();
         if src.extension_is("md") {
             let mut meta = Metadata::default();
             let markdown = {
-                let mut file = File::open(&src)?;
+                let mut file = File::open(src)?;
                 let mut content = String::new();
                 file.read_to_string(&mut content)?;
                 content
             };
 
-            let dst_path = self.config.dst_path_of(&src);
+            let dst_path = self.config.dst_path_of(src);
             let dst_path_from_root = dst_path.path_from(self.config.dst_dir()).unwrap();
 
             meta.set_dst_path(dst_path);
@@ -343,7 +344,7 @@ impl<'a> Renderer<'a> {
 
             Ok(Some(meta))
         } else {
-            copy_file(&src, self.config.dst_path_of(&src))?;
+            copy_file(src, self.config.dst_path_of(src))?;
             Ok(None)
         }
     }
