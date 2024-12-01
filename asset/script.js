@@ -145,32 +145,53 @@ function search(query) {
     .sort((a, b) => b.rate - a.rate);
 }
 
+function loadScriptLazily(script_path) {
+  return new Promise((resolve, reject) => {
+    const loaded = document.querySelector(`script[src="${script_path}"]`) !== null;
+    if (loaded) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = script_path;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error(`Failed to load script: ${script_path}`));
+
+    document.head.appendChild(script);
+  });
+}
+
+function loadScripts(scripts, callback) {
+  // すべてのスクリプトが読み込まれた後にコールバックを呼び出す
+  Promise.all(scripts.map(loadScriptLazily))
+    .then(() => { callback(); });
+}
+
 let debounceTimer;
 function searchAndRender() {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     const query = document.getElementById("search-input").value;
 
-    // Load filter lazily
-    if (typeof BLOOM_FILTER === "undefined") {
-      const script = document.createElement("script");
-      const path_to_root = document.head.querySelector('meta[name="path_to_root"]').content ?? "";
-      script.src = `${path_to_root}/bloom_filter.js`;
-      script.onload = () => { debounseTimer = null; searchAndRender(query); };
-      document.body.appendChild(script);
-      return;
-    }
-
-    const result = search(query);
     const path_to_root = document.head.querySelector('meta[name="path_to_root"]').content ?? "";
-    const html = result
-      .map((r) => {
-        const path = r.path;
-        return `<div><a href="${path_to_root}/${path}">${r.title}</a><span style="color:gray;margin-left:1em;">MatchRate:${r.rate}</span></div>`;
-      })
-      .join("");
+    const segmenter_path = `${path_to_root}/segmenter.js`;
+    const filter_path = `${path_to_root}/bloom_filter.js`;
+    loadScripts(
+      [segmenter_path, filter_path],
+      () => {
+        debounseTimer = null;
 
-    document.getElementById("search-result").innerHTML = html;
+        const result = search(query);
+        const html = result
+          .map((r) => {
+            const path = r.path;
+            return `<div><a href="${path_to_root}/${path}">${r.title}</a><span style="color:gray;margin-left:1em;">MatchRate:${r.rate}</span></div>`;
+          })
+          .join("");
+        document.getElementById("search-result").innerHTML = html;
+      }
+    );
   }, 300);
 }
 
