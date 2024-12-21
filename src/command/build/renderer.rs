@@ -17,7 +17,7 @@ use scraper::{Html, Selector};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read as _;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use yaml_header::YamlHeader;
 
 pub struct Renderer<'a> {
@@ -119,7 +119,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    fn convert_math(events: &mut [Event]) {
+    fn convert_math(events: &mut [Event], css_list: &mut Vec<PathBuf>) {
         let opts_display = katex::Opts::builder()
             .output_type(katex::opts::OutputType::Html)
             .display_mode(true)
@@ -131,18 +131,25 @@ impl<'a> Renderer<'a> {
             .build()
             .unwrap();
 
+        let mut math_used = false;
         for e in events {
             match e {
                 Event::InlineMath(latex) => {
                     let math = katex::render_with_opts(latex, &opts_inline).unwrap();
                     *e = Event::InlineHtml(math.into());
+                    math_used = true;
                 }
                 Event::DisplayMath(latex) => {
                     let math = katex::render_with_opts(latex, &opts_display).unwrap();
                     *e = Event::InlineHtml(math.into());
+                    math_used = true;
                 }
                 _ => {}
             }
+        }
+
+        if math_used {
+            css_list.push("katex/katex.min.css".into());
         }
     }
 
@@ -197,7 +204,12 @@ impl<'a> Renderer<'a> {
             .fold(String::new(), |acc, e| format!("{acc}{nsbp}{e}"))
     }
 
-    fn events_to_html(&self, events: Vec<Event>, meta: &Metadata) -> Result<String> {
+    fn events_to_html(
+        &self,
+        events: Vec<Event>,
+        meta: &Metadata,
+        css_list: &[PathBuf],
+    ) -> Result<String> {
         let body = {
             let mut body = String::new();
             pulldown_cmark::html::push_html(&mut body, events.into_iter());
@@ -215,6 +227,13 @@ impl<'a> Renderer<'a> {
             path_to_root = path_to_root.to_str().unwrap(),
             site_name = self.config.site_name(),
         );
+
+        let css_list = css_list.iter().map(|p| {
+            format!(
+                r#"<link rel="stylesheet" href="{}" />"#,
+                path_to_root.join(p).to_str().unwrap()
+            )
+        });
 
         let crypto = meta.flags()?.contains(&Flag::Crypto);
         let html = if crypto {
@@ -240,6 +259,7 @@ impl<'a> Renderer<'a> {
                 include_asset!("page.html"),
                 path_to_root = path_to_root.to_str().unwrap(),
                 header = header,
+                css_list = css_list.collect::<String>(),
                 tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
                 create_date = meta.create_date()?,
                 last_update_date = meta.last_update_date()?,
@@ -295,6 +315,8 @@ impl<'a> Renderer<'a> {
     }
 
     fn md_to_html(&self, markdown: &str, meta: &mut Metadata) -> Result<Option<String>> {
+        let mut css_list = vec!["style.css".into()];
+
         // Markdown を AST に変換
         let mut events: Vec<_> = Parser::new_ext(markdown, Options::all()).collect();
 
@@ -304,13 +326,13 @@ impl<'a> Renderer<'a> {
             return Ok(None);
         }
         Self::adjust_link_to_md(&mut events);
-        Self::convert_math(&mut events);
+        Self::convert_math(&mut events, &mut css_list);
         Self::convert_image(&mut events);
         Self::highlight_code(&mut events, meta.highlights()?);
         Self::get_page_title(&events, meta);
 
         // AST を HTML に変換
-        let html = self.events_to_html(events, meta)?;
+        let html = self.events_to_html(events, meta, &css_list)?;
 
         // HTML に対してパスを適用
         // self.encrypt(&mut html, meta)?;
