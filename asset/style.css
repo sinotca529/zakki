@@ -10,6 +10,7 @@
   --body-bg: snow;
   --text-fg: black;
   --pre-bg: whitesmoke;
+  --code-fg: #b13e21;
   --table-border: black;
   --tag-fg: white;
   --tag-bg: #202020;
@@ -28,15 +29,16 @@
   --header-fg: #f2f2f2;
   --body-bg: #2A2A2A;
   --text-fg: #D7D7D7;
-  --pre-bg: #000000;
+  --pre-bg: #202020;
+  --code-fg: #c78665;
   --table-border: #666;
   --tag-fg: #202020;
   --tag-bg: #e0e0e0;
   --footnote-fg: #bbbbbb;
   --supressed-fg: #999999;
   --blockquote-border: #555;
-  --card-border: #ccc;
-  --card-bg: #000000;
+  --card-border: #000000;
+  --card-bg: #101010;
   --card-hover-bg: #0A0A0A;
   --a-fg: #99c3db;
 }
@@ -222,11 +224,17 @@ pre {
   margin: 1rem 0;
   padding: 1rem;
   overflow-x: auto;
+  border-radius: .5rem;
 }
 
-code {
-  background-color: var(--pre-bg);
+pre > code {
   font-family: var(--code-font);
+  font-size: 1rem;
+}
+
+:not(pre) > code {
+  font-family: var(--code-font);
+  color: var(--code-fg);
   font-size: 1rem;
 }
 
