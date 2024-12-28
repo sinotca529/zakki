@@ -1,4 +1,5 @@
 mod metadata;
+mod rendering_context;
 mod yaml_header;
 
 use crate::util::{BloomFilter, PathExt as _};
@@ -343,32 +344,32 @@ impl<'a> Renderer<'a> {
 
     pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
         let src = src.as_ref();
-        if src.extension_is("md") {
-            let mut meta = Metadata::default();
-            let markdown = {
-                let mut file = File::open(src)?;
-                let mut content = String::new();
-                file.read_to_string(&mut content)?;
-                content
-            };
-
-            let dst_path = self.config.dst_path_of(src);
-            let dst_path_from_root = dst_path.path_from(self.config.dst_dir()).unwrap();
-
-            meta.set_dst_path(dst_path);
-            meta.set_dst_path_from_root(dst_path_from_root);
-
-            let Some(html) = self.md_to_html(&markdown, &mut meta)? else {
-                return Ok(None);
-            };
-
-            write_file(meta.dst_path()?, html)?;
-
-            Ok(Some(meta))
-        } else {
+        if !src.extension_is("md") {
             copy_file(src, self.config.dst_path_of(src))?;
-            Ok(None)
+            return Ok(None);
         }
+
+        let mut meta = Metadata::default();
+        let markdown = {
+            let mut file = File::open(src)?;
+            let mut content = String::new();
+            file.read_to_string(&mut content)?;
+            content
+        };
+
+        let dst_path = self.config.dst_path_of(src);
+        let dst_path_from_root = dst_path.path_from(self.config.dst_dir()).unwrap();
+
+        meta.set_dst_path(dst_path);
+        meta.set_dst_path_from_root(dst_path_from_root);
+
+        let Some(html) = self.md_to_html(&markdown, &mut meta)? else {
+            return Ok(None);
+        };
+
+        write_file(meta.dst_path()?, html)?;
+
+        Ok(Some(meta))
     }
 
     pub fn render_assets(&self) -> Result<()> {
