@@ -293,3 +293,7 @@ dd {
     background-color: snow;
   }
 }
+
+#tag-filter:not(:empty)::before {
+  content: "Filtered by: ";
+}

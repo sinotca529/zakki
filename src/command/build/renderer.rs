@@ -197,7 +197,7 @@ impl<'a> Renderer<'a> {
         let nsbp = "\u{00a0}";
         tags.iter()
             .map(|n| {
-                let path = dst_root_dir.join("tag.html");
+                let path = dst_root_dir.join("index.html");
                 let path = path.to_str().unwrap();
                 format!(r#"<a class="tag" href="{path}?tag={n}">{n}</a>"#)
             })
@@ -392,10 +392,8 @@ impl<'a> Renderer<'a> {
 
     pub fn render_assets(&self) -> Result<()> {
         self.render_index()?;
-        self.render_tag()?;
         copy_asset!("style.css", self.config.dst_dir())?;
         copy_asset!("script.js", self.config.dst_dir())?;
-        copy_asset!("crypto-main.js", self.config.dst_dir())?;
         copy_asset!("segmenter.js", self.config.dst_dir())?;
         copy_asset!("theme.js", self.config.dst_dir())?;
 
@@ -451,23 +449,6 @@ impl<'a> Renderer<'a> {
         );
 
         let dst = self.config.dst_dir().join("index.html");
-        write_file(dst, content).map_err(Into::into)
-    }
-
-    fn render_tag(&self) -> Result<()> {
-        let header = format!(
-            include_asset!("header.html"),
-            path_to_root = ".",
-            site_name = self.config.site_name(),
-        );
-
-        let content = format!(
-            include_asset!("tag.html"),
-            header = header,
-            footer = self.config.footer(),
-        );
-
-        let dst = self.config.dst_dir().join("tag.html");
         write_file(dst, content).map_err(Into::into)
     }
 }
