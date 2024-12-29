@@ -5,23 +5,23 @@ use crate::util::PathExt as _;
 use crate::{config::Config, util::write_file};
 use anyhow::{Context, Result};
 use rayon::prelude::*;
-use renderer::Metadata;
+use renderer::page_metadata::PageMetadata;
 use renderer::Renderer;
 use std::path::PathBuf;
 
-fn render_pages(cfg: &Config) -> Result<Vec<Metadata>> {
+fn render_pages(cfg: &Config) -> Result<Vec<PageMetadata>> {
     let renderer = Renderer::new(cfg);
     renderer.render_assets()?;
 
     let files = cfg.src_dir().descendants_file_paths()?;
-    let metadatas: Vec<Metadata> = files
+    let metadatas: Vec<PageMetadata> = files
         .par_iter()
-        .map(|p: &PathBuf| -> Result<Option<Metadata>> {
+        .map(|p: &PathBuf| -> Result<Option<PageMetadata>> {
             renderer
                 .render(p)
                 .with_context(|| p.to_string_lossy().to_string())
         })
-        .collect::<Result<Vec<Option<Metadata>>>>()?
+        .collect::<Result<Vec<Option<PageMetadata>>>>()?
         .into_iter()
         .flatten()
         .collect();
@@ -29,7 +29,7 @@ fn render_pages(cfg: &Config) -> Result<Vec<Metadata>> {
     Ok(metadatas)
 }
 
-fn output_metadatas(cfg: &Config, mut metas: Vec<Metadata>) -> Result<()> {
+fn output_metadatas(cfg: &Config, mut metas: Vec<PageMetadata>) -> Result<()> {
     // メタデータの書き出し
     metas.sort_unstable_by(|a, b| match (a.last_update_date(), b.last_update_date()) {
         (Ok(a), Ok(b)) => b.cmp(a),

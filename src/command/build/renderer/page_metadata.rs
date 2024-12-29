@@ -1,7 +1,6 @@
+use std::path::PathBuf;
 use anyhow::{anyhow, Context, Result};
-use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, path::PathBuf};
 
 use crate::util::BloomFilter;
 
@@ -14,7 +13,7 @@ pub enum Flag {
 }
 
 #[derive(Default, Serialize)]
-pub struct Metadata {
+pub struct PageMetadata {
     /// 記事を作成した日付 (yyyy-MM-dd)
     #[serde(rename = "create", serialize_with = "serialize_option")]
     create_date: Option<String>,
@@ -36,39 +35,16 @@ pub struct Metadata {
     #[serde(serialize_with = "serialize_option")]
     title: Option<String>,
 
-    /// 雑記の出力先ルートディレクトリから、記事の出力先ディレクトリへの相対パス
+    /// ルートから記事の出力先への相対パス
     #[serde(rename = "path", serialize_with = "serialize_option")]
     dst_path_from_root: Option<PathBuf>,
 
     /// Bloom filter
     #[serde(skip)]
     bloom_filter: Option<BloomFilter>,
-
-    /// 記事の出力先ディレクトリへ
-    #[serde(skip)]
-    dst_path: Option<PathBuf>,
-
-    /// コードハイライトの設定
-    /// HTML への変換時に利用する
-    #[serde(skip)]
-    highlights: Option<Vec<HighlightMacro>>,
-
-    /// 暗号化時のパスワード
-    #[serde(skip)]
-    password: Option<String>,
 }
 
-fn serialize_option<T: Serialize, S: serde::Serializer>(
-    v: &Option<T>,
-    s: S,
-) -> Result<S::Ok, S::Error> {
-    match v.as_ref() {
-        Some(v) => v.serialize(s),
-        None => Err(serde::ser::Error::custom("Expected some, but found None")),
-    }
-}
-
-impl Metadata {
+impl PageMetadata {
     pub fn create_date(&self) -> Result<&String> {
         self.create_date
             .as_ref()
@@ -99,18 +75,6 @@ impl Metadata {
             .with_context(|| anyhow!("title has not been set yet."))
     }
 
-    pub fn dst_path(&self) -> Result<&PathBuf> {
-        self.dst_path
-            .as_ref()
-            .with_context(|| anyhow!("dst_path has not been set yet."))
-    }
-
-    pub fn highlights(&self) -> Result<&Vec<HighlightMacro>> {
-        self.highlights
-            .as_ref()
-            .with_context(|| anyhow!("highlights has not been set yet."))
-    }
-
     pub fn set_create_date(&mut self, create_date: String) {
         self.create_date = Some(create_date);
     }
@@ -131,28 +95,12 @@ impl Metadata {
         self.title = Some(title);
     }
 
-    pub fn set_dst_path(&mut self, dst_path: PathBuf) {
-        self.dst_path = Some(dst_path);
-    }
-
-    pub fn set_bloom_filter(&mut self, bloom_filter: BloomFilter) {
-        self.bloom_filter = Some(bloom_filter);
-    }
-
     pub fn set_dst_path_from_root(&mut self, dst_path_from_root: PathBuf) {
         self.dst_path_from_root = Some(dst_path_from_root);
     }
 
-    pub fn set_highlights(&mut self, highlights: Vec<HighlightMacro>) {
-        self.highlights = Some(highlights);
-    }
-
-    pub fn password(&self) -> Option<&String> {
-        self.password.as_ref()
-    }
-
-    pub fn set_password(&mut self, password: Option<String>) {
-        self.password = password;
+    pub fn set_bloom_filter(&mut self, bloom_filter: BloomFilter) {
+        self.bloom_filter = Some(bloom_filter);
     }
 
     pub fn take_bloom_filter(&mut self) -> Option<BloomFilter> {
@@ -160,18 +108,12 @@ impl Metadata {
     }
 }
 
-#[derive(Clone, Deserialize, Debug)]
-pub struct HighlightMacro {
-    delim: [String; 2],
-    style: String,
-}
-
-impl HighlightMacro {
-    pub fn replace_all<'a>(&self, code: &'a str) -> Cow<'a, str> {
-        if let Ok(pat) = Regex::new(&format!("{}(.*?){}", &self.delim[0], &self.delim[1])) {
-            pat.replace_all(code, format!("<span style=\"{}\">$1</span>", &self.style))
-        } else {
-            code.into()
-        }
+fn serialize_option<T: Serialize, S: serde::Serializer>(
+    v: &Option<T>,
+    s: S,
+) -> Result<S::Ok, S::Error> {
+    match v.as_ref() {
+        Some(v) => v.serialize(s),
+        None => Err(serde::ser::Error::custom("Expected some, but found None")),
     }
 }

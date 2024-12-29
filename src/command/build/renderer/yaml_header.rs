@@ -1,4 +1,4 @@
-use super::{Flag, HighlightMacro, Metadata};
+use super::{page_metadata::{Flag, PageMetadata}, rendering_context::{HighlightMacro, RenderingContext}};
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
@@ -31,12 +31,12 @@ pub struct YamlHeader {
 }
 
 impl YamlHeader {
-    pub fn merge_into(self, md: &mut Metadata) {
+    pub fn merge_into(self, md: &mut PageMetadata, ctxt: &mut RenderingContext) {
         md.set_create_date(self.create_date);
         md.set_last_update_date(self.last_update_date);
         md.set_tags(self.tags);
         md.set_flags(self.flags);
-        md.set_password(self.password);
-        md.set_highlights(self.highlights);
+        ctxt.set_password(self.password);
+        ctxt.set_highlights(self.highlights);
     }
 }

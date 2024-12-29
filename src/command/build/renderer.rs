@@ -1,4 +1,4 @@
-mod metadata;
+pub mod page_metadata;
 mod rendering_context;
 mod yaml_header;
 
@@ -10,10 +10,11 @@ use crate::{
 use crate::{copy_asset, include_asset};
 use anyhow::{anyhow, bail, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
-pub use metadata::{Flag, HighlightMacro, Metadata};
+use page_metadata::{Flag, PageMetadata};
 use pulldown_cmark::{
     CodeBlockKind, Event, HeadingLevel, LinkType, MetadataBlockKind, Options, Parser, Tag, TagEnd,
 };
+use rendering_context::{HighlightMacro, RenderingContext};
 use scraper::{Html, Selector};
 use std::collections::HashSet;
 use std::fs::File;
@@ -28,7 +29,7 @@ pub struct Renderer<'a> {
 // Passes
 impl<'a> Renderer<'a> {
     /// イベント列から yaml ヘッダを取得して YamlHeader に変換する
-    fn read_header(events: &[Event], meta: &mut Metadata) -> Result<()> {
+    fn read_header(events: &[Event]) -> Result<YamlHeader> {
         use MetadataBlockKind::YamlStyle;
 
         let header = events
@@ -46,13 +47,11 @@ impl<'a> Renderer<'a> {
         };
 
         let header: YamlHeader = serde_yaml::from_str(header)?;
-        header.merge_into(meta);
-
-        Ok(())
+        Ok(header)
     }
 
     /// イベント列からページのタイトルを取得する
-    fn get_page_title(events: &[Event], meta: &mut Metadata) {
+    fn get_page_title(events: &[Event], meta: &mut PageMetadata) {
         let h1 = events
             .iter()
             .skip_while(|e| !matches!(e, Event::Start(Tag::Heading { level, .. }) if level == &HeadingLevel::H1))
@@ -120,7 +119,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    fn convert_math(events: &mut [Event], css_list: &mut Vec<PathBuf>) {
+    fn convert_math(events: &mut [Event], ctxt: &mut RenderingContext) {
         let opts_display = katex::Opts::builder()
             .output_type(katex::opts::OutputType::Html)
             .display_mode(true)
@@ -150,7 +149,7 @@ impl<'a> Renderer<'a> {
         }
 
         if math_used {
-            css_list.push("katex/katex.min.css".into());
+            ctxt.push_css_path("katex/katex.min.css");
         }
     }
 
@@ -208,8 +207,8 @@ impl<'a> Renderer<'a> {
     fn events_to_html(
         &self,
         events: Vec<Event>,
-        meta: &Metadata,
-        css_list: &[PathBuf],
+        meta: &PageMetadata,
+        ctxt: &RenderingContext,
     ) -> Result<String> {
         let body = {
             let mut body = String::new();
@@ -220,7 +219,7 @@ impl<'a> Renderer<'a> {
         let path_to_root = self
             .config
             .dst_dir()
-            .path_from(meta.dst_path()?.parent().unwrap())
+            .path_from(ctxt.dst_path()?.parent().unwrap())
             .unwrap();
 
         let header = format!(
@@ -229,7 +228,7 @@ impl<'a> Renderer<'a> {
             site_name = self.config.site_name(),
         );
 
-        let css_list = css_list.iter().map(|p| {
+        let css_list = ctxt.css_list().iter().map(|p| {
             format!(
                 r#"<link rel="stylesheet" href="{}" />"#,
                 path_to_root.join(p).to_str().unwrap()
@@ -238,7 +237,7 @@ impl<'a> Renderer<'a> {
 
         let crypto = meta.flags()?.contains(&Flag::Crypto);
         let html = if crypto {
-            let password = meta
+            let password = ctxt
                 .password()
                 .or_else(|| self.config.password())
                 .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
@@ -273,12 +272,7 @@ impl<'a> Renderer<'a> {
         Ok(html)
     }
 
-    fn make_bloom_filter(&self, html: &str, meta: &mut Metadata) -> Result<()> {
-        if meta.flags()?.contains(&Flag::Crypto) {
-            meta.set_bloom_filter(BloomFilter::default());
-            return Ok(());
-        }
-
+    fn make_bloom_filter(&self, html: &str) -> Result<BloomFilter> {
         // HTML からテキストを抜き出す
         let text = Html::parse_document(html)
             .select(&Selector::parse("#main-content").unwrap())
@@ -309,47 +303,55 @@ impl<'a> Renderer<'a> {
         let mut filter = BloomFilter::new(num_byte, num_hash);
         words.iter().for_each(|w| filter.insert_word(w));
 
-        // 構築したフィルタをメタデータに登録する
-        meta.set_bloom_filter(filter);
-
-        Ok(())
+        Ok(filter)
     }
 
-    fn md_to_html(&self, markdown: &str, meta: &mut Metadata) -> Result<Option<String>> {
-        let mut css_list = vec!["style.css".into()];
+    fn md_to_html(
+        &self,
+        markdown: &str,
+        dst_path: PathBuf,
+    ) -> Result<Option<(String, PageMetadata)>> {
+        let mut ctxt = RenderingContext::default();
+        ctxt.set_dst_path(dst_path);
+        ctxt.push_js_path("metadata.js");
+        ctxt.push_js_path("script.js");
+        ctxt.push_js_path("theme.js");
+        ctxt.push_css_path("style.css");
+
+        let mut meta = PageMetadata::default();
+        let dst_path_from_root = ctxt.dst_path()?.path_from(self.config.dst_dir()).unwrap();
+        meta.set_dst_path_from_root(dst_path_from_root);
 
         // Markdown を AST に変換
         let mut events: Vec<_> = Parser::new_ext(markdown, Options::all()).collect();
 
         // AST に対してパスを適用
-        Self::read_header(&events, meta)?;
+        let header = Self::read_header(&events)?;
+        header.merge_into(&mut meta, &mut ctxt);
+
         if !self.config.render_draft() && meta.flags()?.contains(&Flag::Draft) {
             return Ok(None);
         }
+
+        Self::get_page_title(&events, &mut meta);
         Self::adjust_link_to_md(&mut events);
-        Self::convert_math(&mut events, &mut css_list);
+        Self::convert_math(&mut events, &mut ctxt);
         Self::convert_image(&mut events);
-        Self::highlight_code(&mut events, meta.highlights()?);
-        Self::get_page_title(&events, meta);
+        Self::highlight_code(&mut events, ctxt.highlights()?);
 
         // AST を HTML に変換
-        let html = self.events_to_html(events, meta, &css_list)?;
+        let html = self.events_to_html(events, &meta, &ctxt)?;
 
-        // HTML に対してパスを適用
-        // self.encrypt(&mut html, meta)?;
-        self.make_bloom_filter(&html, meta)?;
-
-        Ok(Some(html))
+        Ok(Some((html, meta)))
     }
 
-    pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
+    pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<PageMetadata>> {
         let src = src.as_ref();
         if !src.extension_is("md") {
             copy_file(src, self.config.dst_path_of(src))?;
             return Ok(None);
         }
 
-        let mut meta = Metadata::default();
         let markdown = {
             let mut file = File::open(src)?;
             let mut content = String::new();
@@ -358,16 +360,15 @@ impl<'a> Renderer<'a> {
         };
 
         let dst_path = self.config.dst_path_of(src);
-        let dst_path_from_root = dst_path.path_from(self.config.dst_dir()).unwrap();
-
-        meta.set_dst_path(dst_path);
-        meta.set_dst_path_from_root(dst_path_from_root);
-
-        let Some(html) = self.md_to_html(&markdown, &mut meta)? else {
+        let Some((html, mut meta)) = self.md_to_html(&markdown, dst_path.clone())? else {
             return Ok(None);
         };
 
-        write_file(meta.dst_path()?, html)?;
+        // HTML に対してパスを適用
+        let filter = self.make_bloom_filter(&html)?;
+        meta.set_bloom_filter(filter);
+
+        write_file(dst_path, html)?;
 
         Ok(Some(meta))
     }
