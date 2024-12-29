@@ -1,15 +1,17 @@
+mod html_template;
 pub mod page_metadata;
 mod rendering_context;
 mod yaml_header;
 
+use crate::copy_asset;
 use crate::util::{BloomFilter, PathExt as _};
 use crate::{
     config::Config,
     util::{copy_file, encode_with_password, write_file},
 };
-use crate::{copy_asset, include_asset};
 use anyhow::{anyhow, bail, Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
+use html_template::{crypto_html, index_html, page_html};
 use page_metadata::{Flag, PageMetadata};
 use pulldown_cmark::{
     CodeBlockKind, Event, HeadingLevel, LinkType, MetadataBlockKind, Options, Parser, Tag, TagEnd,
@@ -27,7 +29,7 @@ pub struct Renderer<'a> {
 }
 
 // Passes
-impl<'a> Renderer<'a> {
+impl Renderer<'_> {
     /// イベント列から yaml ヘッダを取得して YamlHeader に変換する
     fn read_header(events: &[Event]) -> Result<YamlHeader> {
         use MetadataBlockKind::YamlStyle;
@@ -193,17 +195,6 @@ impl<'a> Renderer<'a> {
         Self { config }
     }
 
-    fn tag_elems(tags: &[String], dst_root_dir: &Path) -> String {
-        let nsbp = "\u{00a0}";
-        tags.iter()
-            .map(|n| {
-                let path = dst_root_dir.join("index.html");
-                let path = path.to_str().unwrap();
-                format!(r#"<a class="tag" href="{path}?tag={n}">{n}</a>"#)
-            })
-            .fold(String::new(), |acc, e| format!("{acc}{nsbp}{e}"))
-    }
-
     fn events_to_html(
         &self,
         events: Vec<Event>,
@@ -222,42 +213,12 @@ impl<'a> Renderer<'a> {
             .path_from(ctxt.dst_path()?.parent().unwrap())
             .unwrap();
 
-        let header = format!(
-            include_asset!("header.html"),
-            path_to_root = path_to_root.to_str().unwrap(),
-            site_name = self.config.site_name(),
-        );
-
         let default_css_list: &[PathBuf] = &["style.css".into()];
-        let css_list = default_css_list
-            .iter()
-            .chain(ctxt.css_list().into_iter())
-            .map(|p| {
-                format!(
-                    r#"<link rel="stylesheet" href="{}" />"#,
-                    path_to_root.join(p).to_str().unwrap()
-                )
-            });
+        let css_list = default_css_list.iter().chain(ctxt.css_list());
 
         let default_js_list: &[PathBuf] =
             &["metadata.js".into(), "script.js".into(), "theme.js".into()];
-        let js_list = default_js_list
-            .iter()
-            .chain(ctxt.js_list().into_iter())
-            .map(|p| {
-                format!(
-                    r#"<script defer type="text/javascript" src="{}"></script>"#,
-                    path_to_root.join(p).to_str().unwrap()
-                )
-            });
-
-        let head = format!(
-            include_asset!("head.html"),
-            path_to_root = path_to_root.to_str().unwrap(),
-            css_list = css_list.collect::<String>(),
-            js_list = js_list.collect::<String>(),
-            title = meta.title().unwrap(),
-        );
+        let js_list = default_js_list.iter().chain(ctxt.js_list());
 
         let crypto = meta.flags()?.contains(&Flag::Crypto);
         let html = if crypto {
@@ -268,25 +229,30 @@ impl<'a> Renderer<'a> {
             let cypher = encode_with_password(password, body.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);
 
-            format!(
-                include_asset!("crypto.html"),
-                head = head,
-                create_date = meta.create_date()?,
-                last_update_date = meta.last_update_date().unwrap(),
-                tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
-                header = header,
-                encoded = encoded,
+            crypto_html(
+                &path_to_root,
+                self.config.site_name(),
+                meta.title()?,
+                meta.create_date()?,
+                meta.last_update_date()?,
+                css_list,
+                js_list,
+                meta.tags()?,
+                &encoded,
+                self.config.footer(),
             )
         } else {
-            format!(
-                include_asset!("page.html"),
-                head = head,
-                header = header,
-                tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
-                create_date = meta.create_date()?,
-                last_update_date = meta.last_update_date()?,
-                body = body,
-                footer_text = self.config.footer(),
+            page_html(
+                &path_to_root,
+                self.config.site_name(),
+                meta.title()?,
+                meta.create_date()?,
+                meta.last_update_date()?,
+                css_list,
+                js_list,
+                meta.tags()?,
+                &body,
+                self.config.footer(),
             )
         };
 
@@ -429,20 +395,12 @@ impl<'a> Renderer<'a> {
     }
 
     fn render_index(&self) -> Result<()> {
-        let header = format!(
-            include_asset!("header.html"),
-            path_to_root = ".",
-            site_name = self.config.site_name(),
-        );
-
-        let content = format!(
-            include_asset!("index.html"),
-            header = header,
-            site_name = self.config.site_name(),
-            footer = self.config.footer(),
-        );
-
         let dst = self.config.dst_dir().join("index.html");
+        let content = index_html(
+            &PathBuf::from("."),
+            self.config.site_name(),
+            self.config.footer(),
+        );
         write_file(dst, content).map_err(Into::into)
     }
 }
