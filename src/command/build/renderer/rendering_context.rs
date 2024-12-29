@@ -14,10 +14,10 @@ pub struct RenderingContext {
     /// 暗号化時のパスワード
     password: Option<String>,
 
-    /// 読み込む JS 一覧
+    /// 追加で読み込む JS 一覧
     js_paths: Vec<PathBuf>,
 
-    /// 読み込む CSS 一覧
+    /// 追加で読み込む CSS 一覧
     css_paths: Vec<PathBuf>,
 }
 

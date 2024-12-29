@@ -228,19 +228,28 @@ impl<'a> Renderer<'a> {
             site_name = self.config.site_name(),
         );
 
-        let css_list = ctxt.css_list().iter().map(|p| {
-            format!(
-                r#"<link rel="stylesheet" href="{}" />"#,
-                path_to_root.join(p).to_str().unwrap()
-            )
-        });
+        let default_css_list: &[PathBuf] = &["style.css".into()];
+        let css_list = default_css_list
+            .iter()
+            .chain(ctxt.css_list().into_iter())
+            .map(|p| {
+                format!(
+                    r#"<link rel="stylesheet" href="{}" />"#,
+                    path_to_root.join(p).to_str().unwrap()
+                )
+            });
 
-        let js_list = ctxt.js_list().iter().map(|p| {
-            format!(
-                r#"<script defer type="text/javascript" src="{}"></script>"#,
-                path_to_root.join(p).to_str().unwrap()
-            )
-        });
+        let default_js_list: &[PathBuf] =
+            &["metadata.js".into(), "script.js".into(), "theme.js".into()];
+        let js_list = default_js_list
+            .iter()
+            .chain(ctxt.js_list().into_iter())
+            .map(|p| {
+                format!(
+                    r#"<script defer type="text/javascript" src="{}"></script>"#,
+                    path_to_root.join(p).to_str().unwrap()
+                )
+            });
 
         let head = format!(
             include_asset!("head.html"),
@@ -325,10 +334,6 @@ impl<'a> Renderer<'a> {
     ) -> Result<Option<(String, PageMetadata)>> {
         let mut ctxt = RenderingContext::default();
         ctxt.set_dst_path(dst_path);
-        ctxt.push_js_path("metadata.js");
-        ctxt.push_js_path("script.js");
-        ctxt.push_js_path("theme.js");
-        ctxt.push_css_path("style.css");
 
         let mut meta = PageMetadata::default();
         let dst_path_from_root = ctxt.dst_path()?.path_from(self.config.dst_dir()).unwrap();
@@ -390,6 +395,7 @@ impl<'a> Renderer<'a> {
         self.render_tag()?;
         copy_asset!("style.css", self.config.dst_dir())?;
         copy_asset!("script.js", self.config.dst_dir())?;
+        copy_asset!("crypto-main.js", self.config.dst_dir())?;
         copy_asset!("segmenter.js", self.config.dst_dir())?;
         copy_asset!("theme.js", self.config.dst_dir())?;
 
