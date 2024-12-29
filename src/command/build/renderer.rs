@@ -242,6 +242,14 @@ impl<'a> Renderer<'a> {
             )
         });
 
+        let head = format!(
+            include_asset!("head.html"),
+            path_to_root = path_to_root.to_str().unwrap(),
+            css_list = css_list.collect::<String>(),
+            js_list = js_list.collect::<String>(),
+            title = meta.title().unwrap(),
+        );
+
         let crypto = meta.flags()?.contains(&Flag::Crypto);
         let html = if crypto {
             let password = ctxt
@@ -253,28 +261,22 @@ impl<'a> Renderer<'a> {
 
             format!(
                 include_asset!("crypto.html"),
+                head = head,
                 create_date = meta.create_date()?,
                 last_update_date = meta.last_update_date().unwrap(),
                 tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
                 header = header,
-                css_list = css_list.collect::<String>(),
-                js_list = js_list.collect::<String>(),
-                page_title = meta.title().unwrap(),
                 encoded = encoded,
-                path_to_root = path_to_root.to_str().unwrap(),
             )
         } else {
             format!(
                 include_asset!("page.html"),
-                path_to_root = path_to_root.to_str().unwrap(),
+                head = head,
                 header = header,
-                css_list = css_list.collect::<String>(),
-                js_list = js_list.collect::<String>(),
                 tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
                 create_date = meta.create_date()?,
                 last_update_date = meta.last_update_date()?,
                 body = body,
-                page_title = meta.title()?,
                 footer_text = self.config.footer(),
             )
         };
