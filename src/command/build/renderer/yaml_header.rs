@@ -1,4 +1,7 @@
-use super::{page_metadata::{Flag, PageMetadata}, rendering_context::{HighlightMacro, RenderingContext}};
+use super::{
+    page_metadata::{Flag, PageMetadata},
+    rendering_context::{HighlightMacro, RenderingContext},
+};
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]

@@ -1,6 +1,6 @@
-use std::path::PathBuf;
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 use crate::util::BloomFilter;
 
