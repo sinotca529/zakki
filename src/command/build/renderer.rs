@@ -312,16 +312,10 @@ impl<'a> Renderer<'a> {
             .map(|w| w.to_lowercase())
             .collect();
 
-        // Bloom filter 用のパラメタを計算する
-        let fp = self.config.search_fp();
-        let num_words = words.len() as f64;
-        let num_bit = -num_words * fp.ln() / 2.0f64.ln().powi(2);
-        let num_byte = num_bit / 8.0;
-
         // Bloom filter を構築する
-        let num_byte = num_byte.ceil() as u32;
-        let num_hash = (num_bit * 2.0f64.ln() / num_words).ceil() as u8;
-        let mut filter = BloomFilter::new(num_byte, num_hash);
+        let fp = self.config.search_fp();
+        let num_words = words.len();
+        let mut filter = BloomFilter::new(num_words, fp);
         words.iter().for_each(|w| filter.insert_word(w));
 
         Ok(filter)

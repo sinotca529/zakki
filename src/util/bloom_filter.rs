@@ -17,7 +17,14 @@ pub struct BloomFilter {
 }
 
 impl BloomFilter {
-    pub fn new(num_byte: u32, num_hash: u8) -> Self {
+    /// 新しい Bloom フィルターを作成します。
+    /// * `num_words` - フィルターに格納する単語の数
+    /// * `fp` - 誤り許容率
+    pub fn new(num_words: usize, fp: f64) -> Self {
+        let num_words = num_words as f64;
+        let num_bit = -num_words * fp.ln() / 2.0f64.ln().powi(2);
+        let num_byte = (num_bit / 8.0).ceil() as u32;
+        let num_hash = (num_bit * 2.0f64.ln() / num_words).ceil() as u8;
         Self {
             filter: vec![0; num_byte as usize],
             num_hash,
@@ -52,7 +59,7 @@ mod test {
 
     #[test]
     fn test() {
-        let mut filter = BloomFilter::new(128 * 8, 3);
+        let mut filter = BloomFilter::new(25, 0.01);
         filter.insert_word("メロス");
         filter.insert_word("は");
         filter.insert_word("激怒");
