@@ -61,6 +61,10 @@ impl RenderingContext {
     pub fn css_list(&self) -> &Vec<PathBuf> {
         &self.css_paths
     }
+
+    pub fn js_list(&self) -> &Vec<PathBuf> {
+        &self.js_paths
+    }
 }
 
 #[derive(Clone, Deserialize, Debug)]
