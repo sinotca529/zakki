@@ -1,7 +1,6 @@
+pub mod context;
 mod html_template;
-pub mod page_metadata;
-mod rendering_context;
-mod yaml_header;
+mod pass;
 
 use crate::copy_asset;
 use crate::util::{BloomFilter, PathExt as _};
@@ -9,185 +8,23 @@ use crate::{
     config::Config,
     util::{copy_file, encode_with_password, write_file},
 };
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context as _, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
+use context::{Context, Flag, Metadata};
 use html_template::{crypto_html, index_html, page_html};
-use page_metadata::{Flag, PageMetadata};
-use pulldown_cmark::{
-    CodeBlockKind, Event, HeadingLevel, LinkType, MetadataBlockKind, Options, Parser, Tag, TagEnd,
+use pass::{
+    convert_math_pass, get_title_pass, highlight_code_pass, image_convert_pass, link_adjust_pass,
+    read_header_pass,
 };
-use rendering_context::{HighlightMacro, RenderingContext};
+use pulldown_cmark::{Event, Options, Parser};
 use scraper::{Html, Selector};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
-use yaml_header::YamlHeader;
 
 pub struct Renderer<'a> {
     config: &'a Config,
-}
-
-// Passes
-impl Renderer<'_> {
-    /// イベント列から yaml ヘッダを取得して YamlHeader に変換する
-    fn read_header(events: &[Event]) -> Result<YamlHeader> {
-        use MetadataBlockKind::YamlStyle;
-
-        let header = events
-            .iter()
-            .skip_while(|e| !matches!(e, Event::Start(Tag::MetadataBlock(YamlStyle))))
-            .take_while(|e| !matches!(e, Event::End(TagEnd::MetadataBlock(YamlStyle))))
-            .filter_map(|e| match e {
-                Event::Text(t) => Some(t),
-                _ => None,
-            })
-            .next();
-
-        let Some(header) = header else {
-            bail!("Yaml header is not existing.")
-        };
-
-        let header: YamlHeader = serde_yaml::from_str(header)?;
-        Ok(header)
-    }
-
-    /// イベント列からページのタイトルを取得する
-    fn get_page_title(events: &[Event], meta: &mut PageMetadata) {
-        let h1 = events
-            .iter()
-            .skip_while(|e| !matches!(e, Event::Start(Tag::Heading { level, .. }) if level == &HeadingLevel::H1))
-            .take_while(|e| !matches!(e, Event::End(TagEnd::Heading(HeadingLevel::H1))))
-            .filter_map(|e| match e {
-                Event::Text(t) => Some(t.to_string()),
-                _ => None,
-            })
-            .next();
-
-        meta.set_title(h1.unwrap_or("No Title".to_owned()));
-    }
-
-    fn adjust_link_to_md(event: &mut [Event]) {
-        for e in event {
-            if let Event::Start(Tag::Link { dest_url: url, .. }) = e {
-                let is_local = !url.starts_with("http://") && !url.starts_with("https://");
-                let is_md = url.ends_with(".md");
-                if is_local && is_md {
-                    *url = format!("{}.html", &url[..url.len() - ".md".len()]).into();
-                }
-            }
-        }
-    }
-
-    fn convert_image(event: &mut [Event]) {
-        for i in 1..event.len() {
-            let (a, b) = event.split_at_mut(i);
-            let first = a.last_mut().unwrap();
-            let second = b.first_mut().unwrap();
-            if let Event::Start(Tag::Image {
-                link_type: LinkType::Inline,
-                dest_url,
-                title,
-                id,
-            }) = first
-            {
-                let alt_text = if let Event::Text(a) = second {
-                    Some(&*a) // convert from &mut to &
-                } else {
-                    None
-                };
-                let alt_attr = alt_text
-                    .map(|a| format!(r#"alt="{a}""#))
-                    .unwrap_or_default();
-
-                let img = if dest_url.ends_with(".svg") {
-                    format!(
-                        r#"<object type="image/svg+xml" data="{dest_url}" title="{title}" id="{id}"></object>"#
-                    )
-                } else {
-                    format!(r#"<img loading="lazy" src="{dest_url}" {alt_attr} id="{id}" />"#)
-                };
-
-                let title = alt_text
-                    .map(|a| format!(r#"<div>{a}</div>"#))
-                    .unwrap_or_default();
-                let html = format!(r#"<div class="zakki-img">{img}{title}</div>"#);
-
-                *first = Event::InlineHtml(html.into());
-                if alt_text.is_some() {
-                    *second = Event::InlineHtml("".into());
-                }
-            }
-        }
-    }
-
-    fn convert_math(events: &mut [Event], ctxt: &mut RenderingContext) {
-        let opts_display = katex::Opts::builder()
-            .output_type(katex::opts::OutputType::Html)
-            .display_mode(true)
-            .build()
-            .unwrap();
-        let opts_inline = katex::Opts::builder()
-            .output_type(katex::opts::OutputType::Html)
-            .display_mode(false)
-            .build()
-            .unwrap();
-
-        let mut math_used = false;
-        for e in events {
-            match e {
-                Event::InlineMath(latex) => {
-                    let math = katex::render_with_opts(latex, &opts_inline).unwrap();
-                    *e = Event::InlineHtml(math.into());
-                    math_used = true;
-                }
-                Event::DisplayMath(latex) => {
-                    let math = katex::render_with_opts(latex, &opts_display).unwrap();
-                    *e = Event::InlineHtml(math.into());
-                    math_used = true;
-                }
-                _ => {}
-            }
-        }
-
-        if math_used {
-            ctxt.push_css_path("katex/katex.min.css");
-        }
-    }
-
-    fn highlight_code(events: &mut [Event], macros: &[HighlightMacro]) {
-        let mut is_code_block = false;
-        for e in events {
-            match e {
-                Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(_))) => {
-                    is_code_block = true;
-                }
-                Event::End(TagEnd::CodeBlock) => {
-                    is_code_block = false;
-                }
-                Event::Text(t) => {
-                    if !is_code_block {
-                        continue;
-                    }
-
-                    let code = t.to_string();
-
-                    let mut code = code
-                        .to_string()
-                        .replace('&', "&amp;")
-                        .replace('<', "&lt;")
-                        .replace('>', "&gt;");
-
-                    for m in macros {
-                        code = m.replace_all(&code).to_string();
-                    }
-
-                    *e = Event::InlineHtml(code.into());
-                }
-                _ => {}
-            }
-        }
-    }
 }
 
 impl<'a> Renderer<'a> {
@@ -195,22 +32,15 @@ impl<'a> Renderer<'a> {
         Self { config }
     }
 
-    fn events_to_html(
-        &self,
-        events: Vec<Event>,
-        meta: &PageMetadata,
-        ctxt: &RenderingContext,
-    ) -> Result<String> {
+    fn events_to_html(&self, events: Vec<Event>, ctxt: &Context) -> Result<String> {
         let body = {
             let mut body = String::new();
             pulldown_cmark::html::push_html(&mut body, events.into_iter());
             body
         };
 
-        let path_to_root = self
-            .config
-            .dst_dir()
-            .path_from(ctxt.dst_path()?.parent().unwrap())
+        let path_to_root = PathBuf::from("")
+            .path_from(ctxt.build_root_to_dst()?.parent().unwrap())
             .unwrap();
 
         let default_css_list: &[PathBuf] = &["style.css".into()];
@@ -220,7 +50,7 @@ impl<'a> Renderer<'a> {
             &["metadata.js".into(), "script.js".into(), "theme.js".into()];
         let js_list = default_js_list.iter().chain(ctxt.js_list());
 
-        let crypto = meta.flags()?.contains(&Flag::Crypto);
+        let crypto = ctxt.flags()?.contains(&Flag::Crypto);
         let html = if crypto {
             let password = ctxt
                 .password()
@@ -232,12 +62,12 @@ impl<'a> Renderer<'a> {
             crypto_html(
                 &path_to_root,
                 self.config.site_name(),
-                meta.title()?,
-                meta.create_date()?,
-                meta.last_update_date()?,
+                ctxt.title()?,
+                ctxt.create_date()?,
+                ctxt.last_update_date()?,
                 css_list,
                 js_list,
-                meta.tags()?,
+                ctxt.tags()?,
                 &encoded,
                 self.config.footer(),
             )
@@ -245,12 +75,12 @@ impl<'a> Renderer<'a> {
             page_html(
                 &path_to_root,
                 self.config.site_name(),
-                meta.title()?,
-                meta.create_date()?,
-                meta.last_update_date()?,
+                ctxt.title()?,
+                ctxt.create_date()?,
+                ctxt.last_update_date()?,
                 css_list,
                 js_list,
-                meta.tags()?,
+                ctxt.tags()?,
                 &body,
                 self.config.footer(),
             )
@@ -287,42 +117,35 @@ impl<'a> Renderer<'a> {
         Ok(filter)
     }
 
-    fn md_to_html(
-        &self,
-        markdown: &str,
-        dst_path: PathBuf,
-    ) -> Result<Option<(String, PageMetadata)>> {
-        let mut ctxt = RenderingContext::default();
-        ctxt.set_dst_path(dst_path);
+    fn md_to_html(&self, markdown: &str, dst_path: PathBuf) -> Result<Option<(String, Context)>> {
+        let mut ctxt = Context::default();
 
-        let mut meta = PageMetadata::default();
-        let dst_path_from_root = ctxt.dst_path()?.path_from(self.config.dst_dir()).unwrap();
-        meta.set_dst_path_from_root(dst_path_from_root);
+        let build_root_to_dst = dst_path.path_from(self.config.dst_dir()).unwrap();
+        ctxt.set_build_root_to_dst(build_root_to_dst);
 
         // Markdown を AST に変換
         let mut events: Vec<_> = Parser::new_ext(markdown, Options::all()).collect();
 
         // AST に対してパスを適用
-        let header = Self::read_header(&events)?;
-        header.merge_into(&mut meta, &mut ctxt);
+        read_header_pass(&mut events, &mut ctxt)?;
 
-        if !self.config.render_draft() && meta.flags()?.contains(&Flag::Draft) {
+        if !self.config.render_draft() && ctxt.flags()?.contains(&Flag::Draft) {
             return Ok(None);
         }
 
-        Self::get_page_title(&events, &mut meta);
-        Self::adjust_link_to_md(&mut events);
-        Self::convert_math(&mut events, &mut ctxt);
-        Self::convert_image(&mut events);
-        Self::highlight_code(&mut events, ctxt.highlights()?);
+        get_title_pass(&mut events, &mut ctxt)?;
+        link_adjust_pass(&mut events, &mut ctxt)?;
+        image_convert_pass(&mut events, &mut ctxt)?;
+        highlight_code_pass(&mut events, &mut ctxt)?;
+        convert_math_pass(&mut events, &mut ctxt)?;
 
         // AST を HTML に変換
-        let html = self.events_to_html(events, &meta, &ctxt)?;
+        let html = self.events_to_html(events, &ctxt)?;
 
-        Ok(Some((html, meta)))
+        Ok(Some((html, ctxt)))
     }
 
-    pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<PageMetadata>> {
+    pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
         let src = src.as_ref();
         if !src.extension_is("md") {
             copy_file(src, self.config.dst_path_of(src))?;
@@ -337,17 +160,17 @@ impl<'a> Renderer<'a> {
         };
 
         let dst_path = self.config.dst_path_of(src);
-        let Some((html, mut meta)) = self.md_to_html(&markdown, dst_path.clone())? else {
+        let Some((html, mut ctxt)) = self.md_to_html(&markdown, dst_path.clone())? else {
             return Ok(None);
         };
 
         // HTML に対してパスを適用
         let filter = self.make_bloom_filter(&html)?;
-        meta.set_bloom_filter(filter);
+        ctxt.set_bloom_filter(filter);
 
         write_file(dst_path, html)?;
 
-        Ok(Some(meta))
+        Ok(Some(ctxt.try_into()?))
     }
 
     pub fn render_assets(&self) -> Result<()> {

@@ -8,23 +8,25 @@ strip = true
 
 [dependencies]
 aes = "0.8.4"
-anyhow = "1.0.82"
+anyhow = "1.0.95"
 base64 = "0.22.1"
 cbc = { version = "0.1.2", features = ["std"] }
-clap = { version = "4.5.4", features = ["derive"] }
+clap = { version = "4.5.23", features = ["derive"] }
+graphviz-rust = "0.9.3"
 itertools = "0.13.0"
 katex = "0.4.6"
-pathdiff = "0.2.1"
+paste = "1.0.15"
+pathdiff = "0.2.3"
 phf = "0.11.2"
-pulldown-cmark = { version = "0.12.1", features = ["simd"] }
+pulldown-cmark = { version = "0.12.2", features = ["simd"] }
 rand = "0.8.5"
 rayon = "1.10.0"
-regex = "1.10.4"
+regex = "1.11.1"
 rust_icu = "5.0.0"
-scraper = "0.20.0"
-serde = { version = "1.0.200", features = ["derive"] }
-serde_json = "1.0.116"
+scraper = "0.22.0"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.134"
 serde_yaml = "0.9.34"
 sha2 = "0.10.8"
-toml = "0.8.14"
-yaml-rust2 = "0.8.0"
+toml = "0.8.19"
+yaml-rust2 = "0.9.0"

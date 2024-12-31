@@ -1,8 +1,28 @@
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-
 use crate::util::BloomFilter;
+use paste::paste;
+
+macro_rules! getter {
+    ($field:ident, $return_type:ty) => {
+        pub fn $field(&self) -> Result<$return_type> {
+            self.$field
+                .as_ref()
+                .with_context(|| anyhow!(concat!(stringify!($field), " has not been set yet.")))
+        }
+    };
+}
+
+macro_rules! setter {
+    ($field:ident, $type:ty) => {
+        paste! {
+            pub fn [<set_ $field>](&mut self, $field: $type) {
+                self.$field = Some($field);
+            }
+        }
+    };
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub enum Flag {
@@ -37,7 +57,7 @@ pub struct PageMetadata {
 
     /// ルートから記事の出力先への相対パス
     #[serde(rename = "path", serialize_with = "serialize_option")]
-    dst_path_from_root: Option<PathBuf>,
+    build_root_to_dst: Option<PathBuf>,
 
     /// Bloom filter
     #[serde(skip)]
@@ -45,63 +65,20 @@ pub struct PageMetadata {
 }
 
 impl PageMetadata {
-    pub fn create_date(&self) -> Result<&String> {
-        self.create_date
-            .as_ref()
-            .with_context(|| anyhow!("create_date has not been set yet."))
-    }
+    getter!(create_date, &String);
+    getter!(last_update_date, &String);
+    getter!(tags, &Vec<String>);
+    getter!(flags, &Vec<Flag>);
+    getter!(title, &String);
+    getter!(build_root_to_dst, &PathBuf);
 
-    pub fn last_update_date(&self) -> Result<&String> {
-        self.last_update_date
-            .as_ref()
-            .with_context(|| anyhow!("last_update_date has not been set yet."))
-    }
-
-    pub fn tags(&self) -> Result<&Vec<String>> {
-        self.tags
-            .as_ref()
-            .with_context(|| anyhow!("tags has not been set yet."))
-    }
-
-    pub fn flags(&self) -> Result<&Vec<Flag>> {
-        self.flags
-            .as_ref()
-            .with_context(|| anyhow!("flags has not been set yet."))
-    }
-
-    pub fn title(&self) -> Result<&String> {
-        self.title
-            .as_ref()
-            .with_context(|| anyhow!("title has not been set yet."))
-    }
-
-    pub fn set_create_date(&mut self, create_date: String) {
-        self.create_date = Some(create_date);
-    }
-
-    pub fn set_last_update_date(&mut self, last_update_date: String) {
-        self.last_update_date = Some(last_update_date);
-    }
-
-    pub fn set_tags(&mut self, tags: Vec<String>) {
-        self.tags = Some(tags);
-    }
-
-    pub fn set_flags(&mut self, flags: Vec<Flag>) {
-        self.flags = Some(flags);
-    }
-
-    pub fn set_title(&mut self, title: String) {
-        self.title = Some(title);
-    }
-
-    pub fn set_dst_path_from_root(&mut self, dst_path_from_root: PathBuf) {
-        self.dst_path_from_root = Some(dst_path_from_root);
-    }
-
-    pub fn set_bloom_filter(&mut self, bloom_filter: BloomFilter) {
-        self.bloom_filter = Some(bloom_filter);
-    }
+    setter!(create_date, String);
+    setter!(last_update_date, String);
+    setter!(tags, Vec<String>);
+    setter!(flags, Vec<Flag>);
+    setter!(title, String);
+    setter!(build_root_to_dst, PathBuf);
+    setter!(bloom_filter, BloomFilter);
 
     pub fn take_bloom_filter(&mut self) -> Option<BloomFilter> {
         self.bloom_filter.take()

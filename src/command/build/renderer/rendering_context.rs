@@ -5,11 +5,8 @@ use std::{borrow::Cow, path::PathBuf};
 
 #[derive(Default)]
 pub struct RenderingContext {
-    /// ルートディレクトリから記事の出力先ディレクトリへの相対パス
-    dst_path: Option<PathBuf>,
-
     /// コードハイライトの設定
-    highlights: Option<Vec<HighlightMacro>>,
+    highlights: Option<Vec<HighlightRule>>,
 
     /// 暗号化時のパスワード
     password: Option<String>,
@@ -30,16 +27,6 @@ impl RenderingContext {
         self.css_paths.push(path.into());
     }
 
-    pub fn set_dst_path(&mut self, dst_path: PathBuf) {
-        self.dst_path = Some(dst_path);
-    }
-
-    pub fn dst_path(&self) -> Result<&PathBuf> {
-        self.dst_path
-            .as_ref()
-            .with_context(|| anyhow!("dst_path has not been set yet."))
-    }
-
     pub fn password(&self) -> Option<&String> {
         self.password.as_ref()
     }
@@ -48,11 +35,11 @@ impl RenderingContext {
         self.password = password;
     }
 
-    pub fn set_highlights(&mut self, highlights: Vec<HighlightMacro>) {
+    pub fn set_highlights(&mut self, highlights: Vec<HighlightRule>) {
         self.highlights = Some(highlights);
     }
 
-    pub fn highlights(&self) -> Result<&Vec<HighlightMacro>> {
+    pub fn highlights(&self) -> Result<&Vec<HighlightRule>> {
         self.highlights
             .as_ref()
             .with_context(|| anyhow!("highlights has not been set yet."))
@@ -67,18 +54,3 @@ impl RenderingContext {
     }
 }
 
-#[derive(Clone, Deserialize, Debug)]
-pub struct HighlightMacro {
-    delim: [String; 2],
-    style: String,
-}
-
-impl HighlightMacro {
-    pub fn replace_all<'a>(&self, code: &'a str) -> Cow<'a, str> {
-        if let Ok(pat) = Regex::new(&format!("{}(.*?){}", &self.delim[0], &self.delim[1])) {
-            pat.replace_all(code, format!("<span style=\"{}\">$1</span>", &self.style))
-        } else {
-            code.into()
-        }
-    }
-}
