@@ -1,184 +1,30 @@
-mod metadata;
-mod yaml_header;
+pub mod context;
+mod html_template;
+mod pass;
 
+use crate::copy_asset;
 use crate::util::{BloomFilter, PathExt as _};
 use crate::{
     config::Config,
     util::{copy_file, encode_with_password, write_file},
 };
-use crate::{copy_asset, include_asset};
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context as _, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
-pub use metadata::{Flag, HighlightMacro, Metadata};
-use pulldown_cmark::{
-    CodeBlockKind, Event, HeadingLevel, LinkType, MetadataBlockKind, Options, Parser, Tag, TagEnd,
+use context::{Context, Flag, Metadata};
+use html_template::{crypto_html, index_html, page_html};
+use pass::{
+    convert_math_pass, get_title_pass, highlight_code_pass, image_convert_pass, link_adjust_pass,
+    read_header_pass,
 };
+use pulldown_cmark::{Event, Options, Parser};
 use scraper::{Html, Selector};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read as _;
-use std::path::Path;
-use yaml_header::YamlHeader;
+use std::path::{Path, PathBuf};
 
 pub struct Renderer<'a> {
     config: &'a Config,
-}
-
-// Passes
-impl<'a> Renderer<'a> {
-    /// イベント列から yaml ヘッダを取得して YamlHeader に変換する
-    fn read_header(events: &[Event], meta: &mut Metadata) -> Result<()> {
-        use MetadataBlockKind::YamlStyle;
-
-        let header = events
-            .iter()
-            .skip_while(|e| !matches!(e, Event::Start(Tag::MetadataBlock(YamlStyle))))
-            .take_while(|e| !matches!(e, Event::End(TagEnd::MetadataBlock(YamlStyle))))
-            .filter_map(|e| match e {
-                Event::Text(t) => Some(t),
-                _ => None,
-            })
-            .next();
-
-        let Some(header) = header else {
-            bail!("Yaml header is not existing.")
-        };
-
-        let header: YamlHeader = serde_yaml::from_str(header)?;
-        header.merge_into(meta);
-
-        Ok(())
-    }
-
-    /// イベント列からページのタイトルを取得する
-    fn get_page_title(events: &[Event], meta: &mut Metadata) {
-        let h1 = events
-            .iter()
-            .skip_while(|e| !matches!(e, Event::Start(Tag::Heading { level, .. }) if level == &HeadingLevel::H1))
-            .take_while(|e| !matches!(e, Event::End(TagEnd::Heading(HeadingLevel::H1))))
-            .filter_map(|e| match e {
-                Event::Text(t) => Some(t.to_string()),
-                _ => None,
-            })
-            .next();
-
-        meta.set_title(h1.unwrap_or("No Title".to_owned()));
-    }
-
-    fn adjust_link_to_md(event: &mut [Event]) {
-        for e in event {
-            if let Event::Start(Tag::Link { dest_url: url, .. }) = e {
-                let is_local = !url.starts_with("http://") && !url.starts_with("https://");
-                let is_md = url.ends_with(".md");
-                if is_local && is_md {
-                    *url = format!("{}.html", &url[..url.len() - ".md".len()]).into();
-                }
-            }
-        }
-    }
-
-    fn convert_image(event: &mut [Event]) {
-        for i in 1..event.len() {
-            let (a, b) = event.split_at_mut(i);
-            let first = a.last_mut().unwrap();
-            let second = b.first_mut().unwrap();
-            if let Event::Start(Tag::Image {
-                link_type: LinkType::Inline,
-                dest_url,
-                title,
-                id,
-            }) = first
-            {
-                let alt_text = if let Event::Text(a) = second {
-                    Some(&*a) // convert from &mut to &
-                } else {
-                    None
-                };
-                let alt_attr = alt_text
-                    .map(|a| format!(r#"alt="{a}""#))
-                    .unwrap_or_default();
-
-                let img = if dest_url.ends_with(".svg") {
-                    format!(
-                        r#"<object type="image/svg+xml" data="{dest_url}" title="{title}" id="{id}"></object>"#
-                    )
-                } else {
-                    format!(r#"<img loading="lazy" src="{dest_url}" {alt_attr} id="{id}" />"#)
-                };
-
-                let title = alt_text
-                    .map(|a| format!(r#"<div>{a}</div>"#))
-                    .unwrap_or_default();
-                let html = format!(r#"<div class="zakki-img">{img}{title}</div>"#);
-
-                *first = Event::InlineHtml(html.into());
-                if alt_text.is_some() {
-                    *second = Event::InlineHtml("".into());
-                }
-            }
-        }
-    }
-
-    fn convert_math(events: &mut [Event]) {
-        let opts_display = katex::Opts::builder()
-            .output_type(katex::opts::OutputType::Html)
-            .display_mode(true)
-            .build()
-            .unwrap();
-        let opts_inline = katex::Opts::builder()
-            .output_type(katex::opts::OutputType::Html)
-            .display_mode(false)
-            .build()
-            .unwrap();
-
-        for e in events {
-            match e {
-                Event::InlineMath(latex) => {
-                    let math = katex::render_with_opts(latex, &opts_inline).unwrap();
-                    *e = Event::InlineHtml(math.into());
-                }
-                Event::DisplayMath(latex) => {
-                    let math = katex::render_with_opts(latex, &opts_display).unwrap();
-                    *e = Event::InlineHtml(math.into());
-                }
-                _ => {}
-            }
-        }
-    }
-
-    fn highlight_code(events: &mut [Event], macros: &[HighlightMacro]) {
-        let mut is_code_block = false;
-        for e in events {
-            match e {
-                Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(_))) => {
-                    is_code_block = true;
-                }
-                Event::End(TagEnd::CodeBlock) => {
-                    is_code_block = false;
-                }
-                Event::Text(t) => {
-                    if !is_code_block {
-                        continue;
-                    }
-
-                    let code = t.to_string();
-
-                    let mut code = code
-                        .to_string()
-                        .replace('&', "&amp;")
-                        .replace('<', "&lt;")
-                        .replace('>', "&gt;");
-
-                    for m in macros {
-                        code = m.replace_all(&code).to_string();
-                    }
-
-                    *e = Event::InlineHtml(code.into());
-                }
-                _ => {}
-            }
-        }
-    }
 }
 
 impl<'a> Renderer<'a> {
@@ -186,78 +32,64 @@ impl<'a> Renderer<'a> {
         Self { config }
     }
 
-    fn tag_elems(tags: &[String], dst_root_dir: &Path) -> String {
-        let nsbp = "\u{00a0}";
-        tags.iter()
-            .map(|n| {
-                let path = dst_root_dir.join("tag.html");
-                let path = path.to_str().unwrap();
-                format!(r#"<a class="tag" href="{path}?tag={n}">{n}</a>"#)
-            })
-            .fold(String::new(), |acc, e| format!("{acc}{nsbp}{e}"))
-    }
-
-    fn events_to_html(&self, events: Vec<Event>, meta: &Metadata) -> Result<String> {
+    fn events_to_html(&self, events: Vec<Event>, ctxt: &Context) -> Result<String> {
         let body = {
             let mut body = String::new();
             pulldown_cmark::html::push_html(&mut body, events.into_iter());
             body
         };
 
-        let path_to_root = self
-            .config
-            .dst_dir()
-            .path_from(meta.dst_path()?.parent().unwrap())
+        let path_to_root = PathBuf::from("")
+            .path_from(ctxt.build_root_to_dst()?.parent().unwrap())
             .unwrap();
 
-        let header = format!(
-            include_asset!("header.html"),
-            path_to_root = path_to_root.to_str().unwrap(),
-            site_name = self.config.site_name(),
-        );
+        let default_css_list: &[PathBuf] = &["style.css".into()];
+        let css_list = default_css_list.iter().chain(ctxt.css_list());
 
-        let crypto = meta.flags()?.contains(&Flag::Crypto);
+        let default_js_list: &[PathBuf] =
+            &["metadata.js".into(), "script.js".into(), "theme.js".into()];
+        let js_list = default_js_list.iter().chain(ctxt.js_list());
+
+        let crypto = ctxt.flags()?.contains(&Flag::Crypto);
         let html = if crypto {
-            let password = meta
+            let password = ctxt
                 .password()
                 .or_else(|| self.config.password())
                 .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
             let cypher = encode_with_password(password, body.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);
 
-            format!(
-                include_asset!("crypto.html"),
-                create_date = meta.create_date()?,
-                last_update_date = meta.last_update_date().unwrap(),
-                tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
-                header = header,
-                page_title = meta.title().unwrap(),
-                encoded = encoded,
-                path_to_root = path_to_root.to_str().unwrap(),
+            crypto_html(
+                &path_to_root,
+                self.config.site_name(),
+                ctxt.title()?,
+                ctxt.create_date()?,
+                ctxt.last_update_date()?,
+                css_list,
+                js_list,
+                ctxt.tags()?,
+                &encoded,
+                self.config.footer(),
             )
         } else {
-            format!(
-                include_asset!("page.html"),
-                path_to_root = path_to_root.to_str().unwrap(),
-                header = header,
-                tag_elems = Self::tag_elems(meta.tags()?, &path_to_root),
-                create_date = meta.create_date()?,
-                last_update_date = meta.last_update_date()?,
-                body = body,
-                page_title = meta.title()?,
-                footer_text = self.config.footer(),
+            page_html(
+                &path_to_root,
+                self.config.site_name(),
+                ctxt.title()?,
+                ctxt.create_date()?,
+                ctxt.last_update_date()?,
+                css_list,
+                js_list,
+                ctxt.tags()?,
+                &body,
+                self.config.footer(),
             )
         };
 
         Ok(html)
     }
 
-    fn make_bloom_filter(&self, html: &str, meta: &mut Metadata) -> Result<()> {
-        if meta.flags()?.contains(&Flag::Crypto) {
-            meta.set_bloom_filter(BloomFilter::default());
-            return Ok(());
-        }
-
+    fn make_bloom_filter(&self, html: &str) -> Result<BloomFilter> {
         // HTML からテキストを抜き出す
         let text = Html::parse_document(html)
             .select(&Selector::parse("#main-content").unwrap())
@@ -276,82 +108,73 @@ impl<'a> Renderer<'a> {
             .map(|w| w.to_lowercase())
             .collect();
 
-        // Bloom filter 用のパラメタを計算する
-        let fp = self.config.search_fp();
-        let num_words = words.len() as f64;
-        let num_bit = -num_words * fp.ln() / 2.0f64.ln().powi(2);
-        let num_byte = num_bit / 8.0;
-
         // Bloom filter を構築する
-        let num_byte = num_byte.ceil() as u32;
-        let num_hash = (num_bit * 2.0f64.ln() / num_words).ceil() as u8;
-        let mut filter = BloomFilter::new(num_byte, num_hash);
+        let fp = self.config.search_fp();
+        let num_words = words.len();
+        let mut filter = BloomFilter::new(num_words, fp);
         words.iter().for_each(|w| filter.insert_word(w));
 
-        // 構築したフィルタをメタデータに登録する
-        meta.set_bloom_filter(filter);
-
-        Ok(())
+        Ok(filter)
     }
 
-    fn md_to_html(&self, markdown: &str, meta: &mut Metadata) -> Result<Option<String>> {
+    fn md_to_html(&self, markdown: &str, dst_path: PathBuf) -> Result<Option<(String, Context)>> {
+        let mut ctxt = Context::default();
+
+        let build_root_to_dst = dst_path.path_from(self.config.dst_dir()).unwrap();
+        ctxt.set_build_root_to_dst(build_root_to_dst);
+
         // Markdown を AST に変換
         let mut events: Vec<_> = Parser::new_ext(markdown, Options::all()).collect();
 
         // AST に対してパスを適用
-        Self::read_header(&events, meta)?;
-        if !self.config.render_draft() && meta.flags()?.contains(&Flag::Draft) {
+        read_header_pass(&mut events, &mut ctxt)?;
+
+        if !self.config.render_draft() && ctxt.flags()?.contains(&Flag::Draft) {
             return Ok(None);
         }
-        Self::adjust_link_to_md(&mut events);
-        Self::convert_math(&mut events);
-        Self::convert_image(&mut events);
-        Self::highlight_code(&mut events, meta.highlights()?);
-        Self::get_page_title(&events, meta);
+
+        get_title_pass(&mut events, &mut ctxt)?;
+        link_adjust_pass(&mut events, &mut ctxt)?;
+        image_convert_pass(&mut events, &mut ctxt)?;
+        highlight_code_pass(&mut events, &mut ctxt)?;
+        convert_math_pass(&mut events, &mut ctxt)?;
 
         // AST を HTML に変換
-        let html = self.events_to_html(events, meta)?;
+        let html = self.events_to_html(events, &ctxt)?;
 
-        // HTML に対してパスを適用
-        // self.encrypt(&mut html, meta)?;
-        self.make_bloom_filter(&html, meta)?;
-
-        Ok(Some(html))
+        Ok(Some((html, ctxt)))
     }
 
     pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
         let src = src.as_ref();
-        if src.extension_is("md") {
-            let mut meta = Metadata::default();
-            let markdown = {
-                let mut file = File::open(src)?;
-                let mut content = String::new();
-                file.read_to_string(&mut content)?;
-                content
-            };
-
-            let dst_path = self.config.dst_path_of(src);
-            let dst_path_from_root = dst_path.path_from(self.config.dst_dir()).unwrap();
-
-            meta.set_dst_path(dst_path);
-            meta.set_dst_path_from_root(dst_path_from_root);
-
-            let Some(html) = self.md_to_html(&markdown, &mut meta)? else {
-                return Ok(None);
-            };
-
-            write_file(meta.dst_path()?, html)?;
-
-            Ok(Some(meta))
-        } else {
+        if !src.extension_is("md") {
             copy_file(src, self.config.dst_path_of(src))?;
-            Ok(None)
+            return Ok(None);
         }
+
+        let markdown = {
+            let mut file = File::open(src)?;
+            let mut content = String::new();
+            file.read_to_string(&mut content)?;
+            content
+        };
+
+        let dst_path = self.config.dst_path_of(src);
+        let Some((html, mut ctxt)) = self.md_to_html(&markdown, dst_path.clone())? else {
+            return Ok(None);
+        };
+
+        // HTML に対してパスを適用
+        let filter = self.make_bloom_filter(&html)?;
+        ctxt.set_bloom_filter(filter);
+
+        write_file(dst_path, html)?;
+
+        Ok(Some(ctxt.try_into()?))
     }
 
     pub fn render_assets(&self) -> Result<()> {
         self.render_index()?;
-        self.render_tag()?;
         copy_asset!("style.css", self.config.dst_dir())?;
         copy_asset!("script.js", self.config.dst_dir())?;
         copy_asset!("segmenter.js", self.config.dst_dir())?;
@@ -395,37 +218,12 @@ impl<'a> Renderer<'a> {
     }
 
     fn render_index(&self) -> Result<()> {
-        let header = format!(
-            include_asset!("header.html"),
-            path_to_root = ".",
-            site_name = self.config.site_name(),
-        );
-
-        let content = format!(
-            include_asset!("index.html"),
-            header = header,
-            site_name = self.config.site_name(),
-            footer = self.config.footer(),
-        );
-
         let dst = self.config.dst_dir().join("index.html");
-        write_file(dst, content).map_err(Into::into)
-    }
-
-    fn render_tag(&self) -> Result<()> {
-        let header = format!(
-            include_asset!("header.html"),
-            path_to_root = ".",
-            site_name = self.config.site_name(),
+        let content = index_html(
+            &PathBuf::from("."),
+            self.config.site_name(),
+            self.config.footer(),
         );
-
-        let content = format!(
-            include_asset!("tag.html"),
-            header = header,
-            footer = self.config.footer(),
-        );
-
-        let dst = self.config.dst_dir().join("tag.html");
         write_file(dst, content).map_err(Into::into)
     }
 }

@@ -1,7 +1,7 @@
 function createTagElem(tagName) {
   const a = document.createElement("a");
   a.className = "tag";
-  a.href = `tag.html?tag=${tagName}`;
+  a.href = `index.html?tag=${tagName}`;
   a.innerHTML = tagName;
   return a;
 }
@@ -11,45 +11,27 @@ function toggleSearchInput() {
 }
 
 function createCard(page) {
-  const template = document.getElementById('card-template');
+  const template = document.getElementById("card-template");
 
   const content = template.content.cloneNode(true);
-  const card = content.querySelector('.card');
+  const card = content.querySelector(".card");
   card.href = page.path;
-  if (page.flags.includes('crypto')) card.classList.add('crypto');
+  if (page.flags.includes("crypto")) card.classList.add("crypto");
 
-  content.querySelector('.card-header').innerHTML = page.title;
-  content.querySelector('.card-date').innerHTML = page.update;
+  content.querySelector(".card-header").innerHTML = page.title;
+  content.querySelector(".card-date").innerHTML = page.update;
 
-  const tags = content.querySelector('.card-tags');
-  tags.innerHTML = '';
-  page.tags.forEach(tagName => tags.appendChild(createTagElem(tagName)));
+  const tags = content.querySelector(".card-tags");
+  tags.innerHTML = "";
+  page.tags.forEach((tagName) => tags.appendChild(createTagElem(tagName)));
 
   return content;
-}
-
-function tagMain() {
-  const params = new URLSearchParams(window.location.search);
-  if (!params.has("tag")) return;
-  const tag = params.get("tag");
-  const tagElem = createTagElem(tag);
-
-  document.getElementById("tag-title").appendChild(tagElem);
-  document.getElementsByTagName("title")[0].innerHTML = `Filter: ${tag}`;
-
-  const fragment = document.createDocumentFragment();
-  METADATA.filter((page) => page.tags.includes(tag))
-    .forEach((page) => fragment.appendChild(createCard(page)));
-
-  document.getElementById("contents-list").appendChild(fragment);
 }
 
 function renderPageList() {
   const fragment = document.createDocumentFragment();
 
-  METADATA.forEach((page) =>
-    fragment.appendChild(createCard(page)),
-  );
+  METADATA.forEach((page) => fragment.appendChild(createCard(page)));
 
   document.getElementById("contents-list").appendChild(fragment);
 }
@@ -62,7 +44,7 @@ function renderTagSet() {
   );
 
   const fragment = document.createDocumentFragment();
-  tagSet.forEach(tagName => {
+  tagSet.forEach((tagName) => {
     fragment.appendChild(createTagElem(tagName));
     fragment.appendChild(document.createTextNode(" "));
   });
@@ -71,26 +53,46 @@ function renderTagSet() {
 }
 
 function indexMain() {
-  renderPageList();
-  renderTagSet();
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has("tag")) {
+    renderPageList();
+    renderTagSet();
+  } else {
+    const tag = params.get("tag");
+    const tagElem = createTagElem(tag);
+
+    document.getElementById("tag-filter").appendChild(tagElem);
+
+    const fragment = document.createDocumentFragment();
+    METADATA.filter((page) => page.tags.includes(tag)).forEach((page) =>
+      fragment.appendChild(createCard(page)),
+    );
+
+    document.getElementById("contents-list").appendChild(fragment);
+  }
 }
 
 async function decryptPage() {
   const pwd = document.getElementById("decrypt-key").value;
-  const key = await crypto.subtle.digest('SHA-256', Uint8Array.from(pwd, c => c.charCodeAt(0)));
+  const key = await crypto.subtle.digest(
+    "SHA-256",
+    Uint8Array.from(pwd, (c) => c.charCodeAt(0)),
+  );
 
   const ivCypher = document.body.dataset.cypher;
   const plain = await decrypt(ivCypher, key);
-  document.getElementById('main-content').innerHTML = plain;
+  document.getElementById("main-content").innerHTML = plain;
 }
 
 function cryptoMain() {
-  document.getElementById("decrypt-key")
+  document
+    .getElementById("decrypt-key")
     .addEventListener("keydown", async (e) => {
       if (e.key === "Enter") await decryptPage();
     });
 
-  document.getElementById("decrypt-btn")
+  document
+    .getElementById("decrypt-btn")
     .addEventListener("click", async (e) => {
       await decryptPage();
     });
@@ -101,8 +103,8 @@ function cryptoMain() {
 //-----------------------------------------------------
 
 function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute('theme');
-  setTheme(currentTheme === 'dark' ? '' : 'dark');
+  const currentTheme = document.documentElement.getAttribute("theme");
+  setTheme(currentTheme === "dark" ? "" : "dark");
 }
 
 //-----------------------------------------------------
@@ -120,7 +122,7 @@ function hitRate(bloom_filter, words) {
   let num_hit_word = 0;
   for (const word of words) {
     const hashes = fxhash32_multi(word, num_hash).map((h) => h % num_bit);
-    const hit = hashes.every(h => filter[(h / 8) | 0] & (1 << h % 8));
+    const hit = hashes.every((h) => filter[(h / 8) | 0] & (1 << h % 8));
     if (hit) num_hit_word += 1;
   }
 
@@ -130,19 +132,45 @@ function hitRate(bloom_filter, words) {
 function search(query) {
   if (!query) return [];
 
-  const words = new Set(segment(query).flatMap(w => w.trim() ? w.toLowerCase() : []));
+  const words = new Set(
+    segment(query).flatMap((w) => (w.trim() ? w.toLowerCase() : [])),
+  );
 
-  return BLOOM_FILTER
-    .flatMap((bf, i) => {
-      const r = hitRate(bf, words);
-      if (r == 0) return [];
-      return {
-        title: METADATA[i].title,
-        path: METADATA[i].path,
-        rate: r
-      };
-    })
-    .sort((a, b) => b.rate - a.rate);
+  return BLOOM_FILTER.flatMap((bf, i) => {
+    const r = hitRate(bf, words);
+    if (r == 0) return [];
+    return {
+      title: METADATA[i].title,
+      path: METADATA[i].path,
+      rate: r,
+    };
+  }).sort((a, b) => b.rate - a.rate);
+}
+
+function loadScriptLazily(script_path) {
+  return new Promise((resolve, reject) => {
+    const loaded =
+      document.querySelector(`script[src="${script_path}"]`) !== null;
+    if (loaded) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = script_path;
+    script.onload = resolve;
+    script.onerror = () =>
+      reject(new Error(`Failed to load script: ${script_path}`));
+
+    document.head.appendChild(script);
+  });
+}
+
+function loadScripts(scripts, callback) {
+  // すべてのスクリプトが読み込まれた後にコールバックを呼び出す
+  Promise.all(scripts.map(loadScriptLazily)).then(() => {
+    callback();
+  });
 }
 
 let debounceTimer;
@@ -151,26 +179,22 @@ function searchAndRender() {
   debounceTimer = setTimeout(() => {
     const query = document.getElementById("search-input").value;
 
-    // Load filter lazily
-    if (typeof BLOOM_FILTER === "undefined") {
-      const script = document.createElement("script");
-      const path_to_root = document.head.querySelector('meta[name="path_to_root"]').content ?? "";
-      script.src = `${path_to_root}/bloom_filter.js`;
-      script.onload = () => { debounseTimer = null; searchAndRender(query); };
-      document.body.appendChild(script);
-      return;
-    }
+    const path_to_root =
+      document.head.querySelector('meta[name="path_to_root"]').content ?? "";
+    const segmenter_path = `${path_to_root}/segmenter.js`;
+    const filter_path = `${path_to_root}/bloom_filter.js`;
+    loadScripts([segmenter_path, filter_path], () => {
+      debounseTimer = null;
 
-    const result = search(query);
-    const path_to_root = document.head.querySelector('meta[name="path_to_root"]').content ?? "";
-    const html = result
-      .map((r) => {
-        const path = r.path;
-        return `<div><a href="${path_to_root}/${path}">${r.title}</a><span style="color:gray;margin-left:1em;">MatchRate:${r.rate}</span></div>`;
-      })
-      .join("");
-
-    document.getElementById("search-result").innerHTML = html;
+      const result = search(query);
+      const html = result
+        .map((r) => {
+          const path = r.path;
+          return `<div><a href="${path_to_root}/${path}">${r.title}</a><span style="color:gray;margin-left:1em;">MatchRate:${r.rate}</span></div>`;
+        })
+        .join("");
+      document.getElementById("search-result").innerHTML = html;
+    });
   }, 300);
 }
 
@@ -180,9 +204,6 @@ function searchAndRender() {
 
 window.addEventListener("DOMContentLoaded", () => {
   switch (document.body.dataset.page) {
-    case "tag":
-      tagMain();
-      break;
     case "index":
       indexMain();
       break;
@@ -230,16 +251,18 @@ async function decrypt(ivCypher, key) {
   const cypher = ivCypher.slice(16);
 
   const aesKey = await crypto.subtle.importKey(
-      'raw',
-      key,
-      { name: 'AES-CBC' },
-      false,
-      ['decrypt'],
-    );
+    "raw",
+    key,
+    { name: "AES-CBC" },
+    false,
+    ["decrypt"],
+  );
 
-  const plain = await crypto
-    .subtle
-    .decrypt({ name: 'AES-CBC', iv: iv}, aesKey, cypher);
+  const plain = await crypto.subtle.decrypt(
+    { name: "AES-CBC", iv: iv },
+    aesKey,
+    cypher,
+  );
 
   return new TextDecoder().decode(plain);
 }
@@ -249,5 +272,5 @@ async function decrypt(ivCypher, key) {
 //-----------------------------------------------------
 
 function b64ToU8Arr(b64) {
-  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 }
