@@ -283,12 +283,14 @@ dd {
   border-radius: 5px;
 }
 
-.zakki-img {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.zakki-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
 
-  >object {
+  &:frist-child {
+    display: block;
+    max-width: none;
     padding: 1rem;
     background-color: snow;
   }
