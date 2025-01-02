@@ -114,7 +114,10 @@ impl<'a> Renderer<'a> {
         Ok(filter)
     }
 
-    fn md_to_html(&self, markdown: &str, dst_path: PathBuf) -> Result<Option<(String, Context)>> {
+    /// Markdown を HTML に変換します。
+    /// 変換後の HTML とメタデータを返します。
+    /// Markdown がドラフト記事であり、ドラフトを描画しない設定の場合は `None` を返します。
+    fn md_to_html(&self, markdown: &str, dst_path: PathBuf) -> Result<Option<(String, Metadata)>> {
         let mut ctxt = Context::default();
         if let Some(password) = self.config.password() {
             ctxt.set_password(password.clone());
@@ -142,7 +145,11 @@ impl<'a> Renderer<'a> {
         // イベント列を HTML に変換
         let html = self.events_to_html(events, &ctxt)?;
 
-        Ok(Some((html, ctxt)))
+        // HTML に対してパスを適用
+        let filter = self.make_bloom_filter(&html)?;
+        ctxt.set_bloom_filter(filter);
+
+        Ok(Some((html, ctxt.try_into()?)))
     }
 
     pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
@@ -160,17 +167,13 @@ impl<'a> Renderer<'a> {
         };
 
         let dst_path = self.config.dst_path_of(src);
-        let Some((html, mut ctxt)) = self.md_to_html(&markdown, dst_path.clone())? else {
+        let Some((html, meta)) = self.md_to_html(&markdown, dst_path.clone())? else {
             return Ok(None);
         };
 
-        // HTML に対してパスを適用
-        let filter = self.make_bloom_filter(&html)?;
-        ctxt.set_bloom_filter(filter);
-
         write_file(dst_path, html)?;
 
-        Ok(Some(ctxt.try_into()?))
+        Ok(Some(meta))
     }
 
     pub fn render_assets(&self) -> Result<()> {
