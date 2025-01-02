@@ -214,6 +214,12 @@ impl<'a> Renderer<'a> {
             "KaTeX_Typewriter-Regular.woff2",
         );
 
+        copy_asset!("font/SourceCodePro/LICENSE.md", self.config.dst_dir())?;
+        copy_asset!(
+            "font/SourceCodePro/SourceCodePro-Regular.otf.woff2",
+            self.config.dst_dir()
+        )?;
+
         Ok(())
     }
 
