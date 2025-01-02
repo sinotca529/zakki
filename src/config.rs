@@ -109,13 +109,15 @@ impl Config {
         self.search_fp
     }
 
-    /// ソースファイルの出力先のをパスを返します。
+    /// ソースファイルの出力先パスを返します。
     pub fn dst_path_of(&self, src_path: impl AsRef<Path>) -> PathBuf {
         let src_path = src_path.as_ref();
-        let mut rel = src_path.path_from(self.src_dir()).unwrap();
+        let rel = src_path.strip_prefix(self.src_dir()).unwrap();
+
         if rel.extension_is("md") {
-            rel = rel.with_extension("html");
+            self.dst_dir().join(rel.with_extension("html"))
+        } else {
+            self.dst_dir().join(rel)
         }
-        self.dst_dir().join(rel)
     }
 }

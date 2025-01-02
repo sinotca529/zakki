@@ -4,8 +4,9 @@ pub trait PathExt {
     /// 拡張子が ext かどうかを確認します。
     fn extension_is(&self, ext: &str) -> bool;
 
-    /// from からの相対パスを返します。
-    fn path_from(&self, from: impl AsRef<Path>) -> Option<PathBuf>;
+    /// パスから、パスの起点への相対パスを返します。
+    /// self はディレクトリへのパスであることを仮定していますが、そのことを検証はしません。
+    fn dir_path_to_origin_unchecked(&self) -> PathBuf;
 
     /// 子孫ファイルのパスの一覧を返します。
     fn descendants_file_paths(&self) -> std::io::Result<Vec<PathBuf>>;
@@ -16,9 +17,10 @@ impl PathExt for Path {
         self.extension().is_some_and(|e| e == ext)
     }
 
-    fn path_from(&self, from: impl AsRef<Path>) -> Option<PathBuf> {
-        let from = from.as_ref();
-        pathdiff::diff_paths(self, from)
+    fn dir_path_to_origin_unchecked(&self) -> PathBuf {
+        let mut base = PathBuf::new();
+        self.iter().for_each(|_| base.push(".."));
+        base
     }
 
     fn descendants_file_paths(&self) -> std::io::Result<Vec<PathBuf>> {

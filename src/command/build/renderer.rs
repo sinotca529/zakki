@@ -39,9 +39,11 @@ impl<'a> Renderer<'a> {
             body
         };
 
-        let path_to_root = PathBuf::from("")
-            .path_from(ctxt.build_root_to_dst()?.parent().unwrap())
-            .unwrap();
+        let path_to_root = ctxt
+            .build_root_to_dst()?
+            .parent()
+            .unwrap()
+            .dir_path_to_origin_unchecked();
 
         let default_css_list: &[PathBuf] = &["style.css".into()];
         let css_list = default_css_list.iter().chain(ctxt.css_list());
@@ -123,8 +125,8 @@ impl<'a> Renderer<'a> {
             ctxt.set_password(password.clone());
         }
 
-        let build_root_to_dst = dst_path.path_from(self.config.dst_dir()).unwrap();
-        ctxt.set_build_root_to_dst(build_root_to_dst);
+        let build_root_to_dst = dst_path.strip_prefix(self.config.dst_dir()).unwrap();
+        ctxt.set_build_root_to_dst(build_root_to_dst.to_owned());
 
         // Markdown をイベント列に変換
         let mut events: Vec<_> = Parser::new_ext(markdown, Options::all()).collect();

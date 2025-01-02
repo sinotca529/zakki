@@ -1,4 +1,5 @@
 use crate::command::build::renderer::context::Context;
+use anyhow::Context as _;
 use pulldown_cmark::Event;
 
 pub fn convert_math_pass(events: &mut Vec<Event>, ctxt: &mut Context) -> anyhow::Result<()> {
@@ -17,12 +18,14 @@ pub fn convert_math_pass(events: &mut Vec<Event>, ctxt: &mut Context) -> anyhow:
     for e in events {
         match e {
             Event::InlineMath(latex) => {
-                let math = katex::render_with_opts(latex, &opts_inline).unwrap();
+                let math = katex::render_with_opts(latex, &opts_inline)
+                    .with_context(|| format!("Failed to render inline math: {}", latex))?;
                 *e = Event::InlineHtml(math.into());
                 math_used = true;
             }
             Event::DisplayMath(latex) => {
-                let math = katex::render_with_opts(latex, &opts_display).unwrap();
+                let math = katex::render_with_opts(latex, &opts_display)
+                    .with_context(|| format!("Failed to render display math: {}", latex))?;
                 *e = Event::InlineHtml(math.into());
                 math_used = true;
             }
