@@ -123,10 +123,10 @@ impl<'a> Renderer<'a> {
         let build_root_to_dst = dst_path.path_from(self.config.dst_dir()).unwrap();
         ctxt.set_build_root_to_dst(build_root_to_dst);
 
-        // Markdown を AST に変換
+        // Markdown をイベント列に変換
         let mut events: Vec<_> = Parser::new_ext(markdown, Options::all()).collect();
 
-        // AST に対してパスを適用
+        // イベント列に対してパスを適用
         read_header_pass(&mut events, &mut ctxt)?;
 
         if !self.config.render_draft() && ctxt.flags()?.contains(&Flag::Draft) {
@@ -139,7 +139,7 @@ impl<'a> Renderer<'a> {
         highlight_code_pass(&mut events, &mut ctxt)?;
         convert_math_pass(&mut events, &mut ctxt)?;
 
-        // AST を HTML に変換
+        // イベント列を HTML に変換
         let html = self.events_to_html(events, &ctxt)?;
 
         Ok(Some((html, ctxt)))
