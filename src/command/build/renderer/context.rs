@@ -78,10 +78,7 @@ impl Context {
     try_get!(title, &String);
     try_get!(build_root_to_dst, &PathBuf);
     try_get!(highlights, &Vec<HighlightRule>);
-
-    pub fn password(&self) -> Option<&String> {
-        self.password.as_ref()
-    }
+    try_get!(password, &String);
 
     pub fn css_list(&self) -> &Vec<PathBuf> {
         &self.css_paths

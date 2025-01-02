@@ -52,10 +52,7 @@ impl<'a> Renderer<'a> {
 
         let crypto = ctxt.flags()?.contains(&Flag::Crypto);
         let html = if crypto {
-            let password = ctxt
-                .password()
-                .or_else(|| self.config.password())
-                .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
+            let password = ctxt.password()?;
             let cypher = encode_with_password(password, body.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);
 
@@ -119,6 +116,9 @@ impl<'a> Renderer<'a> {
 
     fn md_to_html(&self, markdown: &str, dst_path: PathBuf) -> Result<Option<(String, Context)>> {
         let mut ctxt = Context::default();
+        if let Some(password) = self.config.password() {
+            ctxt.set_password(password.clone());
+        }
 
         let build_root_to_dst = dst_path.path_from(self.config.dst_dir()).unwrap();
         ctxt.set_build_root_to_dst(build_root_to_dst);
