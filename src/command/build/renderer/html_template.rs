@@ -48,8 +48,8 @@ fn tag_elems(tags: &[String], dst_root_dir: &Path) -> String {
         .fold(String::new(), |acc, e| format!("{acc}{nsbp}{e}"))
 }
 
-pub fn index_html(path_to_root: &Path, site_name: &str, footer: &str) -> String {
-    let header = header(path_to_root, site_name);
+pub fn index_html(site_name: &str, footer: &str) -> String {
+    let header = header(&PathBuf::from("."), site_name);
     format!(
         include_asset!("index.html"),
         header = header,

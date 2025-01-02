@@ -225,11 +225,7 @@ impl<'a> Renderer<'a> {
 
     fn render_index(&self) -> Result<()> {
         let dst = self.config.dst_dir().join("index.html");
-        let content = index_html(
-            &PathBuf::from("."),
-            self.config.site_name(),
-            self.config.footer(),
-        );
+        let content = index_html(self.config.site_name(), self.config.footer());
         write_file(dst, content).map_err(Into::into)
     }
 }
