@@ -32,6 +32,14 @@ impl<'a> Renderer<'a> {
         Self { config }
     }
 
+    fn default_css_list(&self) -> [&'static str; 1] {
+        ["style.css"]
+    }
+
+    fn default_js_list(&self) -> [&'static str; 3] {
+        ["metadata.js", "script.js", "theme.js"]
+    }
+
     fn events_to_html(&self, events: Vec<Event>, ctxt: &Context) -> Result<String> {
         let body = {
             let mut body = String::new();
@@ -39,23 +47,27 @@ impl<'a> Renderer<'a> {
             body
         };
 
-        let path_to_root = PathBuf::from("")
-            .path_from(ctxt.build_root_to_dst()?.parent().unwrap())
-            .unwrap();
+        let path_to_root = ctxt
+            .build_root_to_dst()?
+            .parent()
+            .unwrap()
+            .dir_path_to_origin_unchecked();
 
-        let default_css_list: &[PathBuf] = &["style.css".into()];
-        let css_list = default_css_list.iter().chain(ctxt.css_list());
+        let css_list = self
+            .default_css_list()
+            .into_iter()
+            .chain(self.config.css_list().iter().map(|p| &p[..]))
+            .chain(ctxt.css_list().iter().map(|p| &p[..]));
 
-        let default_js_list: &[PathBuf] =
-            &["metadata.js".into(), "script.js".into(), "theme.js".into()];
-        let js_list = default_js_list.iter().chain(ctxt.js_list());
+        let js_list = self
+            .default_js_list()
+            .into_iter()
+            .chain(self.config.js_list().iter().map(|p| &p[..]))
+            .chain(ctxt.js_list().iter().map(|p| &p[..]));
 
         let crypto = ctxt.flags()?.contains(&Flag::Crypto);
         let html = if crypto {
-            let password = ctxt
-                .password()
-                .or_else(|| self.config.password())
-                .ok_or_else(|| anyhow!("Password has not been found at zakki.toml"))?;
+            let password = ctxt.password()?;
             let cypher = encode_with_password(password, body.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);
 
@@ -117,16 +129,22 @@ impl<'a> Renderer<'a> {
         Ok(filter)
     }
 
-    fn md_to_html(&self, markdown: &str, dst_path: PathBuf) -> Result<Option<(String, Context)>> {
+    /// Markdown を HTML に変換します。
+    /// 変換後の HTML とメタデータを返します。
+    /// Markdown がドラフト記事であり、ドラフトを描画しない設定の場合は `None` を返します。
+    fn md_to_html(&self, markdown: &str, dst_path: PathBuf) -> Result<Option<(String, Metadata)>> {
         let mut ctxt = Context::default();
+        if let Some(password) = self.config.password() {
+            ctxt.set_password(password.clone());
+        }
 
-        let build_root_to_dst = dst_path.path_from(self.config.dst_dir()).unwrap();
-        ctxt.set_build_root_to_dst(build_root_to_dst);
+        let build_root_to_dst = dst_path.strip_prefix(self.config.dst_dir()).unwrap();
+        ctxt.set_build_root_to_dst(build_root_to_dst.to_owned());
 
-        // Markdown を AST に変換
+        // Markdown をイベント列に変換
         let mut events: Vec<_> = Parser::new_ext(markdown, Options::all()).collect();
 
-        // AST に対してパスを適用
+        // イベント列に対してパスを適用
         read_header_pass(&mut events, &mut ctxt)?;
 
         if !self.config.render_draft() && ctxt.flags()?.contains(&Flag::Draft) {
@@ -139,10 +157,14 @@ impl<'a> Renderer<'a> {
         highlight_code_pass(&mut events, &mut ctxt)?;
         convert_math_pass(&mut events, &mut ctxt)?;
 
-        // AST を HTML に変換
+        // イベント列を HTML に変換
         let html = self.events_to_html(events, &ctxt)?;
 
-        Ok(Some((html, ctxt)))
+        // HTML に対してパスを適用
+        let filter = self.make_bloom_filter(&html)?;
+        ctxt.set_bloom_filter(filter);
+
+        Ok(Some((html, ctxt.try_into()?)))
     }
 
     pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
@@ -160,17 +182,13 @@ impl<'a> Renderer<'a> {
         };
 
         let dst_path = self.config.dst_path_of(src);
-        let Some((html, mut ctxt)) = self.md_to_html(&markdown, dst_path.clone())? else {
+        let Some((html, meta)) = self.md_to_html(&markdown, dst_path.clone())? else {
             return Ok(None);
         };
 
-        // HTML に対してパスを適用
-        let filter = self.make_bloom_filter(&html)?;
-        ctxt.set_bloom_filter(filter);
-
         write_file(dst_path, html)?;
 
-        Ok(Some(ctxt.try_into()?))
+        Ok(Some(meta))
     }
 
     pub fn render_assets(&self) -> Result<()> {
@@ -214,16 +232,34 @@ impl<'a> Renderer<'a> {
             "KaTeX_Typewriter-Regular.woff2",
         );
 
+        copy_asset!("font/SourceCodePro/LICENSE.md", self.config.dst_dir())?;
+        copy_asset!(
+            "font/SourceCodePro/SourceCodePro-Regular.otf.woff2",
+            self.config.dst_dir()
+        )?;
+
         Ok(())
     }
 
     fn render_index(&self) -> Result<()> {
-        let dst = self.config.dst_dir().join("index.html");
+        let css_list = self
+            .default_css_list()
+            .into_iter()
+            .chain(self.config.css_list().iter().map(|p| &p[..]));
+
+        let js_list = self
+            .default_js_list()
+            .into_iter()
+            .chain(self.config.js_list().iter().map(|p| &p[..]));
+
         let content = index_html(
-            &PathBuf::from("."),
             self.config.site_name(),
+            css_list,
+            js_list,
             self.config.footer(),
         );
+
+        let dst = self.config.dst_dir().join("index.html");
         write_file(dst, content).map_err(Into::into)
     }
 }
