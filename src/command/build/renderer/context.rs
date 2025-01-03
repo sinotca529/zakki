@@ -64,10 +64,10 @@ pub struct Context {
     password: Option<String>,
 
     /// 追加で読み込む JS 一覧
-    js_paths: Vec<PathBuf>,
+    js_paths: Vec<String>,
 
     /// 追加で読み込む CSS 一覧
-    css_paths: Vec<PathBuf>,
+    css_paths: Vec<String>,
 }
 
 impl Context {
@@ -80,11 +80,11 @@ impl Context {
     try_get!(highlights, &Vec<HighlightRule>);
     try_get!(password, &String);
 
-    pub fn css_list(&self) -> &Vec<PathBuf> {
+    pub fn css_list(&self) -> &Vec<String> {
         &self.css_paths
     }
 
-    pub fn js_list(&self) -> &Vec<PathBuf> {
+    pub fn js_list(&self) -> &Vec<String> {
         &self.js_paths
     }
 
@@ -98,11 +98,11 @@ impl Context {
     setter!(password, String);
     setter!(highlights, Vec<HighlightRule>);
 
-    pub fn push_js_path(&mut self, path: impl Into<PathBuf>) {
+    pub fn push_js_path(&mut self, path: impl Into<String>) {
         self.js_paths.push(path.into());
     }
 
-    pub fn push_css_path(&mut self, path: impl Into<PathBuf>) {
+    pub fn push_css_path(&mut self, path: impl Into<String>) {
         self.css_paths.push(path.into());
     }
 }

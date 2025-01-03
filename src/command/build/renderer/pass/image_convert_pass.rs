@@ -60,7 +60,9 @@ pub fn image_convert_pass(events: &mut Vec<Event>, _: &mut Context) -> anyhow::R
                 .map(|t| format!(r#"<figcaption>{}</figcaption>"#, t))
                 .unwrap_or_default();
 
-            let figure_tag = format!(r#"<figure><div class="zakki-scroll">{img_tag}</div>{figcaption_tag}</figure>"#);
+            let figure_tag = format!(
+                r#"<figure><div class="zakki-scroll">{img_tag}</div>{figcaption_tag}</figure>"#
+            );
 
             *e = Event::Html(figure_tag.into());
         }

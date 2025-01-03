@@ -32,6 +32,14 @@ impl<'a> Renderer<'a> {
         Self { config }
     }
 
+    fn default_css_list(&self) -> [&'static str; 1] {
+        ["style.css"]
+    }
+
+    fn default_js_list(&self) -> [&'static str; 3] {
+        ["metadata.js", "script.js", "theme.js"]
+    }
+
     fn events_to_html(&self, events: Vec<Event>, ctxt: &Context) -> Result<String> {
         let body = {
             let mut body = String::new();
@@ -45,12 +53,17 @@ impl<'a> Renderer<'a> {
             .unwrap()
             .dir_path_to_origin_unchecked();
 
-        let default_css_list: &[PathBuf] = &["style.css".into()];
-        let css_list = default_css_list.iter().chain(ctxt.css_list());
+        let css_list = self
+            .default_css_list()
+            .into_iter()
+            .chain(self.config.css_list().iter().map(|p| &p[..]))
+            .chain(ctxt.css_list().iter().map(|p| &p[..]));
 
-        let default_js_list: &[PathBuf] =
-            &["metadata.js".into(), "script.js".into(), "theme.js".into()];
-        let js_list = default_js_list.iter().chain(ctxt.js_list());
+        let js_list = self
+            .default_js_list()
+            .into_iter()
+            .chain(self.config.js_list().iter().map(|p| &p[..]))
+            .chain(ctxt.js_list().iter().map(|p| &p[..]));
 
         let crypto = ctxt.flags()?.contains(&Flag::Crypto);
         let html = if crypto {
@@ -229,8 +242,24 @@ impl<'a> Renderer<'a> {
     }
 
     fn render_index(&self) -> Result<()> {
+        let css_list = self
+            .default_css_list()
+            .into_iter()
+            .chain(self.config.css_list().iter().map(|p| &p[..]));
+
+        let js_list = self
+            .default_js_list()
+            .into_iter()
+            .chain(self.config.js_list().iter().map(|p| &p[..]));
+
+        let content = index_html(
+            self.config.site_name(),
+            css_list,
+            js_list,
+            self.config.footer(),
+        );
+
         let dst = self.config.dst_dir().join("index.html");
-        let content = index_html(self.config.site_name(), self.config.footer());
         write_file(dst, content).map_err(Into::into)
     }
 }

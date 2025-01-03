@@ -26,6 +26,16 @@ pub struct FileConfig {
     /// see: <https://github.com/serde-rs/serde/issues/368>
     #[serde(default = "default_search_fp")]
     search_fp: f64,
+
+    /// 追加の JS ファイル
+    /// インターネット上へのリンクも扱えるよう、 PathBuf ではなく String で扱う
+    #[serde(default)]
+    js_list: Vec<String>,
+
+    /// 追加の CSS ファイル
+    /// インターネット上へのリンクも扱えるよう、 PathBuf ではなく String で扱う
+    #[serde(default)]
+    css_list: Vec<String>,
 }
 
 impl FileConfig {
@@ -58,6 +68,12 @@ pub struct Config {
     dst_dir: PathBuf,
     /// サイト内検索の偽陽性率
     search_fp: f64,
+    /// 追加の JS ファイル
+    /// インターネット上へのリンクも扱えるよう、 PathBuf ではなく String で扱う
+    js_list: Vec<String>,
+    /// 追加の CSS ファイル
+    /// インターネット上へのリンクも扱えるよう、 PathBuf ではなく String で扱う
+    css_list: Vec<String>,
 }
 
 impl Config {
@@ -78,6 +94,8 @@ impl Config {
             src_dir,
             dst_dir,
             search_fp: file_config.search_fp,
+            js_list: file_config.js_list,
+            css_list: file_config.css_list,
         }
     }
 
@@ -119,5 +137,13 @@ impl Config {
         } else {
             self.dst_dir().join(rel)
         }
+    }
+
+    pub fn js_list(&self) -> &Vec<String> {
+        &self.js_list
+    }
+
+    pub fn css_list(&self) -> &Vec<String> {
+        &self.css_list
     }
 }

@@ -1,10 +1,9 @@
 # zakki
 
 `zakki` は静的サイトジェネレーターです。<br>
-`zakki` は、インターネットのない状況下でも `file://` 経由で完全に動作することを目的としています。
 
 Markdown から HTML への変換には [`pulldown-cmark`](https://docs.rs/pulldown-cmark/latest/pulldown_cmark/) を使っています。<br>
-`zakki` は `pulldown-cmark` が扱えない構文を扱えません。
+そのため、 `zakki` は `pulldown-cmark` が扱えない構文を扱えません。
 
 ## 主な機能
 
@@ -13,12 +12,15 @@ Markdown から HTML への変換には [`pulldown-cmark`](https://docs.rs/pulld
 - コードハイライト
 - ページの暗号化
 - サイト内検索
+- `file://` プロトコルでの動作
 
 ## 使い方
 
 - `zakki init` コマンドでひな形を作成します。
 - `zakki build` コマンドでサイトを生成します (下書きは変換されません)。
 - `zakki build -d` コマンドでサイトを生成します (下書きも変換されます)。
+
+その他のコマンドは `zakki --help` で確認できます。
 
 ### 設定ファイル
 
@@ -29,7 +31,11 @@ site_name = "(必須) サイト名を指定します。"
 password = "(任意) 暗号化用のパスワードを指定します。"
 footer = "(任意) フッターの内容を HTML で指定します。"
 search_fp = "(任意) サイト内検索の偽陽性率を指定します。デフォルトは 0.0001 (0.01%) です。"
+js_list = ["(任意) 追加する javascript ファイルを指定します。"]
+css_list = ["(任意) 追加する css ファイルを指定します。"]
 ```
+
+Google Analytics などの javascript を追加する場合は、`js_list` に追加してください。
 
 ### ページのメタデータ
 
@@ -39,7 +45,7 @@ search_fp = "(任意) サイト内検索の偽陽性率を指定します。デ�
 ---
 create: 2024-05-13 # 記事の作成日
 update: 2024-08-15 # 記事の最終更新日
-tag: [数学, tips]  # 記事に付けるタグ
+tag: [数学, tips] # 記事に付けるタグ
 ---
 
 # 見出し
