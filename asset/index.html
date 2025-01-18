@@ -4,10 +4,10 @@
   <body data-page="index">
     <template id="card-template">
       <a class="card" href="LINK">
-        <div class="card-header">TITLE</div>
+        <h1 class="card-title">TITLE</h1>
         <div class="card-meta">
-          <div class="card-date">DATE</div>
-          <div class="card-tags">TAGS</div>
+          <time class="card-date">DATE</time>
+          <span class="card-tags">TAGS</span>
         </div>
       </a>
     </template>
@@ -15,13 +15,12 @@
     <main>
       <div id="tag-filter"></div>
       <section>
-        <div id="contents-list"></div>
+        <ul id="contents-list"></ul>
       </section>
       <section>
         <div id="tags-list" style="overflow-wrap: keep-all"></div>
       </section>
     </main>
-
     <footer>{footer}</footer>
   </body>
 </html>

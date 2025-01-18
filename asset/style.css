@@ -1,17 +1,19 @@
 @font-face {
-  font-family: 'Source Code Pro';
+  font-family: "Source Code Pro";
   font-style: normal;
   font-weight: normal;
-  src: url(font/SourceCodePro/SourceCodePro-Regular.otf.woff2) format('woff2');
+  src: url(font/SourceCodePro/SourceCodePro-Regular.otf.woff2) format("woff2");
 }
 
 :root {
-  --code-font: "Source Code Pro", Consolas, "Ubuntu Mono", Menlo, "DejaVu Sans Mono", monospace;
-  --main-font: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+  --code-font: "Source Code Pro", Consolas, "Ubuntu Mono", Menlo,
+    "DejaVu Sans Mono", monospace;
+  --main-font: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN",
+    "Hiragino Sans", Meiryo, sans-serif;
 }
 
 :root {
-  --header-bg: #FFFAFA;
+  --header-bg: #fffafa;
   --header-hover-bg: #ddd;
   --header-fg: black;
   --body-bg: snow;
@@ -30,11 +32,11 @@
 }
 
 :root[theme="dark"] {
-  --header-bg: #2A2A2A;
+  --header-bg: #2a2a2a;
   --header-hover-bg: #333;
   --header-fg: #f2f2f2;
-  --body-bg: #2A2A2A;
-  --text-fg: #D7D7D7;
+  --body-bg: #2a2a2a;
+  --text-fg: #d7d7d7;
   --pre-bg: #202020;
   --code-fg: #c78665;
   --table-border: #666;
@@ -78,11 +80,10 @@ footer {
   color: var(--header-fg);
   width: 100%;
 
-  >p {
+  > p {
     margin: 0;
   }
 }
-
 
 header {
   text-align: center;
@@ -156,25 +157,49 @@ main {
   padding: 0 1rem;
 }
 
+#contents-list {
+  list-style-type: none;
+  padding: 0;
+
+  li {
+    border-bottom: solid var(--card-border) 1px;
+  }
+
+  li:first-child {
+    border-top: solid var(--card-border) 1px;
+  }
+}
 
 .card {
   text-decoration: none;
   color: inherit;
   display: block;
   padding: 1.6rem;
-  border-top: solid var(--card-border) 1px;
   &:hover {
     background-color: var(--card-hover-bg);
   }
+
+  .card-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    font-size: 1rem;
+    color: var(--supressed-fg);
+    gap: 1rem;
+  }
+
+  .card-tags {
+    display: flex;
+    gap: 0.5rem;
+  }
 }
 
-.card-header {
-  font-size: 1.2rem;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-}
-
-.card.crypto .card-header::after {
+.card.crypto .card-title::after {
   display: inline-block;
   content: "";
   width: 1rem;
@@ -184,19 +209,6 @@ main {
   mask-repeat: no-repeat;
   mask-position: center;
   background-color: currentColor;
-}
-
-.card-meta {
-  display: flex;
-  align-items: center;
-  font-size: 1rem;
-  color: var(--supressed-fg);
-  gap: 1rem;
-}
-
-.card-tags {
-  display: flex;
-  gap: 0.5rem;
 }
 
 .tag {
@@ -224,7 +236,7 @@ pre {
   margin: 1rem 0;
   padding: 1rem;
   overflow-x: auto;
-  border-radius: .5rem;
+  border-radius: 0.5rem;
 }
 
 pre > code {
@@ -252,12 +264,11 @@ th {
   padding: 0.5rem;
 }
 
-
 .footnote-definition {
   font-size: medium;
   color: var(--footnote-fg);
 
-  >p {
+  > p {
     display: inline;
   }
 }

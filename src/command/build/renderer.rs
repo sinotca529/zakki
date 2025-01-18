@@ -36,10 +36,6 @@ impl<'a> Renderer<'a> {
         ["style.css"]
     }
 
-    fn default_js_list(&self) -> [&'static str; 3] {
-        ["metadata.js", "script.js", "theme.js"]
-    }
-
     fn events_to_html(&self, events: Vec<Event>, ctxt: &Context) -> Result<String> {
         let body = {
             let mut body = String::new();
@@ -59,13 +55,17 @@ impl<'a> Renderer<'a> {
             .chain(self.config.css_list().iter().map(|p| &p[..]))
             .chain(ctxt.css_list().iter().map(|p| &p[..]));
 
-        let js_list = self
-            .default_js_list()
+        let crypto = ctxt.flags()?.contains(&Flag::Crypto);
+
+        let mut js = vec!["metadata.js", "common.js"];
+        if crypto {
+            js.push("decrypt.js");
+        }
+        let js_list = js
             .into_iter()
             .chain(self.config.js_list().iter().map(|p| &p[..]))
             .chain(ctxt.js_list().iter().map(|p| &p[..]));
 
-        let crypto = ctxt.flags()?.contains(&Flag::Crypto);
         let html = if crypto {
             let password = ctxt.password()?;
             let cypher = encode_with_password(password, body.as_bytes());
@@ -194,9 +194,10 @@ impl<'a> Renderer<'a> {
     pub fn render_assets(&self) -> Result<()> {
         self.render_index()?;
         copy_asset!("style.css", self.config.dst_dir())?;
-        copy_asset!("script.js", self.config.dst_dir())?;
+        copy_asset!("index.js", self.config.dst_dir())?;
         copy_asset!("segmenter.js", self.config.dst_dir())?;
-        copy_asset!("theme.js", self.config.dst_dir())?;
+        copy_asset!("common.js", self.config.dst_dir())?;
+        copy_asset!("search.js", self.config.dst_dir())?;
 
         copy_asset!("katex/LICENSE", self.config.dst_dir())?;
         copy_asset!("katex/katex.min.css", self.config.dst_dir())?;
@@ -247,8 +248,7 @@ impl<'a> Renderer<'a> {
             .into_iter()
             .chain(self.config.css_list().iter().map(|p| &p[..]));
 
-        let js_list = self
-            .default_js_list()
+        let js_list = ["metadata.js", "common.js", "index.js"]
             .into_iter()
             .chain(self.config.js_list().iter().map(|p| &p[..]));
 
