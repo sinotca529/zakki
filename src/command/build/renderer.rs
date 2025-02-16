@@ -13,8 +13,7 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 use context::{Context, Flag, Metadata};
 use html_template::{crypto_html, index_html, page_html};
 use pass::{
-    convert_math_pass, get_title_pass, highlight_code_pass, image_convert_pass, link_adjust_pass,
-    read_header_pass,
+    assign_header_id, convert_math_pass, get_title_pass, highlight_code_pass, image_convert_pass, link_adjust_pass, read_header_pass
 };
 use pulldown_cmark::{Event, Options, Parser};
 use scraper::{Html, Selector};
@@ -156,6 +155,7 @@ impl<'a> Renderer<'a> {
         image_convert_pass(&mut events, &mut ctxt)?;
         highlight_code_pass(&mut events, &mut ctxt)?;
         convert_math_pass(&mut events, &mut ctxt)?;
+        assign_header_id(&mut events, &mut ctxt)?;
 
         // イベント列を HTML に変換
         let html = self.events_to_html(events, &ctxt)?;
