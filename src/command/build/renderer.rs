@@ -141,7 +141,8 @@ impl<'a> Renderer<'a> {
         ctxt.set_build_root_to_dst(build_root_to_dst.to_owned());
 
         // Markdown をイベント列に変換
-        let mut events: Vec<_> = Parser::new_ext(markdown, Options::all()).collect();
+        let opt = Options::all() ^ Options::ENABLE_OLD_FOOTNOTES ^ Options::ENABLE_FOOTNOTES;
+        let mut events: Vec<_> = Parser::new_ext(markdown, opt).collect();
 
         // イベント列に対してパスを適用
         read_header_pass(&mut events, &mut ctxt)?;
