@@ -24,6 +24,7 @@
   --footnote-fg: gray;
   --supressed-fg: #666;
   --blockquote-border: gray;
+  --note-border: #3182ce;
   --card-border: #ccc;
   --card-hover-bg: #f5f5f5;
   --a-fg: #567180;
@@ -43,6 +44,7 @@
   --footnote-fg: #bbbbbb;
   --supressed-fg: #999999;
   --blockquote-border: #555;
+  --note-border: #3182ce;
   --card-border: gray;
   --card-hover-bg: #252525;
   --a-fg: #99c3db;
@@ -240,8 +242,7 @@ pre > code {
 
 table {
   border-collapse: collapse;
-  max-width: 100%;
-  margin-inline: auto;
+  margin-left: 4rem;
   font-size: 1rem;
 }
 
@@ -267,8 +268,28 @@ th {
 }
 
 blockquote {
-  border-left: 3px solid var(--blockquote-border);
-  padding-left: 0.5rem;
+  border-left: 4px solid var(--blockquote-border);
+  padding: 0.85rem;
+  margin: 0;
+}
+
+blockquote.markdown-alert-note {
+  border-left: 4px solid var(--note-border);
+  padding: 0.85rem;
+  margin: 0;
+  font-size: 1rem;
+}
+
+blockquote.markdown-alert-note::before {
+  content: "NOTE";
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
+  display: inline-block;
+  color: var(--footnote-fg);
+}
+
+blockquote.markdown-alert-note p {
+  margin: 0;
 }
 
 dt {
