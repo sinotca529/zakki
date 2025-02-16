@@ -13,7 +13,7 @@ pub fn encode_with_password(password: &str, data: &[u8]) -> Vec<u8> {
 
 fn encode_with_random_iv(key: &[u8; 32], data: &[u8]) -> Vec<u8> {
     let mut iv = [0u8; 16];
-    rand::thread_rng().fill(&mut iv);
+    rand::rng().fill(&mut iv);
     encode(&iv, key, data)
 }
 
