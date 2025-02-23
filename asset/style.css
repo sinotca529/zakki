@@ -63,8 +63,9 @@ body {
   background-color: var(--body-bg);
   color: var(--text-fg);
   font-size: 1rem;
-  margin: 0;
+  margin: auto;
   min-height: 100dvh;
+  max-width: 100rem;
 }
 
 #date {
@@ -241,12 +242,20 @@ pre > code {
 }
 
 table {
+  border: 1px var(--table-border) solid;
   border-collapse: collapse;
-  margin-left: 4rem;
   font-size: 1rem;
+  margin: 1rem;
+  margin-left: .5rem;
 }
 
-table,
+@media (max-width: 768px) {
+  table {
+    max-width: 100%;
+    margin-inline: auto;
+  }
+}
+
 td,
 th {
   border: 1px var(--table-border) solid;
@@ -275,14 +284,15 @@ blockquote {
 
 blockquote.markdown-alert-note {
   border-left: 4px solid var(--note-border);
-  padding: 0.85rem;
-  margin: 0;
+  padding: 0.8rem;
+  margin: 0.8rem;
+  margin-left: 0;
   font-size: 1rem;
 }
 
 blockquote.markdown-alert-note::before {
   content: "NOTE";
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   margin-bottom: 0.5rem;
   display: inline-block;
   color: var(--footnote-fg);
@@ -306,7 +316,7 @@ dt {
 
 dd {
   border: 1px solid var(--table-border);
-  padding: 20px;
+  padding: 0.5rem 1rem;
   margin-left: 0;
   border-radius: 5px;
 }
@@ -327,3 +337,4 @@ dd {
 #tag-filter:not(:empty)::before {
   content: "Filtered by: ";
 }
+
