@@ -11,6 +11,7 @@
 }
 
 :root {
+  --html-bg: lightgray;
   --header-bg: #FFFAFA;
   --header-hover-bg: #ddd;
   --header-fg: black;
@@ -31,6 +32,7 @@
 }
 
 :root[theme="dark"] {
+  --html-bg: #101010;
   --header-bg: #2A2A2A;
   --header-hover-bg: #333;
   --header-fg: #f2f2f2;
@@ -52,6 +54,7 @@
 
 html {
   font-family: var(--main-font);
+  background-color: var(--html-bg);
   padding: 0;
 }
 
@@ -65,7 +68,7 @@ body {
   font-size: 1rem;
   margin: auto;
   min-height: 100dvh;
-  max-width: 100rem;
+  max-width: 100ch;
 }
 
 #date {
@@ -244,16 +247,8 @@ pre > code {
 table {
   border: 1px var(--table-border) solid;
   border-collapse: collapse;
+  margin-inline: auto;
   font-size: 1rem;
-  margin: 1rem;
-  margin-left: .5rem;
-}
-
-@media (max-width: 768px) {
-  table {
-    max-width: 100%;
-    margin-inline: auto;
-  }
 }
 
 td,
@@ -338,3 +333,19 @@ dd {
   content: "Filtered by: ";
 }
 
+h2 {
+  margin-top: 3rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--text-fg);
+  &:before {
+    content: "# ";
+  }
+}
+
+h3:before {
+  content: "## ";
+}
+
+h4:before {
+  content: "### ";
+}
