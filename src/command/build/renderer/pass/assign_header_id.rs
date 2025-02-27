@@ -10,10 +10,10 @@ fn gen_id(cntr: &[i32]) -> String {
         .join(".");
 }
 
-pub fn assign_header_id(events: &mut Vec<Event>, _ctxt: &mut Context) -> anyhow::Result<()> {
+pub fn assign_header_id<'a>(mut events: Vec<Event<'a>>, _ctxt: &mut Context) -> anyhow::Result<Vec<Event<'a>>> {
     let mut id_counter = [0; 6];
 
-    for e in events {
+    for e in events.iter_mut() {
         match e {
             Event::Start(Tag::Heading { level, id, .. }) => {
                 let level = *level as usize;
@@ -27,5 +27,5 @@ pub fn assign_header_id(events: &mut Vec<Event>, _ctxt: &mut Context) -> anyhow:
         }
     }
 
-    Ok(())
+    Ok(events)
 }

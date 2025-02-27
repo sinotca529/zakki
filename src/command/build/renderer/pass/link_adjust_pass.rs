@@ -1,7 +1,7 @@
 use crate::command::build::renderer::context::Context;
 use pulldown_cmark::{Event, Tag};
 
-pub fn link_adjust_pass(events: &mut Vec<Event>, _: &mut Context) -> anyhow::Result<()> {
+pub fn link_adjust_pass<'a>(mut events: Vec<Event<'a>>, _: &mut Context) -> anyhow::Result<Vec<Event<'a>>> {
     events.iter_mut().for_each(|mut e| {
         if let Event::Start(Tag::Link { dest_url: url, .. }) = &mut e {
             let is_local = !url.starts_with("http://") && !url.starts_with("https://");
@@ -11,5 +11,5 @@ pub fn link_adjust_pass(events: &mut Vec<Event>, _: &mut Context) -> anyhow::Res
             }
         }
     });
-    Ok(())
+    Ok(events)
 }

@@ -5,6 +5,7 @@ mod image_convert_pass;
 mod link_adjust_pass;
 mod read_header_pass;
 mod assign_header_id;
+mod table_wrapper_pass;
 
 use super::context::Context;
 use pulldown_cmark::Event;
@@ -16,5 +17,26 @@ pub use image_convert_pass::image_convert_pass;
 pub use link_adjust_pass::link_adjust_pass;
 pub use read_header_pass::read_header_pass;
 pub use assign_header_id::assign_header_id;
+pub use table_wrapper_pass::table_wrapper_pass;
 
-pub type EventPass = fn(events: &mut Vec<Event>, ctxt: &mut Context) -> anyhow::Result<()>;
+pub type EventPass<'a> = fn (Vec<Event<'a>>, &mut Context) -> anyhow::Result<Vec<Event<'a>>>;
+
+pub struct PassManager<'a>(Vec<EventPass<'a>>);
+
+impl<'a> PassManager<'a> {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    pub fn register(&mut self, pass: EventPass<'a>) -> &mut Self {
+        self.0.push(pass);
+        self
+    }
+
+    pub fn run(&self, mut events: Vec<Event<'a>>, ctxt: &mut Context) -> anyhow::Result<Vec<Event<'a>>> {
+        for pass in &self.0 {
+            events = pass(events, ctxt)?;
+        }
+        Ok(events)
+    }
+}
