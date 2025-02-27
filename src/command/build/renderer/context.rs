@@ -1,5 +1,5 @@
 use crate::util::BloomFilter;
-use anyhow::{anyhow, Context as _, Result};
+use anyhow::{Context as _, Result, anyhow};
 use paste::paste;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

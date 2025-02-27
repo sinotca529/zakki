@@ -2,7 +2,10 @@ use crate::command::build::renderer::context::Context;
 use anyhow::bail;
 use pulldown_cmark::{Event, HeadingLevel, Tag, TagEnd};
 
-pub fn get_title_pass<'a>(events: Vec<Event<'a>>, ctxt: &mut Context) -> anyhow::Result<Vec<Event<'a>>> {
+pub fn get_title_pass<'a>(
+    events: Vec<Event<'a>>,
+    ctxt: &mut Context,
+) -> anyhow::Result<Vec<Event<'a>>> {
     let h1 = events
         .iter()
         .skip_while(|e| !matches!(e, Event::Start(Tag::Heading { level, .. }) if level == &HeadingLevel::H1))

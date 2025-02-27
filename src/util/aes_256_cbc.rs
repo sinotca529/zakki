@@ -1,5 +1,5 @@
 use super::VecExt;
-use aes::cipher::{block_padding::Pkcs7, BlockEncryptMut, KeyIvInit};
+use aes::cipher::{BlockEncryptMut, KeyIvInit, block_padding::Pkcs7};
 use rand::Rng;
 use sha2::{Digest, Sha256};
 

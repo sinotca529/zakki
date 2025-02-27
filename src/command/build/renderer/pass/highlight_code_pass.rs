@@ -21,7 +21,10 @@ impl HighlightRule {
     }
 }
 
-pub fn highlight_code_pass<'a>(mut events: Vec<Event<'a>>, ctxt: &mut Context) -> Result<Vec<Event<'a>>> {
+pub fn highlight_code_pass<'a>(
+    mut events: Vec<Event<'a>>,
+    ctxt: &mut Context,
+) -> Result<Vec<Event<'a>>> {
     let Ok(macros) = ctxt.highlights() else {
         return Ok(events);
     };

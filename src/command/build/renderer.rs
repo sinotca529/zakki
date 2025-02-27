@@ -13,7 +13,8 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use context::{Context, Flag, Metadata};
 use html_template::{crypto_html, index_html, page_html};
 use pass::{
-    assign_header_id, convert_math_pass, get_title_pass, highlight_code_pass, image_convert_pass, link_adjust_pass, read_header_pass, table_wrapper_pass, PassManager
+    PassManager, assign_header_id, convert_math_pass, get_title_pass, highlight_code_pass,
+    image_convert_pass, link_adjust_pass, read_header_pass, table_wrapper_pass,
 };
 use pulldown_cmark::{Event, Options, Parser};
 use scraper::{Html, Selector};

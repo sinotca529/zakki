@@ -5,8 +5,8 @@ use crate::util::PathExt as _;
 use crate::{config::Config, util::write_file};
 use anyhow::{Context, Result};
 use rayon::prelude::*;
-use renderer::context::Metadata;
 use renderer::Renderer;
+use renderer::context::Metadata;
 use std::path::PathBuf;
 
 fn render_pages(cfg: &Config) -> Result<Vec<Metadata>> {

@@ -4,7 +4,7 @@ mod init;
 
 use std::path::Path;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use clap::Subcommand;
 
 use crate::config::{Config, FileConfig};
