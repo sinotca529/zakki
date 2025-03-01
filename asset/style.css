@@ -11,14 +11,14 @@
 }
 
 :root {
-  --html-bg: lightgray;
+  --html-bg: snow;
   --header-bg: #FFFAFA;
   --header-hover-bg: #ddd;
   --header-fg: black;
   --body-bg: snow;
   --text-fg: black;
   --pre-bg: whitesmoke;
-  --code-fg: #c78665;
+  --code-fg: #c74200;
   --table-border: black;
   --tag-fg: white;
   --tag-bg: #202020;
@@ -32,7 +32,7 @@
 }
 
 :root[theme="dark"] {
-  --html-bg: #101010;
+  --html-bg: #2A2A2A;
   --header-bg: #2A2A2A;
   --header-hover-bg: #333;
   --header-fg: #f2f2f2;
