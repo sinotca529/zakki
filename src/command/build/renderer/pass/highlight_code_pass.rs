@@ -21,13 +21,16 @@ impl HighlightRule {
     }
 }
 
-pub fn highlight_code_pass(events: &mut Vec<Event>, ctxt: &mut Context) -> Result<()> {
+pub fn highlight_code_pass<'a>(
+    mut events: Vec<Event<'a>>,
+    ctxt: &mut Context,
+) -> Result<Vec<Event<'a>>> {
     let Ok(macros) = ctxt.highlights() else {
-        return Ok(());
+        return Ok(events);
     };
 
     let mut is_code_block = false;
-    for e in events {
+    for e in events.iter_mut() {
         match e {
             Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(_))) => {
                 is_code_block = true;
@@ -55,5 +58,5 @@ pub fn highlight_code_pass(events: &mut Vec<Event>, ctxt: &mut Context) -> Resul
             _ => {}
         }
     }
-    Ok(())
+    Ok(events)
 }

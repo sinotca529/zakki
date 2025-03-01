@@ -1,5 +1,5 @@
 use crate::util::BloomFilter;
-use anyhow::{anyhow, Context as _, Result};
+use anyhow::{Context as _, Result, anyhow};
 use paste::paste;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -160,7 +160,15 @@ impl Metadata {
         &self.update
     }
 
+    pub fn page_is_encrypted(&self) -> bool {
+        self.flags.contains(&Flag::Crypto)
+    }
+
     pub fn bloom_filter(&self) -> &BloomFilter {
         &self.bloom_filter
+    }
+
+    pub fn path(&self) -> &PathBuf {
+        &self.path
     }
 }

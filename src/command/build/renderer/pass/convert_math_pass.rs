@@ -2,7 +2,10 @@ use crate::command::build::renderer::context::Context;
 use anyhow::Context as _;
 use pulldown_cmark::Event;
 
-pub fn convert_math_pass(events: &mut Vec<Event>, ctxt: &mut Context) -> anyhow::Result<()> {
+pub fn convert_math_pass<'a>(
+    mut input: Vec<Event<'a>>,
+    ctxt: &mut Context,
+) -> anyhow::Result<Vec<Event<'a>>> {
     let opts_display = katex::Opts::builder()
         .output_type(katex::opts::OutputType::Html)
         .display_mode(true)
@@ -15,7 +18,7 @@ pub fn convert_math_pass(events: &mut Vec<Event>, ctxt: &mut Context) -> anyhow:
         .unwrap();
 
     let mut math_used = false;
-    for e in events {
+    for e in &mut input {
         match e {
             Event::InlineMath(latex) => {
                 let math = katex::render_with_opts(latex, &opts_inline)
@@ -37,5 +40,5 @@ pub fn convert_math_pass(events: &mut Vec<Event>, ctxt: &mut Context) -> anyhow:
         ctxt.push_css_path("katex/katex.min.css");
     }
 
-    Ok(())
+    Ok(input)
 }

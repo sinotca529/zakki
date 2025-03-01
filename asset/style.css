@@ -11,13 +11,14 @@
 }
 
 :root {
+  --html-bg: snow;
   --header-bg: #FFFAFA;
   --header-hover-bg: #ddd;
   --header-fg: black;
   --body-bg: snow;
   --text-fg: black;
   --pre-bg: whitesmoke;
-  --code-fg: #c78665;
+  --code-fg: #c74200;
   --table-border: black;
   --tag-fg: white;
   --tag-bg: #202020;
@@ -31,6 +32,7 @@
 }
 
 :root[theme="dark"] {
+  --html-bg: #2A2A2A;
   --header-bg: #2A2A2A;
   --header-hover-bg: #333;
   --header-fg: #f2f2f2;
@@ -52,6 +54,7 @@
 
 html {
   font-family: var(--main-font);
+  background-color: var(--html-bg);
   padding: 0;
 }
 
@@ -63,8 +66,9 @@ body {
   background-color: var(--body-bg);
   color: var(--text-fg);
   font-size: 1rem;
-  margin: 0;
+  margin: auto;
   min-height: 100dvh;
+  max-width: 100ch;
 }
 
 #date {
@@ -241,12 +245,12 @@ pre > code {
 }
 
 table {
+  border: 1px var(--table-border) solid;
   border-collapse: collapse;
-  margin-left: 4rem;
+  margin-inline: auto;
   font-size: 1rem;
 }
 
-table,
 td,
 th {
   border: 1px var(--table-border) solid;
@@ -275,14 +279,15 @@ blockquote {
 
 blockquote.markdown-alert-note {
   border-left: 4px solid var(--note-border);
-  padding: 0.85rem;
-  margin: 0;
+  padding: 0.8rem;
+  margin: 0.8rem;
+  margin-left: 0;
   font-size: 1rem;
 }
 
 blockquote.markdown-alert-note::before {
   content: "NOTE";
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   margin-bottom: 0.5rem;
   display: inline-block;
   color: var(--footnote-fg);
@@ -306,7 +311,7 @@ dt {
 
 dd {
   border: 1px solid var(--table-border);
-  padding: 20px;
+  padding: 0.5rem 1rem;
   margin-left: 0;
   border-radius: 5px;
 }
@@ -326,4 +331,21 @@ dd {
 
 #tag-filter:not(:empty)::before {
   content: "Filtered by: ";
+}
+
+h2 {
+  margin-top: 3rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--text-fg);
+  &:before {
+    content: "# ";
+  }
+}
+
+h3:before {
+  content: "## ";
+}
+
+h4:before {
+  content: "### ";
 }

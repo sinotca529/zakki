@@ -8,12 +8,13 @@ use crate::{
     config::Config,
     util::{copy_file, encode_with_password, write_file},
 };
-use anyhow::{anyhow, Context as _, Result};
-use base64::{prelude::BASE64_STANDARD, Engine};
+use anyhow::{Context as _, Result, anyhow};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use context::{Context, Flag, Metadata};
 use html_template::{crypto_html, index_html, page_html};
 use pass::{
-    assign_header_id, convert_math_pass, get_title_pass, highlight_code_pass, image_convert_pass, link_adjust_pass, read_header_pass
+    PassManager, assign_header_id, convert_math_pass, get_title_pass, highlight_code_pass,
+    image_convert_pass, link_adjust_pass, read_header_pass, table_wrapper_pass,
 };
 use pulldown_cmark::{Event, Options, Parser};
 use scraper::{Html, Selector};
@@ -151,12 +152,17 @@ impl<'a> Renderer<'a> {
             return Ok(None);
         }
 
-        get_title_pass(&mut events, &mut ctxt)?;
-        link_adjust_pass(&mut events, &mut ctxt)?;
-        image_convert_pass(&mut events, &mut ctxt)?;
-        highlight_code_pass(&mut events, &mut ctxt)?;
-        convert_math_pass(&mut events, &mut ctxt)?;
-        assign_header_id(&mut events, &mut ctxt)?;
+        let mut pass_manager = PassManager::new();
+        pass_manager
+            .register(get_title_pass)
+            .register(link_adjust_pass)
+            .register(image_convert_pass)
+            .register(highlight_code_pass)
+            .register(convert_math_pass)
+            .register(assign_header_id)
+            .register(table_wrapper_pass);
+
+        let events = pass_manager.run(events, &mut ctxt)?;
 
         // イベント列を HTML に変換
         let html = self.events_to_html(events, &ctxt)?;
