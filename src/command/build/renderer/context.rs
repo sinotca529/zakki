@@ -160,7 +160,15 @@ impl Metadata {
         &self.update
     }
 
+    pub fn page_is_encrypted(&self) -> bool {
+        self.flags.contains(&Flag::Crypto)
+    }
+
     pub fn bloom_filter(&self) -> &BloomFilter {
         &self.bloom_filter
+    }
+
+    pub fn path(&self) -> &PathBuf {
+        &self.path
     }
 }

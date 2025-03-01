@@ -13,6 +13,9 @@ pub struct FileConfig {
     /// サイトの名前
     site_name: String,
 
+    // サイトの公開先 URL
+    publish_url: Option<String>,
+
     /// ページの暗号化に使うパスワード
     #[serde(default)]
     password: Option<String>,
@@ -58,9 +61,15 @@ impl FileConfig {
 }
 
 pub struct Config {
+    /// サイト名
     site_name: String,
+    /// 公開先 URL
+    publish_url: Option<String>,
+    /// 下書き記事を html に変換するかどうか
     render_draft: bool,
+    /// 記事の暗号化に使うデフォルトのパスワード
     password: Option<String>,
+    /// フッタの内容
     footer: String,
     /// Markdown が配置されているディレクトリ
     src_dir: PathBuf,
@@ -89,6 +98,7 @@ impl Config {
                 &file_config.site_name
             )),
             site_name: file_config.site_name,
+            publish_url: file_config.publish_url,
             render_draft,
             password: file_config.password,
             src_dir,
@@ -109,6 +119,10 @@ impl Config {
 
     pub fn password(&self) -> Option<&String> {
         self.password.as_ref()
+    }
+
+    pub fn publis_url(&self) -> Option<&String> {
+        self.publish_url.as_ref()
     }
 
     pub fn footer(&self) -> &str {

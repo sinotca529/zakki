@@ -29,6 +29,33 @@ fn render_pages(cfg: &Config) -> Result<Vec<Metadata>> {
     Ok(metadatas)
 }
 
+fn output_sitemap(cfg: &Config, metas: &[Metadata]) -> Result<()> {
+    let Some(publish_url) = cfg.publis_url() else {
+        return Ok(());
+    };
+    let slash = if publish_url.ends_with('/') { "" } else { "/" };
+
+    let mut content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".to_owned();
+    content += "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n";
+
+    metas
+        .iter()
+        .filter(|m| !m.page_is_encrypted())
+        .for_each(|m| {
+            content += &format!(
+                "  <url><loc>{publish_url}{slash}{}</loc><lastmod>{}</lastmod></url>\n",
+                &m.path().to_str().unwrap(),
+                m.update(),
+            );
+        });
+    content += "</urlset>\n";
+
+    let dst = cfg.dst_dir().join("sitemap.xml");
+    write_file(dst, content)?;
+
+    Ok(())
+}
+
 fn output_metadatas(cfg: &Config, mut metas: Vec<Metadata>) -> Result<()> {
     // メタデータの書き出し
     metas.sort_unstable_by(|a, b| b.update().cmp(a.update()));
@@ -51,6 +78,7 @@ pub fn build(cfg: &Config) -> Result<()> {
     clean(cfg.dst_dir())?;
 
     let metadatas = render_pages(cfg)?;
+    output_sitemap(cfg, &metadatas)?;
     output_metadatas(cfg, metadatas)?;
 
     Ok(())
