@@ -14,7 +14,7 @@ use context::{Context, Flag, Metadata};
 use html_template::{crypto_html, index_html, page_html};
 use pass::{
     PassManager, assign_header_id, convert_math_pass, get_title_pass, highlight_code_pass,
-    image_convert_pass, link_adjust_pass, read_header_pass, table_wrapper_pass,
+    image_convert_pass, link_adjust_pass, read_header_pass, table_wrapper_pass, toc_pass,
 };
 use pulldown_cmark::{Event, Options, Parser};
 use scraper::{Html, Selector};
@@ -95,6 +95,7 @@ impl<'a> Renderer<'a> {
                 ctxt.tags()?,
                 &body,
                 self.config.footer(),
+                ctxt.toc()?
             )
         };
 
@@ -160,7 +161,8 @@ impl<'a> Renderer<'a> {
             .register(highlight_code_pass)
             .register(convert_math_pass)
             .register(assign_header_id)
-            .register(table_wrapper_pass);
+            .register(table_wrapper_pass)
+            .register(toc_pass);
 
         let events = pass_manager.run(events, &mut ctxt)?;
 

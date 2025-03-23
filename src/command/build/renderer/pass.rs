@@ -6,6 +6,7 @@ mod image_convert_pass;
 mod link_adjust_pass;
 mod read_header_pass;
 mod table_wrapper_pass;
+mod toc_pass;
 
 use super::context::Context;
 use pulldown_cmark::Event;
@@ -18,6 +19,7 @@ pub use image_convert_pass::image_convert_pass;
 pub use link_adjust_pass::link_adjust_pass;
 pub use read_header_pass::read_header_pass;
 pub use table_wrapper_pass::table_wrapper_pass;
+pub use toc_pass::{toc::Toc, toc_pass};
 
 pub type EventPass<'a> = fn(Vec<Event<'a>>, &mut Context) -> anyhow::Result<Vec<Event<'a>>>;
 

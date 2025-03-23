@@ -1,6 +1,8 @@
 use crate::include_asset;
 use std::path::{Path, PathBuf};
 
+use super::pass::Toc;
+
 fn adjust_path_origin(path: &str, path_to_root: &Path) -> String {
     if path.starts_with("http://") || path.starts_with("https://") || path.starts_with("/") {
         return path.to_string();
@@ -85,6 +87,7 @@ pub fn page_html<'a>(
     tags: &[String],
     body: &str,
     footer: &str,
+    toc: &Toc,
 ) -> String {
     let head = head(path_to_root, css_list, js_list, title);
     let header = header(path_to_root, site_name);
@@ -99,6 +102,7 @@ pub fn page_html<'a>(
         last_update_date = last_update_date,
         body = body,
         footer_text = footer,
+        toc = toc.to_html(),
     )
 }
 #[allow(clippy::too_many_arguments)]

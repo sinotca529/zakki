@@ -4,7 +4,7 @@ use paste::paste;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use super::pass::HighlightRule;
+use super::pass::{HighlightRule, Toc};
 
 macro_rules! try_get {
     ($field:ident, $return_type:ty) => {
@@ -68,6 +68,9 @@ pub struct Context {
 
     /// 追加で読み込む CSS 一覧
     css_paths: Vec<String>,
+
+    /// 階層一覧 (Toc 生成用)
+    toc: Option<Toc>,
 }
 
 impl Context {
@@ -79,6 +82,7 @@ impl Context {
     try_get!(build_root_to_dst, &PathBuf);
     try_get!(highlights, &Vec<HighlightRule>);
     try_get!(password, &String);
+    try_get!(toc, &Toc);
 
     pub fn css_list(&self) -> &Vec<String> {
         &self.css_paths
@@ -97,6 +101,7 @@ impl Context {
     setter!(bloom_filter, BloomFilter);
     setter!(password, String);
     setter!(highlights, Vec<HighlightRule>);
+    setter!(toc, Toc);
 
     pub fn push_js_path(&mut self, path: impl Into<String>) {
         self.js_paths.push(path.into());
