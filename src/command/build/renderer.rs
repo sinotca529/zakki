@@ -116,7 +116,8 @@ impl<'a> Renderer<'a> {
         let words: HashSet<_> = crate::util::segment(&text)
             .into_iter()
             // スペースのみの場合は無視する
-            .filter(|w| !w.trim().is_empty())
+            .map(|w| w.trim())
+            .filter(|w| !w.is_empty())
             // 小文字に統一する
             .map(|w| w.to_lowercase())
             .collect();

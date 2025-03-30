@@ -133,7 +133,7 @@ function search(query) {
   if (!query) return [];
 
   const words = new Set(
-    segment(query).flatMap((w) => (w.trim() ? w.toLowerCase() : [])),
+    segment(query).flatMap((w) => (w.trim() ? w.trim().toLowerCase() : [])),
   );
 
   return BLOOM_FILTER.flatMap((bf, i) => {
