@@ -12,6 +12,7 @@ use anyhow::{Context as _, Result, anyhow};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use context::{Context, Flag, Metadata};
 use html_template::{crypto_html, index_html, page_html};
+use itertools::Itertools;
 use pass::{
     PassManager, assign_header_id, convert_math_pass, get_title_pass, highlight_code_pass,
     image_convert_pass, link_adjust_pass, read_header_pass, table_wrapper_pass, toc_pass,
@@ -32,11 +33,11 @@ impl<'a> Renderer<'a> {
         Self { config }
     }
 
-    fn default_css_list(&self) -> [&'static str; 1] {
+    const fn default_css_list(&self) -> [&'static str; 1] {
         ["style.css"]
     }
 
-    fn default_js_list(&self) -> [&'static str; 3] {
+    const fn default_js_list(&self) -> [&'static str; 3] {
         ["metadata.js", "script.js", "theme.js"]
     }
 
@@ -95,7 +96,7 @@ impl<'a> Renderer<'a> {
                 ctxt.tags()?,
                 &body,
                 self.config.footer(),
-                ctxt.toc()?
+                ctxt.toc()?,
             )
         };
 
@@ -109,7 +110,6 @@ impl<'a> Renderer<'a> {
             .next()
             .ok_or_else(|| anyhow!("No body element"))?
             .text()
-            .collect::<Vec<_>>()
             .join(" ");
 
         // テキストをワードに分割する

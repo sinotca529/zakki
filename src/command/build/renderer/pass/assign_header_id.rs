@@ -1,12 +1,9 @@
 use crate::command::build::renderer::context::Context;
+use itertools::Itertools;
 use pulldown_cmark::{Event, Tag};
 
 fn gen_id(cntr: &[i32]) -> String {
-    cntr.iter()
-        .take_while(|&&e| e > 0)
-        .map(|e| e.to_string())
-        .collect::<Vec<_>>()
-        .join(".")
+    cntr.iter().take_while(|&&e| e > 0).join(".")
 }
 
 pub fn assign_header_id<'a>(

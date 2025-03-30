@@ -13,11 +13,11 @@ pub struct HighlightRule {
 
 impl HighlightRule {
     pub fn replace_all<'a>(&self, code: &'a str) -> Cow<'a, str> {
-        if let Ok(pat) = Regex::new(&format!("{}(.*?){}", &self.delim[0], &self.delim[1])) {
-            pat.replace_all(code, format!("<span style=\"{}\">$1</span>", &self.style))
-        } else {
-            code.into()
-        }
+        let Ok(pat) = Regex::new(&format!("{}(.*?){}", &self.delim[0], &self.delim[1])) else {
+            return code.into();
+        };
+
+        pat.replace_all(code, format!("<span style=\"{}\">$1</span>", &self.style))
     }
 }
 

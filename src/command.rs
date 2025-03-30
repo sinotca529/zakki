@@ -7,7 +7,10 @@ use std::path::Path;
 use anyhow::{Result, bail};
 use clap::Subcommand;
 
-use crate::config::{Config, FileConfig};
+use crate::{
+    config::{Config, FileConfig},
+    util::PathExt,
+};
 
 #[derive(PartialEq, Eq, Debug, Subcommand)]
 pub enum Command {
@@ -44,17 +47,11 @@ pub fn goto_zakki_root() -> Result<()> {
     let mut dir: Option<&Path> = Some(pwd.as_ref());
 
     while let Some(d) = dir {
-        let dir_contains_cfg = std::fs::read_dir(d)?
-            .filter_map(|f| f.ok())
-            .map(|f| f.file_name())
-            .any(|f| &f == "zakki.toml");
-
-        if dir_contains_cfg {
-            std::env::set_current_dir(d)?;
-            return Ok(());
-        } else {
-            dir = d.parent();
+        let is_zakki_root = d.has_file("zakki.toml")?;
+        if is_zakki_root {
+            return std::env::set_current_dir(d).map_err(Into::into);
         }
+        dir = d.parent();
     }
 
     bail!("Failed to detect zakki root.");
