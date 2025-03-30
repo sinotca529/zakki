@@ -34,7 +34,8 @@ impl Command {
                 build::build(&cfg)
             }
             Self::Clean => {
-                let dst_dir = std::env::current_dir()?.join("dst");
+                goto_zakki_root()?;
+                let dst_dir = std::env::current_dir()?.join("build");
                 clean::clean(&dst_dir)
             }
         }
