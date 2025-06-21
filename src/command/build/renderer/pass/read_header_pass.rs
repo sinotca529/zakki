@@ -1,5 +1,5 @@
 use super::HighlightRule;
-use crate::command::build::renderer::context::{Context, Flag};
+use crate::command::build::renderer::context::Context;
 use MetadataBlockKind::YamlStyle;
 use anyhow::bail;
 use pulldown_cmark::{Event, Tag};
@@ -25,7 +25,6 @@ pub fn read_header_pass(events: &mut Vec<Event>, ctxt: &mut Context) -> anyhow::
     ctxt.set_create_date(header.create_date);
     ctxt.set_last_update_date(header.last_update_date);
     ctxt.set_tags(header.tags);
-    ctxt.set_flags(header.flags);
     if let Some(h) = header.highlights {
         ctxt.set_highlights(h);
     }
@@ -50,11 +49,6 @@ struct YamlHeader {
     #[serde(default)]
     #[serde(alias = "tag")]
     pub tags: Vec<String>,
-
-    /// 記事を HTML に変換する際に使用するフラグ
-    #[serde(default)]
-    #[serde(alias = "flag")]
-    pub flags: Vec<Flag>,
 
     /// 暗号化時のパスワード
     pub password: Option<String>,

@@ -1,18 +1,20 @@
 @font-face {
-  font-family: 'Source Code Pro';
+  font-family: "Source Code Pro";
   font-style: normal;
   font-weight: normal;
-  src: url(font/SourceCodePro/SourceCodePro-Regular.otf.woff2) format('woff2');
+  src: url(font/SourceCodePro/SourceCodePro-Regular.otf.woff2) format("woff2");
 }
 
 :root {
-  --code-font: "Source Code Pro", Consolas, "Ubuntu Mono", Menlo, "DejaVu Sans Mono", monospace;
-  --main-font: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+  --code-font: "Source Code Pro", Consolas, "Ubuntu Mono", Menlo,
+    "DejaVu Sans Mono", monospace;
+  --main-font: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN",
+    "Hiragino Sans", Meiryo, sans-serif;
 }
 
 :root {
   --html-bg: snow;
-  --header-bg: #FFFAFA;
+  --header-bg: #fffafa;
   --header-hover-bg: #ddd;
   --header-fg: black;
   --body-bg: snow;
@@ -32,12 +34,12 @@
 }
 
 :root[theme="dark"] {
-  --html-bg: #2A2A2A;
-  --header-bg: #2A2A2A;
+  --html-bg: #2a2a2a;
+  --header-bg: #2a2a2a;
   --header-hover-bg: #333;
   --header-fg: #f2f2f2;
-  --body-bg: #2A2A2A;
-  --text-fg: #D7D7D7;
+  --body-bg: #2a2a2a;
+  --text-fg: #d7d7d7;
   --pre-bg: #202020;
   --code-fg: #c78665;
   --table-border: #666;
@@ -84,11 +86,10 @@ footer {
   color: var(--header-fg);
   width: 100%;
 
-  >p {
+  > p {
     margin: 0;
   }
 }
-
 
 header {
   text-align: center;
@@ -162,7 +163,6 @@ main {
   padding: 0 1rem;
 }
 
-
 .card {
   text-decoration: none;
   color: inherit;
@@ -230,7 +230,7 @@ pre {
   margin: 1rem 0;
   padding: 1rem;
   overflow-x: auto;
-  border-radius: .5rem;
+  border-radius: 0.5rem;
 }
 
 pre > code {
@@ -257,12 +257,11 @@ th {
   padding: 0.5rem;
 }
 
-
 .footnote-definition {
   font-size: medium;
   color: var(--footnote-fg);
 
-  >p {
+  > p {
     display: inline;
   }
 }
@@ -293,27 +292,19 @@ blockquote.markdown-alert-note::before {
   color: var(--footnote-fg);
 }
 
-blockquote.markdown-alert-note p {
-  margin: 0;
+p {
+  margin: 0.75em;
 }
 
 dt {
-  position: relative;
-  top: 0.5rlh;
-  left: 1rem;
-  width: fit-content;
-  border-radius: 5px;
-  padding: 0 5px;
-  z-index: 1;
-  margin-top: 1rem;
+  text-decoration: underline;
+  text-underline-position: under;
+  text-underline-color: var(--card-border);
   background-color: var(--body-bg);
 }
 
 dd {
-  border: 1px solid var(--table-border);
   padding: 0.5rem 1rem;
-  margin-left: 0;
-  border-radius: 5px;
 }
 
 .zakki-scroll {

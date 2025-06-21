@@ -10,6 +10,9 @@ pub trait PathExt {
 
     /// 子孫ファイルのパスの一覧を返します。
     fn descendants_file_paths(&self) -> std::io::Result<Vec<PathBuf>>;
+
+    /// ディレクトリ直下に file_name のファイルを持つか確かめます
+    fn has_file(&self, file_name: &str) -> std::io::Result<bool>;
 }
 
 impl PathExt for Path {
@@ -39,5 +42,14 @@ impl PathExt for Path {
         }
 
         Ok(files)
+    }
+
+    fn has_file(&self, file_name: &str) -> std::io::Result<bool> {
+        let has_file = std::fs::read_dir(self)?
+            .filter_map(|f| f.ok())
+            .map(|f| f.file_name())
+            .any(|f| f == file_name);
+
+        Ok(has_file)
     }
 }

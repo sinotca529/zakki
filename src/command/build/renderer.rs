@@ -10,11 +10,12 @@ use crate::{
 };
 use anyhow::{Context as _, Result, anyhow};
 use base64::{Engine, prelude::BASE64_STANDARD};
-use context::{Context, Flag, Metadata};
+use context::{Context, Metadata};
 use html_template::{crypto_html, index_html, page_html};
+use itertools::Itertools;
 use pass::{
     PassManager, assign_header_id, convert_math_pass, get_title_pass, highlight_code_pass,
-    image_convert_pass, link_adjust_pass, read_header_pass, table_wrapper_pass,
+    image_convert_pass, link_adjust_pass, read_header_pass, table_wrapper_pass, toc_pass,
 };
 use pulldown_cmark::{Event, Options, Parser};
 use scraper::{Html, Selector};
@@ -32,11 +33,11 @@ impl<'a> Renderer<'a> {
         Self { config }
     }
 
-    fn default_css_list(&self) -> [&'static str; 1] {
+    const fn default_css_list(&self) -> [&'static str; 1] {
         ["style.css"]
     }
 
-    fn default_js_list(&self) -> [&'static str; 3] {
+    const fn default_js_list(&self) -> [&'static str; 3] {
         ["metadata.js", "script.js", "theme.js"]
     }
 
@@ -65,8 +66,7 @@ impl<'a> Renderer<'a> {
             .chain(self.config.js_list().iter().map(|p| &p[..]))
             .chain(ctxt.js_list().iter().map(|p| &p[..]));
 
-        let crypto = ctxt.flags()?.contains(&Flag::Crypto);
-        let html = if crypto {
+        let html = if ctxt.to_encrypt {
             let password = ctxt.password()?;
             let cypher = encode_with_password(password, body.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);
@@ -95,6 +95,7 @@ impl<'a> Renderer<'a> {
                 ctxt.tags()?,
                 &body,
                 self.config.footer(),
+                ctxt.toc()?,
             )
         };
 
@@ -108,14 +109,14 @@ impl<'a> Renderer<'a> {
             .next()
             .ok_or_else(|| anyhow!("No body element"))?
             .text()
-            .collect::<Vec<_>>()
             .join(" ");
 
         // テキストをワードに分割する
         let words: HashSet<_> = crate::util::segment(&text)
             .into_iter()
             // スペースのみの場合は無視する
-            .filter(|w| !w.trim().is_empty())
+            .map(|w| w.trim())
+            .filter(|w| !w.is_empty())
             // 小文字に統一する
             .map(|w| w.to_lowercase())
             .collect();
@@ -137,6 +138,14 @@ impl<'a> Renderer<'a> {
         if let Some(password) = self.config.password() {
             ctxt.set_password(password.clone());
         }
+        ctxt.is_draft = dst_path
+            .strip_prefix(self.config.dst_dir())
+            .unwrap()
+            .starts_with("draft/");
+        ctxt.to_encrypt = dst_path
+            .strip_prefix(self.config.dst_dir())
+            .unwrap()
+            .starts_with("private/");
 
         let build_root_to_dst = dst_path.strip_prefix(self.config.dst_dir()).unwrap();
         ctxt.set_build_root_to_dst(build_root_to_dst.to_owned());
@@ -148,7 +157,7 @@ impl<'a> Renderer<'a> {
         // イベント列に対してパスを適用
         read_header_pass(&mut events, &mut ctxt)?;
 
-        if !self.config.render_draft() && ctxt.flags()?.contains(&Flag::Draft) {
+        if !self.config.render_draft() && ctxt.is_draft {
             return Ok(None);
         }
 
@@ -160,7 +169,8 @@ impl<'a> Renderer<'a> {
             .register(highlight_code_pass)
             .register(convert_math_pass)
             .register(assign_header_id)
-            .register(table_wrapper_pass);
+            .register(table_wrapper_pass)
+            .register(toc_pass);
 
         let events = pass_manager.run(events, &mut ctxt)?;
 

@@ -1,10 +1,10 @@
 use crate::util::BloomFilter;
 use anyhow::{Context as _, Result, anyhow};
 use paste::paste;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::path::PathBuf;
 
-use super::pass::HighlightRule;
+use super::pass::{HighlightRule, Toc};
 
 macro_rules! try_get {
     ($field:ident, $return_type:ty) => {
@@ -26,14 +26,6 @@ macro_rules! setter {
     };
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Debug)]
-pub enum Flag {
-    #[serde(rename = "draft")]
-    Draft,
-    #[serde(rename = "crypto")]
-    Crypto,
-}
-
 #[derive(Default)]
 pub struct Context {
     /// 記事を作成した日付 (yyyy-MM-dd)
@@ -44,9 +36,6 @@ pub struct Context {
 
     /// 記事につけられたタグ
     tags: Option<Vec<String>>,
-
-    /// 記事につけられたフラグ
-    flags: Option<Vec<Flag>>,
 
     /// 記事のタイトル
     title: Option<String>,
@@ -68,17 +57,26 @@ pub struct Context {
 
     /// 追加で読み込む CSS 一覧
     css_paths: Vec<String>,
+
+    /// 階層一覧 (Toc 生成用)
+    toc: Option<Toc>,
+
+    /// 下書きか否か
+    pub is_draft: bool,
+
+    /// 暗号化するか否か
+    pub to_encrypt: bool,
 }
 
 impl Context {
     try_get!(create_date, &String);
     try_get!(last_update_date, &String);
     try_get!(tags, &Vec<String>);
-    try_get!(flags, &Vec<Flag>);
     try_get!(title, &String);
     try_get!(build_root_to_dst, &PathBuf);
     try_get!(highlights, &Vec<HighlightRule>);
     try_get!(password, &String);
+    try_get!(toc, &Toc);
 
     pub fn css_list(&self) -> &Vec<String> {
         &self.css_paths
@@ -91,12 +89,12 @@ impl Context {
     setter!(create_date, String);
     setter!(last_update_date, String);
     setter!(tags, Vec<String>);
-    setter!(flags, Vec<Flag>);
     setter!(title, String);
     setter!(build_root_to_dst, PathBuf);
     setter!(bloom_filter, BloomFilter);
     setter!(password, String);
     setter!(highlights, Vec<HighlightRule>);
+    setter!(toc, Toc);
 
     pub fn push_js_path(&mut self, path: impl Into<String>) {
         self.js_paths.push(path.into());
@@ -122,7 +120,6 @@ impl TryInto<Metadata> for Context {
             create: try_take!(create_date),
             update: try_take!(last_update_date),
             tags: try_take!(tags),
-            flags: try_take!(flags),
             title: try_take!(title),
             path: try_take!(build_root_to_dst),
             bloom_filter: try_take!(bloom_filter),
@@ -141,9 +138,6 @@ pub struct Metadata {
     /// 記事につけられたタグ
     tags: Vec<String>,
 
-    /// 記事につけられたフラグ
-    flags: Vec<Flag>,
-
     /// 記事のタイトル
     title: String,
 
@@ -158,10 +152,6 @@ pub struct Metadata {
 impl Metadata {
     pub fn update(&self) -> &String {
         &self.update
-    }
-
-    pub fn page_is_encrypted(&self) -> bool {
-        self.flags.contains(&Flag::Crypto)
     }
 
     pub fn bloom_filter(&self) -> &BloomFilter {

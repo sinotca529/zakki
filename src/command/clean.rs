@@ -1,11 +1,12 @@
+use super::goto_zakki_root;
 use anyhow::Result;
-use std::{fs::remove_dir_all, path::Path};
+use std::fs::remove_dir_all;
 
-pub fn clean(dst_dir: impl AsRef<Path>) -> Result<()> {
-    let dst_dir = dst_dir.as_ref();
-    if dst_dir.exists() {
-        remove_dir_all(dst_dir).map_err(Into::into)
-    } else {
-        Ok(())
+pub fn clean() -> Result<()> {
+    goto_zakki_root()?;
+    let zakki_root = std::env::current_dir()?.join("build");
+    if !zakki_root.exists() {
+        return Ok(());
     }
+    remove_dir_all(zakki_root).map_err(Into::into)
 }

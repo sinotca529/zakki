@@ -28,13 +28,13 @@ macro_rules! copy_asset {
     ($fname:expr, $to:expr) => {{
         let path = $to.join($fname);
         if path.exists() {
-            Ok(())
-        } else {
-            write_file(
-                path,
-                include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/asset/", $fname)),
-            )
-            .with_context(|| anyhow!("Failed to copy {}", $fname))
+            return Ok(());
         }
+
+        write_file(
+            path,
+            include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/asset/", $fname)),
+        )
+        .with_context(|| anyhow!("Failed to copy {}", $fname))
     }};
 }

@@ -2,16 +2,16 @@
 
 `zakki` は静的サイトジェネレーターです。<br>
 
-Markdown から HTML への変換には [`pulldown-cmark`](https://docs.rs/pulldown-cmark/latest/pulldown_cmark/) を使っています。<br>
+Markdown から HTML への変換は [`pulldown-cmark`](https://docs.rs/pulldown-cmark/latest/pulldown_cmark/) に依存しています。<br>
 そのため、 `zakki` は `pulldown-cmark` が扱えない構文を扱えません。
 
 ## 主な機能
 
 - サイト生成時の数式描画
-- 下書きを HTML に変換しない機能
-- コードハイライト
+- 下書き機能
 - ページの暗号化
 - サイト内検索
+- コードハイライト
 - `file://` プロトコルでの動作
 
 ## 使い方
@@ -37,38 +37,69 @@ css_list = ["(任意) 追加する css ファイルを指定します。"]
 
 Google Analytics などの javascript を追加する場合は、`js_list` に追加してください。
 
+### ディレクトリ構造
+
+Zakki のディレクトリ構造は次のようになっています。
+
+```txt
+.
+├── src
+│  ├── public/
+│  ├── private/
+│  ├── draft/
+│  ├── gtag.js
+│  └── favicon.ico
+├── build/
+└── zakki.toml
+```
+
+- Markdown ファイルは `src/` 下に配置します。
+  - パスワードなしで公開する記事は `public/` 下に配置します。
+  - パスワード付きで公開する記事は `private/` 下に配置します。
+  - 下書きは `draft/` 下に配置します。
+- ビルドの結果は `build/` 下に配置されます。
+
+### 記事の追加
+
+Markdown ファイルは `public/`, `private/`, `/draft` 下に直接配置します。
+
+```txt
+.
+└── src
+   └── public/
+      └── foo.md
+```
+
+画像ファイルなどがある場合は、ファイル名と同名のディレクトリを作成し、そこに配置します。
+
+```txt
+.
+└── src
+   └── public
+      ├── foo.md
+      └── foo
+        └── img.png
+```
+
 ### ページのメタデータ
 
 ページのメタデータは yaml ヘッダに記述します。
 
 ```md
 ---
-create: 2024-05-13 # 記事の作成日
-update: 2024-08-15 # 記事の最終更新日
-tag: [数学, tips] # 記事に付けるタグ
+create: 2024-05-13 # 記事の作成日 (必須)
+update: 2024-08-15 # 記事の最終更新日 (必須)
+tag: [数学, tips]  # 記事に付けるタグ
+password: test     # 暗号化の際のパスワード (指定がない場合、 zakki.toml の値を使用)
 ---
+
 
 # 見出し
 
 こんにちは
 ```
 
-### 下書き機能
-
-`flag` に `draft` を指定します。
-
-```md
----
-create: 2024-05-13
-update: 2024-08-15
-tag: [test]
-flag: [draft]
----
-
-# 下書き
-
-このページは `zakki build -d` されたときのみ HTML に変換されます。
-```
+`password` は記事が `private/` 配下にない場合無視されます。
 
 ### コードのハイライト
 
@@ -94,33 +125,14 @@ r@ここは赤@g@ここは緑@b@ここは青@
 ```
 ````
 
-### ページの暗号化
 
-ページを暗号化するには、ヘッダで `crypto` フラグをセットします。<br>
-パスワードは `password` で指定します。
-指定がない場合、 `zakki.toml` で指定したパスワードが使用されます。
-
-```md
----
-create: 2024-05-13
-update: 2024-08-15
-tag: [test]
-flag: [crypto]
-password: test
----
-
-# 暗号化テスト
-
-このページは暗号化されています。
-```
-
-#### 暗号化のしくみ
+## 暗号化のしくみ
 
 [staticrypt](https://github.com/robinmoisson/staticrypt) と同様の仕組みでページを暗号化しています。<br>
 ページの生成時に、内容は aes256cbc で暗号化されます。<br>
 ページの表示時に、パスワードが入力されると javascript で復号します。<br>
 
-### サイト内検索
+## サイト内検索
 
 サイト内検索には [bloom fileter](https://ja.wikipedia.org/wiki/%E3%83%96%E3%83%AB%E3%83%BC%E3%83%A0%E3%83%95%E3%82%A3%E3%83%AB%E3%82%BF) を用いています。
 Bloom filter はメタデータの小ささと引き換えに、偽陽性を許すアルゴリズムです。
