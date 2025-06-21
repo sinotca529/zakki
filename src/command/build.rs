@@ -40,16 +40,14 @@ fn output_sitemap(cfg: &Config, metas: &[Metadata]) -> Result<()> {
     let mut content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".to_owned();
     content += "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n";
 
-    metas
-        .iter()
-        .filter(|m| !m.page_is_encrypted())
-        .for_each(|m| {
-            content += &format!(
-                "  <url><loc>{publish_url}{slash}{}</loc><lastmod>{}</lastmod></url>\n",
-                &m.path().to_str().unwrap(),
-                m.update(),
-            );
-        });
+    let is_plane = |m: &Metadata| -> bool { !m.path().starts_with("private") };
+    metas.iter().filter(|m| is_plane(m)).for_each(|m| {
+        content += &format!(
+            "  <url><loc>{publish_url}{slash}{}</loc><lastmod>{}</lastmod></url>\n",
+            &m.path().to_str().unwrap(),
+            m.update(),
+        );
+    });
     content += "</urlset>\n";
 
     let dst = cfg.dst_dir().join("sitemap.xml");

@@ -16,7 +16,7 @@ function createCard(page) {
   const content = template.content.cloneNode(true);
   const card = content.querySelector(".card");
   card.href = page.path;
-  if (page.flags.includes("crypto")) card.classList.add("crypto");
+  if (page.path.startsWith("private/")) card.classList.add("crypto");
 
   content.querySelector(".card-header").innerHTML = page.title;
   content.querySelector(".card-date").innerHTML = page.update;
