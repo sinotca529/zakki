@@ -7,7 +7,7 @@ fn make_image_tag(
     title: &Option<CowStr<'_>>,
 ) -> String {
     if url.ends_with(".svg") {
-        return format!(r#"<object type="image/svg+xml" data="{url}">"#);
+        return format!(r#"<object type="image/svg+xml" data="{url}"></object>"#);
     }
 
     let alt_attr = alt
