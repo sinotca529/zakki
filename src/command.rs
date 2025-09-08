@@ -3,9 +3,12 @@ mod clean;
 mod init;
 
 use crate::util::PathExt;
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow, bail};
 use clap::Subcommand;
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::LazyLock,
+};
 
 #[derive(PartialEq, Eq, Debug, Subcommand)]
 pub enum Command {
@@ -27,7 +30,7 @@ impl Command {
     }
 }
 
-pub fn zakki_root() -> Result<PathBuf> {
+static ZAKKI_ROOT_DIR: LazyLock<Result<PathBuf>> = LazyLock::new(|| {
     let pwd = std::env::current_dir()?;
     let mut dir: Option<&Path> = Some(pwd.as_ref());
 
@@ -40,4 +43,8 @@ pub fn zakki_root() -> Result<PathBuf> {
     }
 
     bail!("Failed to detect zakki root.");
+});
+
+pub fn zakki_root() -> Result<&'static PathBuf> {
+    ZAKKI_ROOT_DIR.as_ref().map_err(|e| anyhow!(e.to_string()))
 }

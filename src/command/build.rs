@@ -76,6 +76,7 @@ fn output_metadatas(cfg: &Config, mut metas: Vec<Metadata>) -> Result<()> {
 
 pub fn build(render_draft: bool) -> Result<()> {
     let file_cfg = FileConfig::load()?;
+
     let root = zakki_root()?;
     let cfg = Config::new(file_cfg, render_draft, root.join("src"), root.join("build"));
 
