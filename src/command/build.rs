@@ -32,7 +32,7 @@ fn render_pages(cfg: &Config) -> Result<Vec<Metadata>> {
 }
 
 fn output_sitemap(cfg: &Config, metas: &[Metadata]) -> Result<()> {
-    let Some(publish_url) = cfg.publis_url() else {
+    let Some(publish_url) = cfg.publish_url() else {
         return Ok(());
     };
     let slash = if publish_url.ends_with('/') { "" } else { "/" };

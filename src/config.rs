@@ -120,7 +120,7 @@ impl Config {
         self.password.as_ref()
     }
 
-    pub fn publis_url(&self) -> Option<&String> {
+    pub fn publish_url(&self) -> Option<&String> {
         self.publish_url.as_ref()
     }
 
