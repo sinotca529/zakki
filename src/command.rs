@@ -5,7 +5,7 @@ mod init;
 use crate::util::PathExt;
 use anyhow::{Result, bail};
 use clap::Subcommand;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(PartialEq, Eq, Debug, Subcommand)]
 pub enum Command {
@@ -27,15 +27,14 @@ impl Command {
     }
 }
 
-/// Goto the root directory, which has the zakki.toml file.
-pub fn goto_zakki_root() -> Result<()> {
+pub fn zakki_root() -> Result<PathBuf> {
     let pwd = std::env::current_dir()?;
     let mut dir: Option<&Path> = Some(pwd.as_ref());
 
     while let Some(d) = dir {
         let is_zakki_root = d.has_file("zakki.toml")?;
         if is_zakki_root {
-            return std::env::set_current_dir(d).map_err(Into::into);
+            return Ok(d.to_owned());
         }
         dir = d.parent();
     }

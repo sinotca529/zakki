@@ -1,7 +1,7 @@
 mod renderer;
 
 use super::clean::clean;
-use super::goto_zakki_root;
+use crate::command::zakki_root;
 use crate::config::FileConfig;
 use crate::util::PathExt as _;
 use crate::{config::Config, util::write_file};
@@ -75,10 +75,9 @@ fn output_metadatas(cfg: &Config, mut metas: Vec<Metadata>) -> Result<()> {
 }
 
 pub fn build(render_draft: bool) -> Result<()> {
-    goto_zakki_root()?;
     let file_cfg = FileConfig::load()?;
-    let pwd = std::env::current_dir()?;
-    let cfg = Config::new(file_cfg, render_draft, pwd.join("src"), pwd.join("build"));
+    let root = zakki_root()?;
+    let cfg = Config::new(file_cfg, render_draft, root.join("src"), root.join("build"));
 
     clean()?;
 
