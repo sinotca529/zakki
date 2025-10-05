@@ -33,7 +33,7 @@ fn head<'a>(
 
     let js_list = js_list.map(|p| {
         format!(
-            r#"<script defer type="text/javascript" src="{}"></script>"#,
+            r#"<script type="text/javascript" src="{}" defer></script>"#,
             adjust_path_origin(p, path_to_root)
         )
     });
