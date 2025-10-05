@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::util::PathExt as _;
+use crate::{command::zakki_root, util::PathExt as _};
 use anyhow::bail;
 use serde::Deserialize;
 
@@ -43,8 +43,7 @@ pub struct FileConfig {
 
 impl FileConfig {
     pub fn load() -> anyhow::Result<Self> {
-        let pwd = std::env::current_dir()?;
-        let cfg = std::fs::read_dir(pwd)?
+        let cfg = std::fs::read_dir(zakki_root()?)?
             .filter_map(|f| f.ok())
             .map(|f| f.file_name())
             .find(|f| f == "zakki.toml");
@@ -121,7 +120,7 @@ impl Config {
         self.password.as_ref()
     }
 
-    pub fn publis_url(&self) -> Option<&String> {
+    pub fn publish_url(&self) -> Option<&String> {
         self.publish_url.as_ref()
     }
 

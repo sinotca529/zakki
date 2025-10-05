@@ -6,21 +6,21 @@ pub fn get_title_pass<'a>(
     events: Vec<Event<'a>>,
     ctxt: &mut Context,
 ) -> anyhow::Result<Vec<Event<'a>>> {
-    let h1 = events
+    let mut h1_events = events
         .iter()
         .skip_while(|e| !matches!(e, Event::Start(Tag::Heading { level, .. }) if level == &HeadingLevel::H1))
-        .take_while(|e| !matches!(e, Event::End(TagEnd::Heading(HeadingLevel::H1))))
-        .filter_map(|e| match e {
-            Event::Text(t) => Some(t.to_string()),
-            _ => None,
-        })
-        .next();
+        .skip(1)
+        .take_while(|e| !matches!(e, Event::End(TagEnd::Heading(HeadingLevel::H1))));
 
-    let Some(h1) = h1 else {
-        bail!("h1 is not existing.")
+    let Some(Event::Text(t)) = h1_events.next() else {
+        bail!("Failed to find title.");
     };
 
-    ctxt.set_title(h1);
+    if h1_events.next().is_some() {
+        bail!("Title must be made with just one vanilla text.");
+    }
+
+    ctxt.set_title(t.to_string());
 
     Ok(events)
 }

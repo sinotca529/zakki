@@ -7,7 +7,23 @@ function createTagElem(tagName) {
 }
 
 function toggleSearchInput() {
-  document.getElementById("searchbar").classList.toggle("hidden");
+  const searchbar = document.getElementById("searchbar");
+  const searchResult = document.getElementById("search-result");
+  const toggleButton = document.getElementById("search-toggle");
+  const isHidden = searchbar.classList.toggle("hidden");
+
+  if (isHidden) {
+    searchResult.classList.add("hidden");
+    searchResult.innerHTML = "";
+  } else {
+    searchResult.classList.remove("hidden");
+    document.getElementById("search-input").focus();
+  }
+
+  if (toggleButton) {
+    toggleButton.setAttribute("aria-expanded", String(!isHidden));
+    toggleButton.classList.toggle("is-active", !isHidden);
+  }
 }
 
 function createCard(page) {
@@ -184,13 +200,14 @@ function searchAndRender() {
     const segmenter_path = `${path_to_root}/segmenter.js`;
     const filter_path = `${path_to_root}/bloom_filter.js`;
     loadScripts([segmenter_path, filter_path], () => {
-      debounseTimer = null;
+      debounceTimer = null;
 
       const result = search(query);
       const html = result
         .map((r) => {
           const path = r.path;
-          return `<div><a href="${path_to_root}/${path}">${r.title}</a><span style="color:gray;margin-left:1em;">MatchRate:${r.rate}</span></div>`;
+          const rate = r.rate.toFixed(2);
+          return `<div class="search-hit"><a href="${path_to_root}/${path}">${r.title}</a><span class="search-result-meta">Match rate: ${rate}</span></div>`;
         })
         .join("");
       document.getElementById("search-result").innerHTML = html;

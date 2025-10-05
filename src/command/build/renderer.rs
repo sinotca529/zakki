@@ -33,14 +33,6 @@ impl<'a> Renderer<'a> {
         Self { config }
     }
 
-    const fn default_css_list(&self) -> [&'static str; 1] {
-        ["style.css"]
-    }
-
-    const fn default_js_list(&self) -> [&'static str; 3] {
-        ["metadata.js", "script.js", "theme.js"]
-    }
-
     fn events_to_html(&self, events: Vec<Event>, ctxt: &Context) -> Result<String> {
         let body = {
             let mut body = String::new();
@@ -55,15 +47,17 @@ impl<'a> Renderer<'a> {
             .dir_path_to_origin_unchecked();
 
         let css_list = self
-            .default_css_list()
-            .into_iter()
-            .chain(self.config.css_list().iter().map(|p| &p[..]))
+            .config
+            .css_list()
+            .iter()
+            .map(|p| &p[..])
             .chain(ctxt.css_list().iter().map(|p| &p[..]));
 
         let js_list = self
-            .default_js_list()
-            .into_iter()
-            .chain(self.config.js_list().iter().map(|p| &p[..]))
+            .config
+            .js_list()
+            .iter()
+            .map(|p| &p[..])
             .chain(ctxt.js_list().iter().map(|p| &p[..]));
 
         let html = if ctxt.to_encrypt {
@@ -259,15 +253,8 @@ impl<'a> Renderer<'a> {
     }
 
     fn render_index(&self) -> Result<()> {
-        let css_list = self
-            .default_css_list()
-            .into_iter()
-            .chain(self.config.css_list().iter().map(|p| &p[..]));
-
-        let js_list = self
-            .default_js_list()
-            .into_iter()
-            .chain(self.config.js_list().iter().map(|p| &p[..]));
+        let css_list = self.config.css_list().iter().map(|p| &p[..]);
+        let js_list = self.config.js_list().iter().map(|p| &p[..]);
 
         let content = index_html(
             self.config.site_name(),

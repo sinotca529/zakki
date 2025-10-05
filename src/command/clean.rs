@@ -1,12 +1,11 @@
-use super::goto_zakki_root;
+use crate::command::zakki_root;
 use anyhow::Result;
 use std::fs::remove_dir_all;
 
 pub fn clean() -> Result<()> {
-    goto_zakki_root()?;
-    let zakki_root = std::env::current_dir()?.join("build");
-    if !zakki_root.exists() {
+    let build_dir = zakki_root()?.join("build");
+    if !build_dir.exists() {
         return Ok(());
     }
-    remove_dir_all(zakki_root).map_err(Into::into)
+    remove_dir_all(build_dir).map_err(Into::into)
 }
