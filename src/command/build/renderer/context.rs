@@ -64,6 +64,9 @@ pub struct Context {
     /// 下書きか否か
     pub is_draft: bool,
 
+    /// サブページか否か
+    pub is_sub: bool,
+
     /// 暗号化するか否か
     pub to_encrypt: bool,
 }
@@ -122,6 +125,7 @@ impl TryInto<Metadata> for Context {
             tags: try_take!(tags),
             title: try_take!(title),
             path: try_take!(build_root_to_dst),
+            is_sub: self.is_sub,
             bloom_filter: try_take!(bloom_filter),
         })
     }
@@ -143,6 +147,9 @@ pub struct Metadata {
 
     /// ルートから記事の出力先への相対パス
     path: PathBuf,
+
+    /// サブページであるか
+    is_sub: bool,
 
     /// Bloom filter
     #[serde(skip)]

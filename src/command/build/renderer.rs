@@ -132,16 +132,12 @@ impl<'a> Renderer<'a> {
         if let Some(password) = self.config.password() {
             ctxt.set_password(password.clone());
         }
-        ctxt.is_draft = dst_path
-            .strip_prefix(self.config.dst_dir())
-            .unwrap()
-            .starts_with("draft/");
-        ctxt.to_encrypt = dst_path
-            .strip_prefix(self.config.dst_dir())
-            .unwrap()
-            .starts_with("private/");
 
         let build_root_to_dst = dst_path.strip_prefix(self.config.dst_dir()).unwrap();
+        ctxt.is_draft = build_root_to_dst.starts_with("draft/");
+        ctxt.to_encrypt = build_root_to_dst.starts_with("private/");
+        ctxt.is_sub = !build_root_to_dst.ends_with("index.html")
+            && build_root_to_dst.components().count() >= 3;
         ctxt.set_build_root_to_dst(build_root_to_dst.to_owned());
 
         // Markdown をイベント列に変換
