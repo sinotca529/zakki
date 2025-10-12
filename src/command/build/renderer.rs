@@ -3,6 +3,7 @@ mod html_template;
 mod pass;
 
 use crate::copy_asset;
+use crate::path::{dst_path_of, zakki_dst_dir};
 use crate::util::{BloomFilter, PathExt as _};
 use crate::{
     config::Config,
@@ -20,8 +21,6 @@ use pass::{
 use pulldown_cmark::{Event, Options, Parser};
 use scraper::{Html, Selector};
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::Read as _;
 use std::path::{Path, PathBuf};
 
 pub struct Renderer<'a> {
@@ -133,7 +132,7 @@ impl<'a> Renderer<'a> {
             ctxt.set_password(password.clone());
         }
 
-        let build_root_to_dst = dst_path.strip_prefix(self.config.dst_dir()).unwrap();
+        let build_root_to_dst = dst_path.strip_prefix(zakki_dst_dir()?).unwrap();
         ctxt.is_draft = build_root_to_dst.starts_with("draft/");
         ctxt.to_encrypt = build_root_to_dst.starts_with("private/");
         ctxt.is_sub = !build_root_to_dst.ends_with("index.html")
@@ -177,18 +176,12 @@ impl<'a> Renderer<'a> {
     pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
         let src = src.as_ref();
         if !src.extension_is("md") {
-            copy_file(src, self.config.dst_path_of(src))?;
+            copy_file(src, dst_path_of(src)?)?;
             return Ok(None);
         }
 
-        let markdown = {
-            let mut file = File::open(src)?;
-            let mut content = String::new();
-            file.read_to_string(&mut content)?;
-            content
-        };
-
-        let dst_path = self.config.dst_path_of(src);
+        let markdown = std::fs::read_to_string(src)?;
+        let dst_path = dst_path_of(src)?;
         let Some((html, meta)) = self.md_to_html(&markdown, dst_path.clone())? else {
             return Ok(None);
         };
@@ -200,18 +193,18 @@ impl<'a> Renderer<'a> {
 
     pub fn render_assets(&self) -> Result<()> {
         self.render_index()?;
-        copy_asset!("style.css", self.config.dst_dir())?;
-        copy_asset!("script.js", self.config.dst_dir())?;
-        copy_asset!("segmenter.js", self.config.dst_dir())?;
-        copy_asset!("theme.js", self.config.dst_dir())?;
+        copy_asset!("style.css", zakki_dst_dir()?)?;
+        copy_asset!("script.js", zakki_dst_dir()?)?;
+        copy_asset!("segmenter.js", zakki_dst_dir()?)?;
+        copy_asset!("theme.js", zakki_dst_dir()?)?;
 
-        copy_asset!("katex/LICENSE", self.config.dst_dir())?;
-        copy_asset!("katex/katex.min.css", self.config.dst_dir())?;
+        copy_asset!("katex/LICENSE", zakki_dst_dir()?)?;
+        copy_asset!("katex/katex.min.css", zakki_dst_dir()?)?;
 
         macro_rules! copy_katex_fonts {
             ($($font_name:literal),* $(,)?) => {
                 $(
-                    copy_asset!(concat!("katex/fonts/", $font_name), self.config.dst_dir())?;
+                    copy_asset!(concat!("katex/fonts/", $font_name), zakki_dst_dir()?)?;
                 )*
             }
         }
@@ -239,10 +232,10 @@ impl<'a> Renderer<'a> {
             "KaTeX_Typewriter-Regular.woff2",
         );
 
-        copy_asset!("font/SourceCodePro/LICENSE.md", self.config.dst_dir())?;
+        copy_asset!("font/SourceCodePro/LICENSE.md", zakki_dst_dir()?)?;
         copy_asset!(
             "font/SourceCodePro/SourceCodePro-Regular.otf.woff2",
-            self.config.dst_dir()
+            zakki_dst_dir()?
         )?;
 
         Ok(())
@@ -259,7 +252,7 @@ impl<'a> Renderer<'a> {
             self.config.footer(),
         );
 
-        let dst = self.config.dst_dir().join("index.html");
+        let dst = zakki_dst_dir()?.join("index.html");
         write_file(dst, content).map_err(Into::into)
     }
 }
