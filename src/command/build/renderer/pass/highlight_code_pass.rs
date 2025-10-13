@@ -1,4 +1,4 @@
-use crate::command::build::renderer::context::Context;
+use crate::command::build::renderer::metadata::Metadata;
 use anyhow::Result;
 use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
 use regex::Regex;
@@ -23,7 +23,7 @@ impl HighlightRule {
 
 pub fn highlight_code_pass<'a>(
     mut events: Vec<Event<'a>>,
-    ctxt: &mut Context,
+    ctxt: &mut Metadata,
 ) -> Result<Vec<Event<'a>>> {
     let Ok(macros) = ctxt.highlights() else {
         return Ok(events);

@@ -1,27 +1,20 @@
-pub mod context;
 mod html_template;
+pub mod metadata;
 mod pass;
 
 use crate::copy_asset;
+use crate::path::{dst_path_of, zakki_dst_dir};
 use crate::util::{BloomFilter, PathExt as _};
-use crate::{
-    config::Config,
-    util::{copy_file, encode_with_password, write_file},
-};
+use crate::{config::Config, util};
 use anyhow::{Context as _, Result, anyhow};
 use base64::{Engine, prelude::BASE64_STANDARD};
-use context::{Context, Metadata};
 use html_template::{crypto_html, index_html, page_html};
 use itertools::Itertools;
-use pass::{
-    PassManager, assign_header_id, convert_math_pass, get_title_pass, highlight_code_pass,
-    image_convert_pass, link_adjust_pass, read_header_pass, table_wrapper_pass, toc_pass,
-};
+use metadata::Metadata;
+use pass::PassManager;
 use pulldown_cmark::{Event, Options, Parser};
 use scraper::{Html, Selector};
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::Read as _;
 use std::path::{Path, PathBuf};
 
 pub struct Renderer<'a> {
@@ -33,7 +26,7 @@ impl<'a> Renderer<'a> {
         Self { config }
     }
 
-    fn events_to_html(&self, events: Vec<Event>, ctxt: &Context) -> Result<String> {
+    fn events_to_html(&self, events: Vec<Event>, ctxt: &Metadata) -> Result<String> {
         let body = {
             let mut body = String::new();
             pulldown_cmark::html::push_html(&mut body, events.into_iter());
@@ -41,7 +34,7 @@ impl<'a> Renderer<'a> {
         };
 
         let path_to_root = ctxt
-            .build_root_to_dst()?
+            .dst_rel_path()?
             .parent()
             .unwrap()
             .dir_path_to_origin_unchecked();
@@ -62,7 +55,7 @@ impl<'a> Renderer<'a> {
 
         let html = if ctxt.to_encrypt {
             let password = ctxt.password()?;
-            let cypher = encode_with_password(password, body.as_bytes());
+            let cypher = util::encode_with_password(password, body.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);
 
             crypto_html(
@@ -128,28 +121,24 @@ impl<'a> Renderer<'a> {
     /// 変換後の HTML とメタデータを返します。
     /// Markdown がドラフト記事であり、ドラフトを描画しない設定の場合は `None` を返します。
     fn md_to_html(&self, markdown: &str, dst_path: PathBuf) -> Result<Option<(String, Metadata)>> {
-        let mut ctxt = Context::default();
+        let mut ctxt = Metadata::default();
         if let Some(password) = self.config.password() {
             ctxt.set_password(password.clone());
         }
-        ctxt.is_draft = dst_path
-            .strip_prefix(self.config.dst_dir())
-            .unwrap()
-            .starts_with("draft/");
-        ctxt.to_encrypt = dst_path
-            .strip_prefix(self.config.dst_dir())
-            .unwrap()
-            .starts_with("private/");
 
-        let build_root_to_dst = dst_path.strip_prefix(self.config.dst_dir()).unwrap();
-        ctxt.set_build_root_to_dst(build_root_to_dst.to_owned());
+        let dst_rel_path = dst_path.strip_prefix(zakki_dst_dir()?).unwrap();
+        ctxt.is_draft = dst_rel_path.starts_with("draft/");
+        ctxt.to_encrypt = dst_rel_path.starts_with("private/");
+        ctxt.is_sub =
+            !dst_rel_path.ends_with("index.html") && dst_rel_path.components().count() >= 3;
+        ctxt.set_dst_rel_path(dst_rel_path.to_owned());
 
         // Markdown をイベント列に変換
         let opt = Options::all() ^ Options::ENABLE_OLD_FOOTNOTES ^ Options::ENABLE_FOOTNOTES;
         let mut events: Vec<_> = Parser::new_ext(markdown, opt).collect();
 
         // イベント列に対してパスを適用
-        read_header_pass(&mut events, &mut ctxt)?;
+        pass::read_header_pass(&mut events, &mut ctxt)?;
 
         if !self.config.render_draft() && ctxt.is_draft {
             return Ok(None);
@@ -157,14 +146,14 @@ impl<'a> Renderer<'a> {
 
         let mut pass_manager = PassManager::new();
         pass_manager
-            .register(get_title_pass)
-            .register(link_adjust_pass)
-            .register(image_convert_pass)
-            .register(highlight_code_pass)
-            .register(convert_math_pass)
-            .register(assign_header_id)
-            .register(table_wrapper_pass)
-            .register(toc_pass);
+            .register(pass::get_title_pass)
+            .register(pass::link_adjust_pass)
+            .register(pass::image_convert_pass)
+            .register(pass::highlight_code_pass)
+            .register(pass::convert_math_pass)
+            .register(pass::assign_header_id)
+            .register(pass::table_wrapper_pass)
+            .register(pass::toc_pass);
 
         let events = pass_manager.run(events, &mut ctxt)?;
 
@@ -175,47 +164,41 @@ impl<'a> Renderer<'a> {
         let filter = self.make_bloom_filter(&html)?;
         ctxt.set_bloom_filter(filter);
 
-        Ok(Some((html, ctxt.try_into()?)))
+        Ok(Some((html, ctxt)))
     }
 
     pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
         let src = src.as_ref();
         if !src.extension_is("md") {
-            copy_file(src, self.config.dst_path_of(src))?;
+            util::copy_file(src, dst_path_of(src)?)?;
             return Ok(None);
         }
 
-        let markdown = {
-            let mut file = File::open(src)?;
-            let mut content = String::new();
-            file.read_to_string(&mut content)?;
-            content
-        };
-
-        let dst_path = self.config.dst_path_of(src);
+        let markdown = std::fs::read_to_string(src)?;
+        let dst_path = dst_path_of(src)?;
         let Some((html, meta)) = self.md_to_html(&markdown, dst_path.clone())? else {
             return Ok(None);
         };
 
-        write_file(dst_path, html)?;
+        util::write_file(dst_path, html)?;
 
         Ok(Some(meta))
     }
 
     pub fn render_assets(&self) -> Result<()> {
         self.render_index()?;
-        copy_asset!("style.css", self.config.dst_dir())?;
-        copy_asset!("script.js", self.config.dst_dir())?;
-        copy_asset!("segmenter.js", self.config.dst_dir())?;
-        copy_asset!("theme.js", self.config.dst_dir())?;
+        copy_asset!("style.css", zakki_dst_dir()?)?;
+        copy_asset!("script.js", zakki_dst_dir()?)?;
+        copy_asset!("segmenter.js", zakki_dst_dir()?)?;
+        copy_asset!("theme.js", zakki_dst_dir()?)?;
 
-        copy_asset!("katex/LICENSE", self.config.dst_dir())?;
-        copy_asset!("katex/katex.min.css", self.config.dst_dir())?;
+        copy_asset!("katex/LICENSE", zakki_dst_dir()?)?;
+        copy_asset!("katex/katex.min.css", zakki_dst_dir()?)?;
 
         macro_rules! copy_katex_fonts {
             ($($font_name:literal),* $(,)?) => {
                 $(
-                    copy_asset!(concat!("katex/fonts/", $font_name), self.config.dst_dir())?;
+                    copy_asset!(concat!("katex/fonts/", $font_name), zakki_dst_dir()?)?;
                 )*
             }
         }
@@ -243,10 +226,10 @@ impl<'a> Renderer<'a> {
             "KaTeX_Typewriter-Regular.woff2",
         );
 
-        copy_asset!("font/SourceCodePro/LICENSE.md", self.config.dst_dir())?;
+        copy_asset!("font/SourceCodePro/LICENSE.md", zakki_dst_dir()?)?;
         copy_asset!(
             "font/SourceCodePro/SourceCodePro-Regular.otf.woff2",
-            self.config.dst_dir()
+            zakki_dst_dir()?
         )?;
 
         Ok(())
@@ -263,7 +246,7 @@ impl<'a> Renderer<'a> {
             self.config.footer(),
         );
 
-        let dst = self.config.dst_dir().join("index.html");
-        write_file(dst, content).map_err(Into::into)
+        let dst = zakki_dst_dir()?.join("index.html");
+        util::write_file(dst, content).map_err(Into::into)
     }
 }

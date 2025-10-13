@@ -1,10 +1,10 @@
-use crate::command::build::renderer::context::Context;
+use crate::command::build::renderer::metadata::Metadata;
 use anyhow::Context as _;
 use pulldown_cmark::Event;
 
 pub fn convert_math_pass<'a>(
     mut input: Vec<Event<'a>>,
-    ctxt: &mut Context,
+    ctxt: &mut Metadata,
 ) -> anyhow::Result<Vec<Event<'a>>> {
     let opts_display = katex::Opts::builder()
         .output_type(katex::opts::OutputType::Html)

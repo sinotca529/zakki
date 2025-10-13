@@ -1,6 +1,4 @@
-use std::path::{Path, PathBuf};
-
-use crate::{command::zakki_root, util::PathExt as _};
+use crate::path::zakki_root;
 use anyhow::bail;
 use serde::Deserialize;
 
@@ -70,10 +68,6 @@ pub struct Config {
     password: Option<String>,
     /// フッタの内容
     footer: String,
-    /// Markdown が配置されているディレクトリ
-    src_dir: PathBuf,
-    /// HTML を出力するディレクトリ
-    dst_dir: PathBuf,
     /// サイト内検索の偽陽性率
     search_fp: f64,
     /// 追加の JS ファイル
@@ -85,12 +79,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(
-        file_config: FileConfig,
-        render_draft: bool,
-        src_dir: PathBuf,
-        dst_dir: PathBuf,
-    ) -> Self {
+    pub fn new(file_config: FileConfig, render_draft: bool) -> Self {
         Self {
             footer: file_config.footer.unwrap_or(format!(
                 "&copy; {}. All rights reserved.",
@@ -100,8 +89,6 @@ impl Config {
             publish_url: file_config.publish_url,
             render_draft,
             password: file_config.password,
-            src_dir,
-            dst_dir,
             search_fp: file_config.search_fp,
             js_list: file_config.js_list,
             css_list: file_config.css_list,
@@ -128,28 +115,8 @@ impl Config {
         &self.footer
     }
 
-    pub fn src_dir(&self) -> &PathBuf {
-        &self.src_dir
-    }
-
-    pub fn dst_dir(&self) -> &PathBuf {
-        &self.dst_dir
-    }
-
     pub fn search_fp(&self) -> f64 {
         self.search_fp
-    }
-
-    /// ソースファイルの出力先パスを返します。
-    pub fn dst_path_of(&self, src_path: impl AsRef<Path>) -> PathBuf {
-        let src_path = src_path.as_ref();
-        let rel = src_path.strip_prefix(self.src_dir()).unwrap();
-
-        if rel.extension_is("md") {
-            self.dst_dir().join(rel.with_extension("html"))
-        } else {
-            self.dst_dir().join(rel)
-        }
     }
 
     pub fn js_list(&self) -> &Vec<String> {

@@ -8,7 +8,7 @@ mod read_header_pass;
 mod table_wrapper_pass;
 mod toc_pass;
 
-use super::context::Context;
+use super::metadata::Metadata;
 use pulldown_cmark::Event;
 
 pub use assign_header_id::assign_header_id;
@@ -21,7 +21,7 @@ pub use read_header_pass::read_header_pass;
 pub use table_wrapper_pass::table_wrapper_pass;
 pub use toc_pass::{toc::Toc, toc_pass};
 
-pub type EventPass<'a> = fn(Vec<Event<'a>>, &mut Context) -> anyhow::Result<Vec<Event<'a>>>;
+pub type EventPass<'a> = fn(Vec<Event<'a>>, &mut Metadata) -> anyhow::Result<Vec<Event<'a>>>;
 
 pub struct PassManager<'a>(Vec<EventPass<'a>>);
 
@@ -38,7 +38,7 @@ impl<'a> PassManager<'a> {
     pub fn run(
         &self,
         mut events: Vec<Event<'a>>,
-        ctxt: &mut Context,
+        ctxt: &mut Metadata,
     ) -> anyhow::Result<Vec<Event<'a>>> {
         for pass in &self.0 {
             events = pass(events, ctxt)?;

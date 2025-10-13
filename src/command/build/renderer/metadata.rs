@@ -1,10 +1,12 @@
+use super::pass::{HighlightRule, Toc};
 use crate::util::BloomFilter;
 use anyhow::{Context as _, Result, anyhow};
 use paste::paste;
-use serde::Serialize;
+use serde::{
+    Serialize,
+    ser::{Error as SerError, Serializer},
+};
 use std::path::PathBuf;
-
-use super::pass::{HighlightRule, Toc};
 
 macro_rules! try_get {
     ($field:ident, $return_type:ty) => {
@@ -26,57 +28,73 @@ macro_rules! setter {
     };
 }
 
-#[derive(Default)]
-pub struct Context {
+#[derive(Default, Serialize)]
+pub struct Metadata {
     /// 記事を作成した日付 (yyyy-MM-dd)
+    #[serde(serialize_with = "ser_unwrap", rename = "create")]
     create_date: Option<String>,
 
     /// 記事を最後に更新したした日付 (yyyy-MM-dd)
+    #[serde(serialize_with = "ser_unwrap", rename = "update")]
     last_update_date: Option<String>,
 
     /// 記事につけられたタグ
+    #[serde(serialize_with = "ser_unwrap")]
     tags: Option<Vec<String>>,
 
     /// 記事のタイトル
+    #[serde(serialize_with = "ser_unwrap")]
     title: Option<String>,
 
     /// ルートから記事の出力先への相対パス
-    build_root_to_dst: Option<PathBuf>,
+    #[serde(serialize_with = "ser_unwrap", rename = "path")]
+    dst_rel_path: Option<PathBuf>,
 
     /// Bloom filter
+    #[serde(skip)]
     bloom_filter: Option<BloomFilter>,
 
     /// コードハイライトの設定
+    #[serde(skip)]
     highlights: Option<Vec<HighlightRule>>,
 
     /// 暗号化時のパスワード
+    #[serde(skip)]
     password: Option<String>,
 
     /// 追加で読み込む JS 一覧
+    #[serde(skip)]
     js_paths: Vec<String>,
 
     /// 追加で読み込む CSS 一覧
+    #[serde(skip)]
     css_paths: Vec<String>,
 
     /// 階層一覧 (Toc 生成用)
+    #[serde(skip)]
     toc: Option<Toc>,
 
     /// 下書きか否か
     pub is_draft: bool,
 
+    /// サブページか否か
+    pub is_sub: bool,
+
     /// 暗号化するか否か
+    #[serde(skip)]
     pub to_encrypt: bool,
 }
 
-impl Context {
+impl Metadata {
     try_get!(create_date, &String);
     try_get!(last_update_date, &String);
     try_get!(tags, &Vec<String>);
     try_get!(title, &String);
-    try_get!(build_root_to_dst, &PathBuf);
+    try_get!(dst_rel_path, &PathBuf);
     try_get!(highlights, &Vec<HighlightRule>);
     try_get!(password, &String);
     try_get!(toc, &Toc);
+    try_get!(bloom_filter, &BloomFilter);
 
     pub fn css_list(&self) -> &Vec<String> {
         &self.css_paths
@@ -90,7 +108,7 @@ impl Context {
     setter!(last_update_date, String);
     setter!(tags, Vec<String>);
     setter!(title, String);
-    setter!(build_root_to_dst, PathBuf);
+    setter!(dst_rel_path, PathBuf);
     setter!(bloom_filter, BloomFilter);
     setter!(password, String);
     setter!(highlights, Vec<HighlightRule>);
@@ -105,60 +123,13 @@ impl Context {
     }
 }
 
-impl TryInto<Metadata> for Context {
-    type Error = anyhow::Error;
-
-    fn try_into(self) -> std::result::Result<Metadata, Self::Error> {
-        macro_rules! try_take {
-            ($field:ident) => {
-                self.$field
-                    .with_context(|| anyhow!(concat!(stringify!($field), " has not been set.")))?
-            };
-        }
-
-        Ok(Metadata {
-            create: try_take!(create_date),
-            update: try_take!(last_update_date),
-            tags: try_take!(tags),
-            title: try_take!(title),
-            path: try_take!(build_root_to_dst),
-            bloom_filter: try_take!(bloom_filter),
-        })
-    }
-}
-
-#[derive(Default, Serialize)]
-pub struct Metadata {
-    /// 記事を作成した日付 (yyyy-MM-dd)
-    create: String,
-
-    /// 記事を最後に更新したした日付 (yyyy-MM-dd)
-    update: String,
-
-    /// 記事につけられたタグ
-    tags: Vec<String>,
-
-    /// 記事のタイトル
-    title: String,
-
-    /// ルートから記事の出力先への相対パス
-    path: PathBuf,
-
-    /// Bloom filter
-    #[serde(skip)]
-    bloom_filter: BloomFilter,
-}
-
-impl Metadata {
-    pub fn update(&self) -> &String {
-        &self.update
-    }
-
-    pub fn bloom_filter(&self) -> &BloomFilter {
-        &self.bloom_filter
-    }
-
-    pub fn path(&self) -> &PathBuf {
-        &self.path
+pub fn ser_unwrap<S, T>(value: &Option<T>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+    T: Serialize,
+{
+    match value {
+        Some(inner) => inner.serialize(serializer),
+        None => Err(S::Error::custom("Expected value, found None")),
     }
 }

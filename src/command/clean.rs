@@ -1,4 +1,4 @@
-use crate::command::zakki_root;
+use crate::path::zakki_root;
 use anyhow::Result;
 use std::fs::remove_dir_all;
 

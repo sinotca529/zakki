@@ -47,7 +47,9 @@ function createCard(page) {
 function renderPageList() {
   const fragment = document.createDocumentFragment();
 
-  METADATA.forEach((page) => fragment.appendChild(createCard(page)));
+  METADATA
+    .filter((page) => !page.is_sub)
+    .forEach((page) => fragment.appendChild(createCard(page)));
 
   document.getElementById("contents-list").appendChild(fragment);
 }
