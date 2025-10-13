@@ -8,7 +8,7 @@ use crate::{config::Config, util::write_file};
 use anyhow::{Context, Result};
 use rayon::prelude::*;
 use renderer::Renderer;
-use renderer::context::Metadata;
+use renderer::metadata::Metadata;
 use std::path::PathBuf;
 
 fn render_pages(cfg: &Config) -> Result<Vec<Metadata>> {
@@ -40,12 +40,12 @@ fn output_sitemap(cfg: &Config, metas: &[Metadata]) -> Result<()> {
     let mut content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n".to_owned();
     content += "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n";
 
-    let is_plane = |m: &Metadata| -> bool { !m.path().starts_with("private") };
+    let is_plane = |m: &Metadata| -> bool { !m.dst_rel_path().unwrap().starts_with("private") };
     metas.iter().filter(|m| is_plane(m)).for_each(|m| {
         content += &format!(
             "  <url><loc>{publish_url}{slash}{}</loc><lastmod>{}</lastmod></url>\n",
-            &m.path().to_str().unwrap(),
-            m.update(),
+            &m.dst_rel_path().unwrap().to_str().unwrap(),
+            m.last_update_date().unwrap(),
         );
     });
     content += "</urlset>\n";
@@ -58,14 +58,18 @@ fn output_sitemap(cfg: &Config, metas: &[Metadata]) -> Result<()> {
 
 fn output_metadatas(mut metas: Vec<Metadata>) -> Result<()> {
     // メタデータの書き出し
-    metas.sort_unstable_by(|a, b| b.update().cmp(a.update()));
+    metas.sort_unstable_by(|a, b| {
+        b.last_update_date()
+            .unwrap()
+            .cmp(a.last_update_date().unwrap())
+    });
     let js = serde_json::to_string(&metas)?;
     let content = format!("const METADATA={js}");
     let dst = zakki_dst_dir()?.join("metadata.js");
     write_file(dst, content)?;
 
     // Bloom filter の書き出し
-    let bloom: Vec<_> = metas.iter_mut().map(|e| e.bloom_filter()).collect();
+    let bloom: Vec<_> = metas.iter().map(|e| e.bloom_filter().unwrap()).collect();
     let js = serde_json::to_string(&bloom)?;
     let content = format!("const BLOOM_FILTER={js}");
     let dst = zakki_dst_dir()?.join("bloom_filter.js");

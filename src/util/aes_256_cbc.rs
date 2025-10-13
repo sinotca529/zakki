@@ -6,9 +6,8 @@ use sha2::{Digest, Sha256};
 type Aes256CbcEnc = cbc::Encryptor<aes::Aes256>;
 
 pub fn encode_with_password(password: &str, data: &[u8]) -> Vec<u8> {
-    let key = Sha256::digest(password);
-    let key = key.as_slice().try_into().unwrap();
-    encode_with_random_iv(key, data)
+    let key: [u8; 32] = Sha256::digest(password).into();
+    encode_with_random_iv(&key, data)
 }
 
 fn encode_with_random_iv(key: &[u8; 32], data: &[u8]) -> Vec<u8> {

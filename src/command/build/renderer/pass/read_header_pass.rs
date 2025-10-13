@@ -1,12 +1,12 @@
 use super::HighlightRule;
-use crate::command::build::renderer::context::Context;
+use crate::command::build::renderer::metadata::Metadata;
 use MetadataBlockKind::YamlStyle;
 use anyhow::bail;
 use pulldown_cmark::{Event, Tag};
 use pulldown_cmark::{MetadataBlockKind, TagEnd};
 use serde::Deserialize;
 
-pub fn read_header_pass(events: &mut Vec<Event>, ctxt: &mut Context) -> anyhow::Result<()> {
+pub fn read_header_pass(events: &mut Vec<Event>, ctxt: &mut Metadata) -> anyhow::Result<()> {
     let header = events
         .iter()
         .skip_while(|e| !matches!(e, Event::Start(Tag::MetadataBlock(YamlStyle))))

@@ -1,10 +1,10 @@
-use crate::command::build::renderer::context::Context;
+use crate::command::build::renderer::metadata::Metadata;
 use anyhow::bail;
 use pulldown_cmark::{Event, HeadingLevel, Tag, TagEnd};
 
 pub fn get_title_pass<'a>(
     events: Vec<Event<'a>>,
-    ctxt: &mut Context,
+    ctxt: &mut Metadata,
 ) -> anyhow::Result<Vec<Event<'a>>> {
     let mut h1_events = events
         .iter()

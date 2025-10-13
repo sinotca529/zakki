@@ -1,10 +1,10 @@
-use crate::command::build::renderer::context::Context;
+use crate::command::build::renderer::metadata::Metadata;
 use pulldown_cmark::{Event, Tag};
 use toc::TocBuilder;
 
 pub mod toc;
 
-pub fn toc_pass<'a>(events: Vec<Event<'a>>, ctxt: &mut Context) -> anyhow::Result<Vec<Event<'a>>> {
+pub fn toc_pass<'a>(events: Vec<Event<'a>>, ctxt: &mut Metadata) -> anyhow::Result<Vec<Event<'a>>> {
     let mut level = None;
     let mut id = None;
 

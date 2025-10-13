@@ -1,4 +1,4 @@
-use crate::{copy_asset, path::zakki_root, util::write_file};
+use crate::{copy_asset, path::zakki_root};
 use anyhow::{Context, Result, anyhow};
 
 pub fn init() -> Result<()> {
