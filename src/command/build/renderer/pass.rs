@@ -16,7 +16,7 @@ pub use convert_math_pass::convert_math_pass;
 pub use get_title_pass::get_title_pass;
 pub use highlight_code_pass::{HighlightRule, highlight_code_pass};
 pub use image_convert_pass::image_convert_pass;
-pub use link_adjust_pass::link_adjust_pass;
+pub use link_adjust_pass::adjust_link_pass;
 pub use read_header_pass::read_header_pass;
 pub use table_wrapper_pass::table_wrapper_pass;
 pub use toc_pass::{toc::Toc, toc_pass};

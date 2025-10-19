@@ -1,28 +1,6 @@
 use crate::command::build::renderer::metadata::Metadata;
 use pulldown_cmark::{CowStr, Event, LinkType::Inline, Tag, TagEnd};
 
-fn make_image_tag(
-    url: &CowStr<'_>,
-    alt: &Option<CowStr<'_>>,
-    title: &Option<CowStr<'_>>,
-) -> String {
-    if url.ends_with(".svg") {
-        return format!(r#"<object type="image/svg+xml" data="{url}"></object>"#);
-    }
-
-    let alt_attr = alt
-        .as_ref()
-        .map(|t| format!(r#" alt="{}""#, t))
-        .unwrap_or_default();
-
-    let title_attr = title
-        .as_ref()
-        .map(|t| format!(r#" title="{}""#, t))
-        .unwrap_or_default();
-
-    format!(r#"<img loading="lazy" src="{url}"{alt_attr}{title_attr}/>"#)
-}
-
 pub fn image_convert_pass<'a>(
     events: Vec<Event<'a>>,
     _: &mut Metadata,
@@ -65,4 +43,26 @@ pub fn image_convert_pass<'a>(
     });
 
     Ok(out)
+}
+
+fn make_image_tag(
+    url: &CowStr<'_>,
+    alt: &Option<CowStr<'_>>,
+    title: &Option<CowStr<'_>>,
+) -> String {
+    if url.ends_with(".svg") {
+        return format!(r#"<object type="image/svg+xml" data="{url}"></object>"#);
+    }
+
+    let alt_attr = alt
+        .as_ref()
+        .map(|t| format!(r#" alt="{}""#, t))
+        .unwrap_or_default();
+
+    let title_attr = title
+        .as_ref()
+        .map(|t| format!(r#" title="{}""#, t))
+        .unwrap_or_default();
+
+    format!(r#"<img loading="lazy" src="{url}"{alt_attr}{title_attr}/>"#)
 }

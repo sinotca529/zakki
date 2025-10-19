@@ -1,7 +1,7 @@
 use crate::command::build::renderer::metadata::Metadata;
 use pulldown_cmark::{Event, Tag};
 
-pub fn link_adjust_pass<'a>(
+pub fn adjust_link_pass<'a>(
     mut events: Vec<Event<'a>>,
     _: &mut Metadata,
 ) -> anyhow::Result<Vec<Event<'a>>> {

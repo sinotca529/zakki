@@ -19,21 +19,16 @@ pub fn convert_math_pass<'a>(
 
     let mut math_used = false;
     for e in &mut input {
-        match e {
-            Event::InlineMath(latex) => {
-                let math = katex::render_with_opts(latex, &opts_inline)
-                    .with_context(|| format!("Failed to render inline math: {}", latex))?;
-                *e = Event::InlineHtml(math.into());
-                math_used = true;
-            }
-            Event::DisplayMath(latex) => {
-                let math = katex::render_with_opts(latex, &opts_display)
-                    .with_context(|| format!("Failed to render display math: {}", latex))?;
-                *e = Event::InlineHtml(math.into());
-                math_used = true;
-            }
-            _ => {}
-        }
+        let (latex, opts) = match e {
+            Event::InlineMath(latex) => (latex, &opts_inline),
+            Event::DisplayMath(latex) => (latex, &opts_display),
+            _ => continue,
+        };
+
+        let math = katex::render_with_opts(latex, opts)
+            .with_context(|| format!("Failed to render math: {}", latex))?;
+        *e = Event::InlineHtml(math.into());
+        math_used = true;
     }
 
     if math_used {

@@ -26,6 +26,24 @@ impl<'a> Renderer<'a> {
         Self { config }
     }
 
+    pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
+        let src = src.as_ref();
+        if !src.extension_is("md") {
+            util::copy_file(src, dst_path_of(src)?)?;
+            return Ok(None);
+        }
+
+        let md = std::fs::read_to_string(src)?;
+        let dst_path = dst_path_of(src)?;
+        let Some((html, meta)) = self.md_to_html(&md, dst_path.clone())? else {
+            return Ok(None);
+        };
+
+        util::write_file(dst_path, html)?;
+
+        Ok(Some(meta))
+    }
+
     fn events_to_html(&self, events: Vec<Event>, ctxt: &Metadata) -> Result<String> {
         let body = {
             let mut body = String::new();
@@ -147,7 +165,7 @@ impl<'a> Renderer<'a> {
         let mut pass_manager = PassManager::new();
         pass_manager
             .register(pass::get_title_pass)
-            .register(pass::link_adjust_pass)
+            .register(pass::adjust_link_pass)
             .register(pass::image_convert_pass)
             .register(pass::highlight_code_pass)
             .register(pass::convert_math_pass)
@@ -167,42 +185,25 @@ impl<'a> Renderer<'a> {
         Ok(Some((html, ctxt)))
     }
 
-    pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
-        let src = src.as_ref();
-        if !src.extension_is("md") {
-            util::copy_file(src, dst_path_of(src)?)?;
-            return Ok(None);
-        }
-
-        let markdown = std::fs::read_to_string(src)?;
-        let dst_path = dst_path_of(src)?;
-        let Some((html, meta)) = self.md_to_html(&markdown, dst_path.clone())? else {
-            return Ok(None);
-        };
-
-        util::write_file(dst_path, html)?;
-
-        Ok(Some(meta))
-    }
-
     pub fn render_assets(&self) -> Result<()> {
-        self.render_index()?;
-        copy_asset!("style.css", zakki_dst_dir()?)?;
-        copy_asset!("script.js", zakki_dst_dir()?)?;
-        copy_asset!("segmenter.js", zakki_dst_dir()?)?;
-        copy_asset!("theme.js", zakki_dst_dir()?)?;
+        let dst_dir = zakki_dst_dir()?;
 
-        copy_asset!("katex/LICENSE", zakki_dst_dir()?)?;
-        copy_asset!("katex/katex.min.css", zakki_dst_dir()?)?;
+        self.render_index()?;
+        copy_asset!("style.css", dst_dir)?;
+        copy_asset!("script.js", dst_dir)?;
+        copy_asset!("segmenter.js", dst_dir)?;
+        copy_asset!("theme.js", dst_dir)?;
+
+        copy_asset!("katex/LICENSE", dst_dir)?;
+        copy_asset!("katex/katex.min.css", dst_dir)?;
 
         macro_rules! copy_katex_fonts {
             ($($font_name:literal),* $(,)?) => {
                 $(
-                    copy_asset!(concat!("katex/fonts/", $font_name), zakki_dst_dir()?)?;
+                    copy_asset!(concat!("katex/fonts/", $font_name), dst_dir)?;
                 )*
             }
         }
-
         copy_katex_fonts!(
             "KaTeX_AMS-Regular.woff2",
             "KaTeX_Caligraphic-Bold.woff2",
@@ -226,10 +227,10 @@ impl<'a> Renderer<'a> {
             "KaTeX_Typewriter-Regular.woff2",
         );
 
-        copy_asset!("font/SourceCodePro/LICENSE.md", zakki_dst_dir()?)?;
+        copy_asset!("font/SourceCodePro/LICENSE.md", dst_dir)?;
         copy_asset!(
             "font/SourceCodePro/SourceCodePro-Regular.otf.woff2",
-            zakki_dst_dir()?
+            dst_dir
         )?;
 
         Ok(())

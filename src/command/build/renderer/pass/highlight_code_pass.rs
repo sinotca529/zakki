@@ -5,22 +5,6 @@ use regex::Regex;
 use serde::Deserialize;
 use std::borrow::Cow;
 
-#[derive(Clone, Deserialize, Debug)]
-pub struct HighlightRule {
-    delim: [String; 2],
-    style: String,
-}
-
-impl HighlightRule {
-    pub fn replace_all<'a>(&self, code: &'a str) -> Cow<'a, str> {
-        let Ok(pat) = Regex::new(&format!("{}(.*?){}", &self.delim[0], &self.delim[1])) else {
-            return code.into();
-        };
-
-        pat.replace_all(code, format!("<span style=\"{}\">$1</span>", &self.style))
-    }
-}
-
 pub fn highlight_code_pass<'a>(
     mut events: Vec<Event<'a>>,
     ctxt: &mut Metadata,
@@ -59,4 +43,20 @@ pub fn highlight_code_pass<'a>(
         }
     }
     Ok(events)
+}
+
+#[derive(Clone, Deserialize, Debug)]
+pub struct HighlightRule {
+    delim: [String; 2],
+    style: String,
+}
+
+impl HighlightRule {
+    pub fn replace_all<'a>(&self, code: &'a str) -> Cow<'a, str> {
+        let Ok(pat) = Regex::new(&format!("{}(.*?){}", &self.delim[0], &self.delim[1])) else {
+            return code.into();
+        };
+
+        pat.replace_all(code, format!("<span style=\"{}\">$1</span>", &self.style))
+    }
 }
