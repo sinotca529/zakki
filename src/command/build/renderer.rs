@@ -11,19 +11,19 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use html_template::{crypto_html, index_html, page_html};
 use itertools::Itertools;
 use metadata::Metadata;
-use pass::PassManager;
-use pulldown_cmark::{Event, Options, Parser};
+use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use scraper::{Html, Selector};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 pub struct Renderer<'a> {
     config: &'a Config,
+    title_map: &'a HashMap<PathBuf, String>,
 }
 
 impl<'a> Renderer<'a> {
-    pub fn new(config: &'a Config) -> Self {
-        Self { config }
+    pub fn new(config: &'a Config, title_map: &'a HashMap<PathBuf, String>) -> Self {
+        Self { config, title_map }
     }
 
     pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
@@ -33,9 +33,9 @@ impl<'a> Renderer<'a> {
             return Ok(None);
         }
 
-        let md = std::fs::read_to_string(src)?;
+        let raw_md = std::fs::read_to_string(src)?;
         let dst_path = dst_path_of(src)?;
-        let Some((html, meta)) = self.md_to_html(&md, dst_path.clone())? else {
+        let Some((html, meta)) = self.md_to_html(&raw_md, src, dst_path.clone())? else {
             return Ok(None);
         };
 
@@ -138,7 +138,7 @@ impl<'a> Renderer<'a> {
     /// Markdown を HTML に変換します。
     /// 変換後の HTML とメタデータを返します。
     /// Markdown がドラフト記事であり、ドラフトを描画しない設定の場合は `None` を返します。
-    fn md_to_html(&self, markdown: &str, dst_path: PathBuf) -> Result<Option<(String, Metadata)>> {
+    fn md_to_html(&self, markdown: &str, src_path: &Path, dst_path: PathBuf) -> Result<Option<(String, Metadata)>> {
         let mut ctxt = Metadata::default();
         if let Some(password) = self.config.password() {
             ctxt.set_password(password.clone());
@@ -151,9 +151,20 @@ impl<'a> Renderer<'a> {
             !dst_rel_path.ends_with("index.html") && dst_rel_path.components().count() >= 3;
         ctxt.set_dst_rel_path(dst_rel_path.to_owned());
 
+        // タイトルを title_map から設定する
+        let title = self
+            .title_map
+            .get(src_path)
+            .with_context(|| anyhow!("タイトルが見つかりません: {}", src_path.display()))?
+            .clone();
+        ctxt.set_title(title);
+
+        // ウィキリンクを Markdown のリンク構文に変換する
+        let markdown = pass::wiki_link_pass(markdown, src_path, self.title_map);
+
         // Markdown をイベント列に変換
         let opt = Options::all() ^ Options::ENABLE_OLD_FOOTNOTES ^ Options::ENABLE_FOOTNOTES;
-        let mut events: Vec<_> = Parser::new_ext(markdown, opt).collect();
+        let mut events: Vec<_> = Parser::new_ext(&markdown, opt).collect();
 
         // イベント列に対してパスを適用
         pass::read_header_pass(&mut events, &mut ctxt)?;
@@ -162,18 +173,13 @@ impl<'a> Renderer<'a> {
             return Ok(None);
         }
 
-        let mut pass_manager = PassManager::new();
-        pass_manager
-            .register(pass::get_title_pass)
-            .register(pass::adjust_link_pass)
-            .register(pass::image_convert_pass)
-            .register(pass::highlight_code_pass)
-            .register(pass::convert_math_pass)
-            .register(pass::assign_header_id)
-            .register(pass::table_wrapper_pass)
-            .register(pass::toc_pass);
-
-        let events = pass_manager.run(events, &mut ctxt)?;
+        let events = pass::adjust_link_pass(events, &mut ctxt)?;
+        let events = pass::image_convert_pass(events, &mut ctxt)?;
+        let events = pass::highlight_code_pass(events, &mut ctxt)?;
+        let events = pass::convert_math_pass(events, &mut ctxt)?;
+        let events = pass::assign_header_id(events, &mut ctxt)?;
+        let events = pass::table_wrapper_pass(events, &mut ctxt)?;
+        let events = pass::toc_pass(events, &mut ctxt)?;
 
         // イベント列を HTML に変換
         let html = self.events_to_html(events, &ctxt)?;
@@ -250,4 +256,25 @@ impl<'a> Renderer<'a> {
         let dst = zakki_dst_dir()?.join("index.html");
         util::write_file(dst, content).map_err(Into::into)
     }
+}
+
+/// Markdown からタイトルを抽出します。
+/// H1 見出しが存在しない場合や複合テキストの場合は `None` を返します。
+pub fn extract_title(markdown: &str) -> Option<String> {
+    let opt = Options::all() ^ Options::ENABLE_OLD_FOOTNOTES ^ Options::ENABLE_FOOTNOTES;
+    let events: Vec<_> = Parser::new_ext(markdown, opt).collect();
+    let mut h1_events = events
+        .iter()
+        .skip_while(|e| !matches!(e, Event::Start(Tag::Heading { level, .. }) if *level == HeadingLevel::H1))
+        .skip(1)
+        .take_while(|e| !matches!(e, Event::End(TagEnd::Heading(HeadingLevel::H1))));
+
+    let Event::Text(t) = h1_events.next()? else {
+        return None;
+    };
+    if h1_events.next().is_some() {
+        return None;
+    }
+
+    Some(t.to_string())
 }

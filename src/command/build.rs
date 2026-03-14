@@ -7,7 +7,9 @@ use crate::{config::Config, util};
 use anyhow::{Context, Result};
 use rayon::prelude::*;
 use renderer::Renderer;
+use renderer::extract_title;
 use renderer::metadata::Metadata;
+use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
@@ -25,14 +27,19 @@ pub fn build(render_draft: bool) -> Result<()> {
 }
 
 fn render_pages(cfg: &Config) -> Result<Vec<Metadata>> {
-    let renderer = Renderer::new(cfg);
+    let files = zakki_src_dir()?.descendants_file_paths()?;
+
+    // フェーズ1: 全ファイルのタイトルを収集する
+    let title_map = collect_titles(&files)?;
+
+    // フェーズ2: 本レンダリング
+    let renderer = Renderer::new(cfg, &title_map);
     renderer.render_assets()?;
 
     let render_page = |p: &PathBuf| -> Result<Option<Metadata>> {
         renderer.render(p).with_context(|| p.display().to_string())
     };
 
-    let files = zakki_src_dir()?.descendants_file_paths()?;
     let metadatas: Vec<Metadata> = files
         .par_iter()
         .map(render_page)
@@ -42,6 +49,20 @@ fn render_pages(cfg: &Config) -> Result<Vec<Metadata>> {
         .collect();
 
     Ok(metadatas)
+}
+
+fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
+    let mut map = HashMap::new();
+    for path in files {
+        if !path.extension_is("md") {
+            continue;
+        }
+        let md = std::fs::read_to_string(path)?;
+        if let Some(title) = extract_title(&md) {
+            map.insert(path.clone(), title);
+        }
+    }
+    Ok(map)
 }
 
 fn output_sitemap(cfg: &Config, metas: &[Metadata]) -> Result<()> {
