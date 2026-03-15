@@ -202,7 +202,6 @@ impl<'a> Renderer<'a> {
         copy_asset!("style.css", dst_dir)?;
         copy_asset!("script.js", dst_dir)?;
         copy_asset!("segmenter.js", dst_dir)?;
-        copy_asset!("theme.js", dst_dir)?;
 
         copy_asset!("katex/LICENSE", dst_dir)?;
         copy_asset!("katex/katex.min.css", dst_dir)?;

@@ -7,25 +7,13 @@
 
 :root {
   --code-font: "Source Code Pro", Consolas, monospace;
-  --bg: #fff;
+  --bg: #c0c0c0;
   --fg: #000;
-  --link: #00c;
-  --muted: #666;
-  --border: #999;
-  --code-bg: #f5f5f5;
-  --code-fg: #900;
-  --header-fg: var(--fg); /* page.html の SVG アイコン用 */
-}
-
-:root[theme="dark"] {
-  --bg: #111;
-  --fg: #ddd;
-  --link: #88f;
-  --muted: #999;
-  --border: #555;
-  --code-bg: #222;
-  --code-fg: #fc0;
-  --header-fg: var(--fg);
+  --link: #000080;
+  --muted: #444;
+  --border: #808080;
+  --code-bg: #a8a8a8;
+  --code-fg: #600000;
 }
 
 /* ベース */
@@ -78,29 +66,6 @@ p {
   color: inherit;
 }
 
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.header-button {
-  background: none;
-  border: 1px solid var(--border);
-  color: inherit;
-  cursor: pointer;
-  padding: 0.2rem 0.5rem;
-}
-
-.header-button svg {
-  fill: currentColor;
-  vertical-align: middle;
-}
-
-.header-button:hover,
-.header-button.is-active {
-  background: var(--fg);
-  color: var(--bg);
-}
 
 /* 検索 */
 

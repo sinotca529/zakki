@@ -6,26 +6,6 @@ function createTagElem(tagName) {
   return a;
 }
 
-function toggleSearchInput() {
-  const searchbar = document.getElementById("searchbar");
-  const searchResult = document.getElementById("search-result");
-  const toggleButton = document.getElementById("search-toggle");
-  const isHidden = searchbar.classList.toggle("hidden");
-
-  if (isHidden) {
-    searchResult.classList.add("hidden");
-    searchResult.innerHTML = "";
-  } else {
-    searchResult.classList.remove("hidden");
-    document.getElementById("search-input").focus();
-  }
-
-  if (toggleButton) {
-    toggleButton.setAttribute("aria-expanded", String(!isHidden));
-    toggleButton.classList.toggle("is-active", !isHidden);
-  }
-}
-
 function createCard(page) {
   const template = document.getElementById("card-template");
 
@@ -212,7 +192,9 @@ function searchAndRender() {
           return `<div class="search-hit"><a href="${path_to_root}/${path}">${r.title}</a><span class="search-result-meta">Match rate: ${rate}</span></div>`;
         })
         .join("");
-      document.getElementById("search-result").innerHTML = html;
+      const searchResult = document.getElementById("search-result");
+      searchResult.innerHTML = html;
+      searchResult.classList.toggle("hidden", html === "");
     });
   }, 300);
 }
