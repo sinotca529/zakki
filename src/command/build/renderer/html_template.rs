@@ -1,7 +1,11 @@
 use crate::include_asset;
+use crate::command::build::renderer::context::Metadata;
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-use super::pass::Toc;
+fn tag_link_html(tag: &str, index_url: &str) -> String {
+    format!(r#"<a class="tag" href="{index_url}?tag={tag}">{tag}</a>"#)
+}
 
 fn adjust_path_origin(path: &str, path_to_root: &Path) -> String {
     if path.starts_with("http://") || path.starts_with("https://") || path.starts_with("/") {
@@ -48,14 +52,45 @@ fn head<'a>(
 }
 
 fn tag_elems(tags: &[String], dst_root_dir: &Path) -> String {
+    let index_url = dst_root_dir.join("index.html");
+    let index_url = index_url.to_str().unwrap();
     let nsbp = "\u{00a0}";
     tags.iter()
-        .map(|n| {
-            let path = dst_root_dir.join("index.html");
-            let path = path.to_str().unwrap();
-            format!(r#"<a class="tag" href="{path}?tag={n}">{n}</a>"#)
-        })
+        .map(|t| tag_link_html(t, index_url))
         .fold(String::new(), |acc, e| format!("{acc}{nsbp}{e}"))
+}
+
+pub fn cards_html(metas: &[Metadata]) -> String {
+    metas
+        .iter()
+        .filter(|m| !m.is_sub)
+        .map(|m| {
+            let path = m.path.to_str().unwrap_or_default();
+            let extra_class = if m.path.starts_with("private/") { " crypto" } else { "" };
+            let tags_data = m.tags.join(",");
+            let tag_links: String = m.tags.iter()
+                .map(|t| tag_link_html(t, "index.html"))
+                .collect();
+            format!(
+                include_asset!("card.html"),
+                extra_class = extra_class,
+                tags_data = tags_data,
+                path = path,
+                title = m.title,
+                update = m.update,
+                tag_links = tag_links,
+            )
+        })
+        .collect()
+}
+
+pub fn all_tags_html(metas: &[Metadata]) -> String {
+    let tag_set: BTreeSet<&String> = metas.iter().flat_map(|m| m.tags.iter()).collect();
+    tag_set
+        .iter()
+        .map(|t| tag_link_html(t, "index.html"))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 pub fn index_html<'a>(
@@ -63,6 +98,8 @@ pub fn index_html<'a>(
     css_list: impl Iterator<Item = &'a str>,
     js_list: impl Iterator<Item = &'a str>,
     footer: &str,
+    cards: &str,
+    tags: &str,
 ) -> String {
     let path_to_root = &PathBuf::from(".");
     let head = head(path_to_root, css_list, js_list, site_name);
@@ -72,6 +109,8 @@ pub fn index_html<'a>(
         head = head,
         header = header,
         footer = footer,
+        cards = cards,
+        tags = tags,
     )
 }
 
@@ -85,14 +124,12 @@ pub fn page_html<'a>(
     css_list: impl Iterator<Item = &'a str>,
     js_list: impl Iterator<Item = &'a str>,
     tags: &[String],
-    body: &str,
+    article: &str,
     footer: &str,
-    toc: &Toc,
 ) -> String {
     let head = head(path_to_root, css_list, js_list, title);
     let header = header(path_to_root, site_name);
     let tag_elems = tag_elems(tags, path_to_root);
-
     format!(
         include_asset!("page.html"),
         head = head,
@@ -100,11 +137,11 @@ pub fn page_html<'a>(
         tag_elems = tag_elems,
         create_date = create_date,
         last_update_date = last_update_date,
-        body = body,
+        article = article,
         footer_text = footer,
-        toc = toc.to_html(),
     )
 }
+
 #[allow(clippy::too_many_arguments)]
 pub fn crypto_html<'a>(
     path_to_root: &Path,
@@ -121,14 +158,13 @@ pub fn crypto_html<'a>(
     let head = head(path_to_root, css_list, js_list, title);
     let header = header(path_to_root, site_name);
     let tag_elems = tag_elems(tags, path_to_root);
-
     format!(
         include_asset!("crypto.html"),
         head = head,
+        header = header,
+        tag_elems = tag_elems,
         create_date = create_date,
         last_update_date = last_update_date,
-        tag_elems = tag_elems,
-        header = header,
         encoded = encoded_body,
         footer_text = footer,
     )

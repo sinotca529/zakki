@@ -1,5 +1,5 @@
 mod html_template;
-pub mod metadata;
+pub mod context;
 mod pass;
 
 use crate::copy_asset;
@@ -8,25 +8,44 @@ use crate::util::{BloomFilter, PathExt as _};
 use crate::{config::Config, util};
 use anyhow::{Context as _, Result, anyhow};
 use base64::{Engine, prelude::BASE64_STANDARD};
-use html_template::{crypto_html, index_html, page_html};
+use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_html};
+use context::Metadata;
 use itertools::Itertools;
-use metadata::Metadata;
-use pass::PassManager;
-use pulldown_cmark::{Event, Options, Parser};
+use context::Context;
+use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use scraper::{Html, Selector};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 pub struct Renderer<'a> {
     config: &'a Config,
+    title_map: &'a HashMap<PathBuf, String>,
 }
 
 impl<'a> Renderer<'a> {
-    pub fn new(config: &'a Config) -> Self {
-        Self { config }
+    pub fn new(config: &'a Config, title_map: &'a HashMap<PathBuf, String>) -> Self {
+        Self { config, title_map }
     }
 
-    fn events_to_html(&self, events: Vec<Event>, ctxt: &Metadata) -> Result<String> {
+    pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Context>> {
+        let src = src.as_ref();
+        if !src.extension_is("md") {
+            util::copy_file(src, dst_path_of(src)?)?;
+            return Ok(None);
+        }
+
+        let raw_md = std::fs::read_to_string(src)?;
+        let dst_path = dst_path_of(src)?;
+        let Some((html, meta)) = self.md_to_html(&raw_md, src, dst_path.clone())? else {
+            return Ok(None);
+        };
+
+        util::write_file(dst_path, html)?;
+
+        Ok(Some(meta))
+    }
+
+    fn events_to_html(&self, events: Vec<Event>, ctxt: &Context) -> Result<String> {
         let body = {
             let mut body = String::new();
             pulldown_cmark::html::push_html(&mut body, events.into_iter());
@@ -53,9 +72,12 @@ impl<'a> Renderer<'a> {
             .map(|p| &p[..])
             .chain(ctxt.js_list().iter().map(|p| &p[..]));
 
+        let toc = extract_toc_html(&body);
+        let article = format!("{}<div id=\"main-content\">{}</div>", toc, body);
+
         let html = if ctxt.to_encrypt {
             let password = ctxt.password()?;
-            let cypher = util::encode_with_password(password, body.as_bytes());
+            let cypher = util::encode_with_password(password, article.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);
 
             crypto_html(
@@ -80,9 +102,8 @@ impl<'a> Renderer<'a> {
                 css_list,
                 js_list,
                 ctxt.tags()?,
-                &body,
+                &article,
                 self.config.footer(),
-                ctxt.toc()?,
             )
         };
 
@@ -92,7 +113,7 @@ impl<'a> Renderer<'a> {
     fn make_bloom_filter(&self, html: &str) -> Result<BloomFilter> {
         // HTML からテキストを抜き出す
         let text = Html::parse_document(html)
-            .select(&Selector::parse("#main-content").unwrap())
+            .select(&Selector::parse("#article").unwrap())
             .next()
             .ok_or_else(|| anyhow!("No body element"))?
             .text()
@@ -120,8 +141,13 @@ impl<'a> Renderer<'a> {
     /// Markdown を HTML に変換します。
     /// 変換後の HTML とメタデータを返します。
     /// Markdown がドラフト記事であり、ドラフトを描画しない設定の場合は `None` を返します。
-    fn md_to_html(&self, markdown: &str, dst_path: PathBuf) -> Result<Option<(String, Metadata)>> {
-        let mut ctxt = Metadata::default();
+    fn md_to_html(
+        &self,
+        markdown: &str,
+        src_path: &Path,
+        dst_path: PathBuf,
+    ) -> Result<Option<(String, Context)>> {
+        let mut ctxt = Context::default();
         if let Some(password) = self.config.password() {
             ctxt.set_password(password.clone());
         }
@@ -132,30 +158,33 @@ impl<'a> Renderer<'a> {
         ctxt.is_sub =
             !dst_rel_path.ends_with("index.html") && dst_rel_path.components().count() >= 3;
         ctxt.set_dst_rel_path(dst_rel_path.to_owned());
+        ctxt.set_src_path(src_path.to_owned());
+
+        // タイトルを title_map から設定する
+        let title = self
+            .title_map
+            .get(src_path)
+            .with_context(|| anyhow!("タイトルが見つかりません: {}", src_path.display()))?
+            .clone();
+        ctxt.set_title(title);
 
         // Markdown をイベント列に変換
         let opt = Options::all() ^ Options::ENABLE_OLD_FOOTNOTES ^ Options::ENABLE_FOOTNOTES;
         let mut events: Vec<_> = Parser::new_ext(markdown, opt).collect();
 
         // イベント列に対してパスを適用
-        pass::read_header_pass(&mut events, &mut ctxt)?;
+        pass::read_header(&mut events, &mut ctxt)?;
 
         if !self.config.render_draft() && ctxt.is_draft {
             return Ok(None);
         }
 
-        let mut pass_manager = PassManager::new();
-        pass_manager
-            .register(pass::get_title_pass)
-            .register(pass::link_adjust_pass)
-            .register(pass::image_convert_pass)
-            .register(pass::highlight_code_pass)
-            .register(pass::convert_math_pass)
-            .register(pass::assign_header_id)
-            .register(pass::table_wrapper_pass)
-            .register(pass::toc_pass);
-
-        let events = pass_manager.run(events, &mut ctxt)?;
+        pass::adjust_link(&mut events, &mut ctxt, self.title_map)?;
+        pass::convert_image(&mut events, &mut ctxt)?;
+        pass::highlight_code(&mut events, &mut ctxt)?;
+        pass::convert_math(&mut events, &mut ctxt)?;
+        pass::assign_header_id(&mut events, &mut ctxt)?;
+        pass::wrap_table(&mut events, &mut ctxt)?;
 
         // イベント列を HTML に変換
         let html = self.events_to_html(events, &ctxt)?;
@@ -167,42 +196,39 @@ impl<'a> Renderer<'a> {
         Ok(Some((html, ctxt)))
     }
 
-    pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
-        let src = src.as_ref();
-        if !src.extension_is("md") {
-            util::copy_file(src, dst_path_of(src)?)?;
-            return Ok(None);
-        }
+    pub fn render_index(&self, metadatas: &[Metadata]) -> Result<()> {
+        let cards = cards_html(metadatas);
+        let tags = all_tags_html(metadatas);
 
-        let markdown = std::fs::read_to_string(src)?;
-        let dst_path = dst_path_of(src)?;
-        let Some((html, meta)) = self.md_to_html(&markdown, dst_path.clone())? else {
-            return Ok(None);
-        };
+        let content = index_html(
+            self.config.site_name(),
+            self.config.css_list().iter().map(|p| p.as_str()),
+            self.config.js_list().iter().map(|p| p.as_str()),
+            self.config.footer(),
+            &cards,
+            &tags,
+        );
 
-        util::write_file(dst_path, html)?;
-
-        Ok(Some(meta))
+        let dst = zakki_dst_dir()?.join("index.html");
+        util::write_file(dst, content).map_err(Into::into)
     }
 
     pub fn render_assets(&self) -> Result<()> {
-        self.render_index()?;
-        copy_asset!("style.css", zakki_dst_dir()?)?;
-        copy_asset!("script.js", zakki_dst_dir()?)?;
-        copy_asset!("segmenter.js", zakki_dst_dir()?)?;
-        copy_asset!("theme.js", zakki_dst_dir()?)?;
+        let dst_dir = zakki_dst_dir()?;
+        copy_asset!("style.css", dst_dir)?;
+        copy_asset!("script.js", dst_dir)?;
+        copy_asset!("segmenter.js", dst_dir)?;
 
-        copy_asset!("katex/LICENSE", zakki_dst_dir()?)?;
-        copy_asset!("katex/katex.min.css", zakki_dst_dir()?)?;
+        copy_asset!("katex/LICENSE", dst_dir)?;
+        copy_asset!("katex/katex.min.css", dst_dir)?;
 
         macro_rules! copy_katex_fonts {
             ($($font_name:literal),* $(,)?) => {
                 $(
-                    copy_asset!(concat!("katex/fonts/", $font_name), zakki_dst_dir()?)?;
+                    copy_asset!(concat!("katex/fonts/", $font_name), dst_dir)?;
                 )*
             }
         }
-
         copy_katex_fonts!(
             "KaTeX_AMS-Regular.woff2",
             "KaTeX_Caligraphic-Bold.woff2",
@@ -226,27 +252,87 @@ impl<'a> Renderer<'a> {
             "KaTeX_Typewriter-Regular.woff2",
         );
 
-        copy_asset!("font/SourceCodePro/LICENSE.md", zakki_dst_dir()?)?;
+        copy_asset!("font/SourceCodePro/LICENSE.md", dst_dir)?;
         copy_asset!(
             "font/SourceCodePro/SourceCodePro-Regular.otf.woff2",
-            zakki_dst_dir()?
+            dst_dir
         )?;
 
         Ok(())
     }
 
-    fn render_index(&self) -> Result<()> {
-        let css_list = self.config.css_list().iter().map(|p| &p[..]);
-        let js_list = self.config.js_list().iter().map(|p| &p[..]);
+}
 
-        let content = index_html(
-            self.config.site_name(),
-            css_list,
-            js_list,
-            self.config.footer(),
-        );
+/// Markdown からタイトルを抽出します。
+/// H1 がない場合は `Ok(None)`、H1 にテキスト以外の要素が含まれる場合は `Err` を返します。
+pub fn extract_title(markdown: &str) -> Result<Option<String>> {
+    let opt = Options::all() ^ Options::ENABLE_OLD_FOOTNOTES ^ Options::ENABLE_FOOTNOTES;
+    let events: Vec<_> = Parser::new_ext(markdown, opt).collect();
+    let mut h1_events = events
+        .iter()
+        .skip_while(|e| !matches!(e, Event::Start(Tag::Heading { level, .. }) if *level == HeadingLevel::H1))
+        .skip(1)
+        .take_while(|e| !matches!(e, Event::End(TagEnd::Heading(HeadingLevel::H1))));
 
-        let dst = zakki_dst_dir()?.join("index.html");
-        util::write_file(dst, content).map_err(Into::into)
+    let Some(first) = h1_events.next() else {
+        return Ok(None);
+    };
+    let Event::Text(t) = first else {
+        return Err(anyhow!("H1 見出しにテキスト以外の要素が含まれています"));
+    };
+    if h1_events.next().is_some() {
+        return Err(anyhow!("H1 見出しにテキスト以外の要素が含まれています"));
     }
+
+    Ok(Some(t.to_string()))
+}
+
+/// レンダリング済みの body HTML から目次 HTML を生成します。
+/// 見出しがない場合は空文字を返します。
+fn extract_toc_html(body: &str) -> String {
+    let doc = Html::parse_fragment(body);
+    let selector = Selector::parse("h2[id], h3[id], h4[id]").unwrap();
+
+    let items: Vec<(usize, String, String)> = doc
+        .select(&selector)
+        .map(|el| {
+            let level = match el.value().name() {
+                "h2" => 1,
+                "h3" => 2,
+                "h4" => 3,
+                _ => 4,
+            };
+            let id = el.value().attr("id").unwrap_or("").to_string();
+            let inner = el.inner_html();
+            (level, id, inner)
+        })
+        .collect();
+
+    if items.is_empty() {
+        return String::new();
+    }
+
+    let mut html = Vec::<String>::new();
+    let mut prev_level = 0;
+
+    for (level, id, inner) in &items {
+        // 階層を下る
+        (prev_level..*level).for_each(|_| html.push("<ul><li>".to_string()));
+        // 階層を上る
+        (*level..prev_level).for_each(|_| html.push("</li></ul>".to_string()));
+        // 次の要素へ
+        if *level <= prev_level {
+            html.push("</li><li>".to_string());
+        }
+        // リンクを追加
+        html.push(format!("<a href=\"#{}\">{}</a>", id, inner));
+        prev_level = *level;
+    }
+    // 閉じる
+    (0..prev_level).for_each(|_| html.push("</li></ul>".to_string()));
+
+    format!(
+        "<details id=\"toc\"><summary>目次</summary>{}</details>",
+        html.join("")
+    )
 }

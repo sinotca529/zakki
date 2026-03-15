@@ -1,12 +1,12 @@
 use super::HighlightRule;
-use crate::command::build::renderer::metadata::Metadata;
+use crate::command::build::renderer::context::Context;
 use MetadataBlockKind::YamlStyle;
 use anyhow::bail;
 use pulldown_cmark::{Event, Tag};
 use pulldown_cmark::{MetadataBlockKind, TagEnd};
 use serde::Deserialize;
 
-pub fn read_header_pass(events: &mut Vec<Event>, ctxt: &mut Metadata) -> anyhow::Result<()> {
+pub fn read_header(events: &mut Vec<Event>, meta: &mut Context) -> anyhow::Result<()> {
     let header = events
         .iter()
         .skip_while(|e| !matches!(e, Event::Start(Tag::MetadataBlock(YamlStyle))))
@@ -22,14 +22,14 @@ pub fn read_header_pass(events: &mut Vec<Event>, ctxt: &mut Metadata) -> anyhow:
     };
 
     let header: YamlHeader = serde_yaml::from_str(header)?;
-    ctxt.set_create_date(header.create_date);
-    ctxt.set_last_update_date(header.last_update_date);
-    ctxt.set_tags(header.tags);
+    meta.set_create_date(header.create_date);
+    meta.set_last_update_date(header.last_update_date);
+    meta.set_tags(header.tags);
     if let Some(h) = header.highlights {
-        ctxt.set_highlights(h);
+        meta.set_highlights(h);
     }
     if let Some(pwd) = header.password {
-        ctxt.set_password(pwd);
+        meta.set_password(pwd);
     }
 
     Ok(())

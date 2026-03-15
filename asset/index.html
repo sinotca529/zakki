@@ -2,23 +2,14 @@
 <html lang="ja">
   {head}
   <body data-page="index">
-    <template id="card-template">
-      <a class="card" href="LINK">
-        <div class="card-header">TITLE</div>
-        <div class="card-meta">
-          <div class="card-date">DATE</div>
-          <div class="card-tags">TAGS</div>
-        </div>
-      </a>
-    </template>
     {header}
     <main>
       <div id="tag-filter"></div>
       <section>
-        <div id="contents-list"></div>
+        <div id="contents-list">{cards}</div>
       </section>
-      <section>
-        <div id="tags-list" style="overflow-wrap: keep-all"></div>
+      <section id="tags-section">
+        <div id="tags-list" style="overflow-wrap: keep-all">{tags}</div>
       </section>
     </main>
 

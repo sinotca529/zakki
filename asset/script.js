@@ -1,93 +1,24 @@
-function createTagElem(tagName) {
-  const a = document.createElement("a");
-  a.className = "tag";
-  a.href = `index.html?tag=${tagName}`;
-  a.innerHTML = tagName;
-  return a;
-}
-
-function toggleSearchInput() {
-  const searchbar = document.getElementById("searchbar");
-  const searchResult = document.getElementById("search-result");
-  const toggleButton = document.getElementById("search-toggle");
-  const isHidden = searchbar.classList.toggle("hidden");
-
-  if (isHidden) {
-    searchResult.classList.add("hidden");
-    searchResult.innerHTML = "";
-  } else {
-    searchResult.classList.remove("hidden");
-    document.getElementById("search-input").focus();
-  }
-
-  if (toggleButton) {
-    toggleButton.setAttribute("aria-expanded", String(!isHidden));
-    toggleButton.classList.toggle("is-active", !isHidden);
-  }
-}
-
-function createCard(page) {
-  const template = document.getElementById("card-template");
-
-  const content = template.content.cloneNode(true);
-  const card = content.querySelector(".card");
-  card.href = page.path;
-  if (page.path.startsWith("private/")) card.classList.add("crypto");
-
-  content.querySelector(".card-header").innerHTML = page.title;
-  content.querySelector(".card-date").innerHTML = page.update;
-
-  const tags = content.querySelector(".card-tags");
-  tags.innerHTML = "";
-  page.tags.forEach((tagName) => tags.appendChild(createTagElem(tagName)));
-
-  return content;
-}
-
-function renderPageList() {
-  const fragment = document.createDocumentFragment();
-
-  METADATA
-    .filter((page) => !page.is_sub)
-    .forEach((page) => fragment.appendChild(createCard(page)));
-
-  document.getElementById("contents-list").appendChild(fragment);
-}
-
-function renderTagSet() {
-  const tagSet = new Set(
-    Object.keys(METADATA)
-      .map((key) => METADATA[key].tags)
-      .flat(),
-  );
-
-  const fragment = document.createDocumentFragment();
-  tagSet.forEach((tagName) => {
-    fragment.appendChild(createTagElem(tagName));
-    fragment.appendChild(document.createTextNode(" "));
-  });
-
-  document.getElementById("tags-list").appendChild(fragment);
-}
-
 function indexMain() {
   const params = new URLSearchParams(window.location.search);
-  if (!params.has("tag")) {
-    renderPageList();
-    renderTagSet();
-  } else {
-    const tag = params.get("tag");
-    const tagElem = createTagElem(tag);
+  if (!params.has("tag")) return;
 
-    document.getElementById("tag-filter").appendChild(tagElem);
+  const tag = params.get("tag");
 
-    const fragment = document.createDocumentFragment();
-    METADATA.filter((page) => page.tags.includes(tag)).forEach((page) =>
-      fragment.appendChild(createCard(page)),
-    );
+  // タグフィルタ表示
+  const a = document.createElement("a");
+  a.className = "tag";
+  a.href = `index.html?tag=${tag}`;
+  a.textContent = tag;
+  document.getElementById("tag-filter").appendChild(a);
 
-    document.getElementById("contents-list").appendChild(fragment);
-  }
+  // タグに一致しないカードを非表示
+  document.querySelectorAll("#contents-list .card").forEach((card) => {
+    const tags = card.dataset.tags ? card.dataset.tags.split(",") : [];
+    if (!tags.includes(tag)) card.hidden = true;
+  });
+
+  // タグセクションを非表示
+  document.getElementById("tags-section").hidden = true;
 }
 
 async function decryptPage() {
@@ -99,7 +30,7 @@ async function decryptPage() {
 
   const ivCypher = document.body.dataset.cypher;
   const plain = await decrypt(ivCypher, key);
-  document.getElementById("main-content").innerHTML = plain;
+  document.getElementById("article").innerHTML = plain;
 }
 
 function cryptoMain() {
@@ -199,9 +130,10 @@ function searchAndRender() {
 
     const path_to_root =
       document.head.querySelector('meta[name="path_to_root"]').content ?? "";
+    const metadata_path = `${path_to_root}/metadata.js`;
     const segmenter_path = `${path_to_root}/segmenter.js`;
     const filter_path = `${path_to_root}/bloom_filter.js`;
-    loadScripts([segmenter_path, filter_path], () => {
+    loadScripts([metadata_path, segmenter_path, filter_path], () => {
       debounceTimer = null;
 
       const result = search(query);
@@ -212,7 +144,9 @@ function searchAndRender() {
           return `<div class="search-hit"><a href="${path_to_root}/${path}">${r.title}</a><span class="search-result-meta">Match rate: ${rate}</span></div>`;
         })
         .join("");
-      document.getElementById("search-result").innerHTML = html;
+      const searchResult = document.getElementById("search-result");
+      searchResult.innerHTML = html;
+      searchResult.classList.toggle("hidden", html === "");
     });
   }, 300);
 }

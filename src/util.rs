@@ -31,7 +31,7 @@ macro_rules! copy_asset {
             return Ok(());
         }
 
-        crate::util::write_file(
+        $crate::util::write_file(
             path,
             include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/asset/", $fname)),
         )

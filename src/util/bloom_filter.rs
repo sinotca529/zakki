@@ -7,7 +7,7 @@ fn serialize_bytes_in_base64<S: serde::Serializer>(bytes: &[u8], s: S) -> Result
     BASE64_STANDARD.encode(bytes).serialize(s)
 }
 
-#[derive(Default, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub struct BloomFilter {
     /// フィルター
     #[serde(serialize_with = "serialize_bytes_in_base64")]

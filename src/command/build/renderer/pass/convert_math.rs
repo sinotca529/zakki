@@ -1,0 +1,39 @@
+use crate::command::build::renderer::context::Context;
+use anyhow::Context as _;
+use pulldown_cmark::Event;
+
+pub fn convert_math<'a>(
+    events: &mut Vec<Event<'a>>,
+    ctxt: &mut Context,
+) -> anyhow::Result<()> {
+    let opts_display = katex::Opts::builder()
+        .output_type(katex::opts::OutputType::Html)
+        .display_mode(true)
+        .build()
+        .unwrap();
+    let opts_inline = katex::Opts::builder()
+        .output_type(katex::opts::OutputType::Html)
+        .display_mode(false)
+        .build()
+        .unwrap();
+
+    let mut math_used = false;
+    for e in events.iter_mut() {
+        let (latex, opts) = match e {
+            Event::InlineMath(latex) => (latex, &opts_inline),
+            Event::DisplayMath(latex) => (latex, &opts_display),
+            _ => continue,
+        };
+
+        let math = katex::render_with_opts(latex, opts)
+            .with_context(|| format!("Failed to render math: {}", latex))?;
+        *e = Event::InlineHtml(math.into());
+        math_used = true;
+    }
+
+    if math_used {
+        ctxt.push_css_path("katex/katex.min.css");
+    }
+
+    Ok(())
+}
