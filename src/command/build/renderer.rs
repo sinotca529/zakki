@@ -8,7 +8,8 @@ use crate::util::{BloomFilter, PathExt as _};
 use crate::{config::Config, util};
 use anyhow::{Context as _, Result, anyhow};
 use base64::{Engine, prelude::BASE64_STANDARD};
-use html_template::{crypto_html, index_html, page_html};
+use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_html};
+use context::Metadata;
 use itertools::Itertools;
 use context::Context;
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
@@ -195,10 +196,25 @@ impl<'a> Renderer<'a> {
         Ok(Some((html, ctxt)))
     }
 
+    pub fn render_index(&self, metadatas: &[Metadata]) -> Result<()> {
+        let cards = cards_html(metadatas);
+        let tags = all_tags_html(metadatas);
+
+        let content = index_html(
+            self.config.site_name(),
+            self.config.css_list().iter().map(|p| p.as_str()),
+            self.config.js_list().iter().map(|p| p.as_str()),
+            self.config.footer(),
+            &cards,
+            &tags,
+        );
+
+        let dst = zakki_dst_dir()?.join("index.html");
+        util::write_file(dst, content).map_err(Into::into)
+    }
+
     pub fn render_assets(&self) -> Result<()> {
         let dst_dir = zakki_dst_dir()?;
-
-        self.render_index()?;
         copy_asset!("style.css", dst_dir)?;
         copy_asset!("script.js", dst_dir)?;
         copy_asset!("segmenter.js", dst_dir)?;
@@ -245,20 +261,6 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
-    fn render_index(&self) -> Result<()> {
-        let css_list = self.config.css_list().iter().map(|p| p.as_str());
-        let js_list = self.config.js_list().iter().map(|p| p.as_str());
-
-        let content = index_html(
-            self.config.site_name(),
-            css_list,
-            js_list,
-            self.config.footer(),
-        );
-
-        let dst = zakki_dst_dir()?.join("index.html");
-        util::write_file(dst, content).map_err(Into::into)
-    }
 }
 
 /// Markdown からタイトルを抽出します。

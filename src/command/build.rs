@@ -7,7 +7,7 @@ use crate::{config::Config, util};
 use anyhow::{Context as _, Result};
 use rayon::prelude::*;
 use renderer::Renderer;
-use renderer::context::{Context, Metadata};
+use renderer::context::Metadata;
 use renderer::extract_title;
 use std::collections::HashMap;
 use std::fmt::Write as _;
@@ -19,36 +19,31 @@ pub fn build(render_draft: bool) -> Result<()> {
 
     super::clean::clean()?;
 
-    let metadatas = render_pages(&cfg)?;
+    let files = zakki_src_dir()?.descendants_file_paths()?;
+    let title_map = collect_titles(&files)?;
+    let renderer = Renderer::new(&cfg, &title_map);
+
+    renderer.render_assets()?;
+
+    let contexts = files
+        .par_iter()
+        .map(|p| renderer.render(p).with_context(|| p.display().to_string()))
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+
+    let mut metadatas: Vec<Metadata> = contexts
+        .into_iter()
+        .map(|c| c.into_output())
+        .collect::<Result<_>>()?;
+    metadatas.sort_unstable_by(|a, b| b.update.cmp(&a.update));
+
+    renderer.render_index(&metadatas)?;
     output_sitemap(&cfg, &metadatas)?;
     output_metadatas(metadatas)?;
 
     Ok(())
-}
-
-fn render_pages(cfg: &Config) -> Result<Vec<Context>> {
-    let files = zakki_src_dir()?.descendants_file_paths()?;
-
-    // フェーズ1: 全ファイルのタイトルを収集する
-    let title_map = collect_titles(&files)?;
-
-    // フェーズ2: 本レンダリング
-    let renderer = Renderer::new(cfg, &title_map);
-    renderer.render_assets()?;
-
-    let render_page = |p: &PathBuf| -> Result<Option<Context>> {
-        renderer.render(p).with_context(|| p.display().to_string())
-    };
-
-    let metadatas: Vec<Context> = files
-        .par_iter()
-        .map(render_page)
-        .collect::<Result<Vec<_>>>()?
-        .into_iter()
-        .flatten()
-        .collect();
-
-    Ok(metadatas)
 }
 
 fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
@@ -66,7 +61,7 @@ fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
     Ok(map)
 }
 
-fn output_sitemap(cfg: &Config, metas: &[Context]) -> Result<()> {
+fn output_sitemap(cfg: &Config, metas: &[Metadata]) -> Result<()> {
     let pub_url = cfg.publish_url().map(|u| u.trim_end_matches("/"));
     let Some(pub_url) = pub_url else {
         return Ok(());
@@ -80,20 +75,14 @@ fn output_sitemap(cfg: &Config, metas: &[Context]) -> Result<()> {
     )?;
 
     for m in metas {
-        let Ok(rel) = m.dst_rel_path() else { continue };
-        if rel.starts_with("private") {
+        if m.path.starts_with("private") {
             continue;
         }
-
-        let Ok(lastmod) = m.last_update_date() else {
-            continue;
-        };
-        let path = rel.display().to_string();
-
+        let path = m.path.display().to_string();
         writeln!(
             &mut xml,
             r#"  <url><loc>{}{}</loc><lastmod>{}</lastmod></url>"#,
-            pub_url, path, lastmod
+            pub_url, path, m.update
         )?;
     }
     writeln!(&mut xml, "</urlset>")?;
@@ -104,24 +93,17 @@ fn output_sitemap(cfg: &Config, metas: &[Context]) -> Result<()> {
     Ok(())
 }
 
-fn output_metadatas(metas: Vec<Context>) -> Result<()> {
+fn output_metadatas(metas: Vec<Metadata>) -> Result<()> {
     let dst_dir = zakki_dst_dir()?;
 
-    let mut outputs: Vec<Metadata> = metas
-        .into_iter()
-        .map(|m| m.into_output())
-        .collect::<Result<_>>()?;
-
-    outputs.sort_unstable_by(|a, b| b.update.cmp(&a.update));
-
     // メタデータの書き出し
-    let json = serde_json::to_string(&outputs)?;
+    let json = serde_json::to_string(&metas)?;
     let js = format!("const METADATA={json}");
     let dst = dst_dir.join("metadata.js");
     util::write_file(dst, js)?;
 
     // Bloom filter の書き出し
-    let blooms: Vec<_> = outputs.iter().map(|o| &o.bloom).collect();
+    let blooms: Vec<_> = metas.iter().map(|o| &o.bloom).collect();
     let json = serde_json::to_string(&blooms)?;
     let js = format!("const BLOOM_FILTER={json}");
     let dst = dst_dir.join("bloom_filter.js");

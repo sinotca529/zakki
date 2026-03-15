@@ -117,6 +117,7 @@ impl Context {
             title: self.title.context("title has not been set")?,
             path: self.dst_rel_path.context("dst_rel_path has not been set")?,
             bloom: self.bloom_filter.context("bloom_filter has not been set")?,
+            is_sub: self.is_sub,
         })
     }
 }
@@ -131,4 +132,6 @@ pub struct Metadata {
     pub path: PathBuf,
     #[serde(skip)]
     pub bloom: BloomFilter,
+    #[serde(skip)]
+    pub is_sub: bool,
 }
