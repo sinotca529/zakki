@@ -1,4 +1,4 @@
-use crate::command::build::renderer::metadata::Metadata;
+use crate::command::build::renderer::context::Context;
 use itertools::Itertools;
 use pulldown_cmark::{Event, Tag};
 
@@ -8,7 +8,7 @@ fn gen_id(cntr: &[i32]) -> String {
 
 pub fn assign_header_id<'a>(
     events: &mut Vec<Event<'a>>,
-    _ctxt: &mut Metadata,
+    _ctxt: &mut Context,
 ) -> anyhow::Result<()> {
     let mut id_counter = [0; 6];
 

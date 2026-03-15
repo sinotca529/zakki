@@ -1,9 +1,9 @@
-use crate::command::build::renderer::metadata::Metadata;
+use crate::command::build::renderer::context::Context;
 use pulldown_cmark::{CowStr, Event, LinkType::Inline, Tag, TagEnd};
 
-pub fn image_convert_pass<'a>(
+pub fn convert_image<'a>(
     events: &mut Vec<Event<'a>>,
-    _: &mut Metadata,
+    _: &mut Context,
 ) -> anyhow::Result<()> {
     let mut url = None;
     let mut title = None;

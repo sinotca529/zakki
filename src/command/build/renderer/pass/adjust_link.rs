@@ -1,11 +1,11 @@
-use crate::command::build::renderer::metadata::Metadata;
+use crate::command::build::renderer::context::Context;
 use pulldown_cmark::{Event, LinkType, Tag};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-pub fn adjust_link_pass<'a>(
+pub fn adjust_link<'a>(
     events: &mut Vec<Event<'a>>,
-    ctxt: &mut Metadata,
+    ctxt: &mut Context,
     title_map: &HashMap<PathBuf, String>,
 ) -> anyhow::Result<()> {
     wiki_link_sub_pass(events, ctxt, title_map)?;
@@ -16,7 +16,7 @@ pub fn adjust_link_pass<'a>(
 /// `[[path]]` 形式のウィキリンクについて、タイトルマップからタイトルを取得して差し替えます。
 fn wiki_link_sub_pass<'a>(
     events: &mut Vec<Event<'a>>,
-    ctxt: &mut Metadata,
+    ctxt: &mut Context,
     title_map: &HashMap<PathBuf, String>,
 ) -> anyhow::Result<()> {
     let src_path = ctxt.src_path()?;

@@ -1,5 +1,5 @@
 mod html_template;
-pub mod metadata;
+pub mod context;
 mod pass;
 
 use crate::copy_asset;
@@ -10,7 +10,7 @@ use anyhow::{Context as _, Result, anyhow};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use html_template::{crypto_html, index_html, page_html};
 use itertools::Itertools;
-use metadata::Metadata;
+use context::Context;
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use scraper::{Html, Selector};
 use std::collections::{HashMap, HashSet};
@@ -26,7 +26,7 @@ impl<'a> Renderer<'a> {
         Self { config, title_map }
     }
 
-    pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Metadata>> {
+    pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Context>> {
         let src = src.as_ref();
         if !src.extension_is("md") {
             util::copy_file(src, dst_path_of(src)?)?;
@@ -44,7 +44,7 @@ impl<'a> Renderer<'a> {
         Ok(Some(meta))
     }
 
-    fn events_to_html(&self, events: Vec<Event>, ctxt: &Metadata) -> Result<String> {
+    fn events_to_html(&self, events: Vec<Event>, ctxt: &Context) -> Result<String> {
         let body = {
             let mut body = String::new();
             pulldown_cmark::html::push_html(&mut body, events.into_iter());
@@ -145,8 +145,8 @@ impl<'a> Renderer<'a> {
         markdown: &str,
         src_path: &Path,
         dst_path: PathBuf,
-    ) -> Result<Option<(String, Metadata)>> {
-        let mut ctxt = Metadata::default();
+    ) -> Result<Option<(String, Context)>> {
+        let mut ctxt = Context::default();
         if let Some(password) = self.config.password() {
             ctxt.set_password(password.clone());
         }
@@ -172,18 +172,18 @@ impl<'a> Renderer<'a> {
         let mut events: Vec<_> = Parser::new_ext(markdown, opt).collect();
 
         // イベント列に対してパスを適用
-        pass::read_header_pass(&mut events, &mut ctxt)?;
+        pass::read_header(&mut events, &mut ctxt)?;
 
         if !self.config.render_draft() && ctxt.is_draft {
             return Ok(None);
         }
 
-        pass::adjust_link_pass(&mut events, &mut ctxt, self.title_map)?;
-        pass::image_convert_pass(&mut events, &mut ctxt)?;
-        pass::highlight_code_pass(&mut events, &mut ctxt)?;
-        pass::convert_math_pass(&mut events, &mut ctxt)?;
+        pass::adjust_link(&mut events, &mut ctxt, self.title_map)?;
+        pass::convert_image(&mut events, &mut ctxt)?;
+        pass::highlight_code(&mut events, &mut ctxt)?;
+        pass::convert_math(&mut events, &mut ctxt)?;
         pass::assign_header_id(&mut events, &mut ctxt)?;
-        pass::table_wrapper_pass(&mut events, &mut ctxt)?;
+        pass::wrap_table(&mut events, &mut ctxt)?;
 
         // イベント列を HTML に変換
         let html = self.events_to_html(events, &ctxt)?;

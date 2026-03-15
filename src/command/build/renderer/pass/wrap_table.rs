@@ -1,9 +1,9 @@
-use crate::command::build::renderer::metadata::Metadata;
+use crate::command::build::renderer::context::Context;
 use pulldown_cmark::{Event, Tag};
 
-pub fn table_wrapper_pass<'a>(
+pub fn wrap_table<'a>(
     events: &mut Vec<Event<'a>>,
-    _ctxt: &mut Metadata,
+    _ctxt: &mut Context,
 ) -> anyhow::Result<()> {
     let mut out_events = Vec::with_capacity(events.len());
 

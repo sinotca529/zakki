@@ -1,13 +1,13 @@
-use crate::command::build::renderer::metadata::Metadata;
+use crate::command::build::renderer::context::Context;
 use anyhow::Result;
 use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
 use regex::Regex;
 use serde::Deserialize;
 use std::borrow::Cow;
 
-pub fn highlight_code_pass<'a>(
+pub fn highlight_code<'a>(
     events: &mut Vec<Event<'a>>,
-    ctxt: &mut Metadata,
+    ctxt: &mut Context,
 ) -> Result<()> {
     let Ok(macros) = ctxt.highlights() else {
         return Ok(());
