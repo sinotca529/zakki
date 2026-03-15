@@ -5,8 +5,6 @@ mod image_convert_pass;
 mod link_adjust_pass;
 mod read_header_pass;
 mod table_wrapper_pass;
-mod toc_pass;
-mod wiki_link_pass;
 
 pub use assign_header_id::assign_header_id;
 pub use convert_math_pass::convert_math_pass;
@@ -15,5 +13,3 @@ pub use image_convert_pass::image_convert_pass;
 pub use link_adjust_pass::adjust_link_pass;
 pub use read_header_pass::read_header_pass;
 pub use table_wrapper_pass::table_wrapper_pass;
-pub use toc_pass::{toc::Toc, toc_pass};
-pub use wiki_link_pass::wiki_link_pass;

@@ -58,7 +58,9 @@ fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
             continue;
         }
         let md = std::fs::read_to_string(path)?;
-        if let Some(title) = extract_title(&md) {
+        let title = extract_title(&md)
+            .with_context(|| path.display().to_string())?;
+        if let Some(title) = title {
             map.insert(path.clone(), title);
         }
     }

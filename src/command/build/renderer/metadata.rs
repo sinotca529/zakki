@@ -1,4 +1,4 @@
-use super::pass::{HighlightRule, Toc};
+use super::pass::HighlightRule;
 use crate::util::BloomFilter;
 use anyhow::{Context as _, Result, anyhow};
 use paste::paste;
@@ -70,9 +70,9 @@ pub struct Metadata {
     #[serde(skip)]
     css_paths: Vec<String>,
 
-    /// 階層一覧 (Toc 生成用)
+    /// ソースファイルのパス
     #[serde(skip)]
-    toc: Option<Toc>,
+    src_path: Option<PathBuf>,
 
     /// 下書きか否か
     pub is_draft: bool,
@@ -91,9 +91,9 @@ impl Metadata {
     try_get!(tags, &Vec<String>);
     try_get!(title, &String);
     try_get!(dst_rel_path, &PathBuf);
+    try_get!(src_path, &PathBuf);
     try_get!(highlights, &Vec<HighlightRule>);
     try_get!(password, &String);
-    try_get!(toc, &Toc);
     try_get!(bloom_filter, &BloomFilter);
 
     pub fn css_list(&self) -> &Vec<String> {
@@ -109,10 +109,10 @@ impl Metadata {
     setter!(tags, Vec<String>);
     setter!(title, String);
     setter!(dst_rel_path, PathBuf);
+    setter!(src_path, PathBuf);
     setter!(bloom_filter, BloomFilter);
     setter!(password, String);
     setter!(highlights, Vec<HighlightRule>);
-    setter!(toc, Toc);
 
     pub fn push_js_path(&mut self, path: impl Into<String>) {
         self.js_paths.push(path.into());

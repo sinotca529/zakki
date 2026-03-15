@@ -71,9 +71,12 @@ impl<'a> Renderer<'a> {
             .map(|p| &p[..])
             .chain(ctxt.js_list().iter().map(|p| &p[..]));
 
+        let toc = extract_toc_html(&body);
+        let article = format!("{}<div id=\"main-content\">{}</div>", toc, body);
+
         let html = if ctxt.to_encrypt {
             let password = ctxt.password()?;
-            let cypher = util::encode_with_password(password, body.as_bytes());
+            let cypher = util::encode_with_password(password, article.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);
 
             crypto_html(
@@ -98,9 +101,8 @@ impl<'a> Renderer<'a> {
                 css_list,
                 js_list,
                 ctxt.tags()?,
-                &body,
+                &article,
                 self.config.footer(),
-                ctxt.toc()?,
             )
         };
 
@@ -110,7 +112,7 @@ impl<'a> Renderer<'a> {
     fn make_bloom_filter(&self, html: &str) -> Result<BloomFilter> {
         // HTML からテキストを抜き出す
         let text = Html::parse_document(html)
-            .select(&Selector::parse("#main-content").unwrap())
+            .select(&Selector::parse("#article").unwrap())
             .next()
             .ok_or_else(|| anyhow!("No body element"))?
             .text()
@@ -138,7 +140,12 @@ impl<'a> Renderer<'a> {
     /// Markdown を HTML に変換します。
     /// 変換後の HTML とメタデータを返します。
     /// Markdown がドラフト記事であり、ドラフトを描画しない設定の場合は `None` を返します。
-    fn md_to_html(&self, markdown: &str, src_path: &Path, dst_path: PathBuf) -> Result<Option<(String, Metadata)>> {
+    fn md_to_html(
+        &self,
+        markdown: &str,
+        src_path: &Path,
+        dst_path: PathBuf,
+    ) -> Result<Option<(String, Metadata)>> {
         let mut ctxt = Metadata::default();
         if let Some(password) = self.config.password() {
             ctxt.set_password(password.clone());
@@ -177,7 +184,6 @@ impl<'a> Renderer<'a> {
         pass::convert_math_pass(&mut events, &mut ctxt)?;
         pass::assign_header_id(&mut events, &mut ctxt)?;
         pass::table_wrapper_pass(&mut events, &mut ctxt)?;
-        pass::toc_pass(&mut events, &mut ctxt)?;
 
         // イベント列を HTML に変換
         let html = self.events_to_html(events, &ctxt)?;
@@ -241,8 +247,8 @@ impl<'a> Renderer<'a> {
     }
 
     fn render_index(&self) -> Result<()> {
-        let css_list = self.config.css_list().iter().map(|p| &p[..]);
-        let js_list = self.config.js_list().iter().map(|p| &p[..]);
+        let css_list = self.config.css_list().iter().map(|p| p.as_str());
+        let js_list = self.config.js_list().iter().map(|p| p.as_str());
 
         let content = index_html(
             self.config.site_name(),
@@ -257,8 +263,8 @@ impl<'a> Renderer<'a> {
 }
 
 /// Markdown からタイトルを抽出します。
-/// H1 見出しが存在しない場合や複合テキストの場合は `None` を返します。
-pub fn extract_title(markdown: &str) -> Option<String> {
+/// H1 がない場合は `Ok(None)`、H1 にテキスト以外の要素が含まれる場合は `Err` を返します。
+pub fn extract_title(markdown: &str) -> Result<Option<String>> {
     let opt = Options::all() ^ Options::ENABLE_OLD_FOOTNOTES ^ Options::ENABLE_FOOTNOTES;
     let events: Vec<_> = Parser::new_ext(markdown, opt).collect();
     let mut h1_events = events
@@ -267,12 +273,65 @@ pub fn extract_title(markdown: &str) -> Option<String> {
         .skip(1)
         .take_while(|e| !matches!(e, Event::End(TagEnd::Heading(HeadingLevel::H1))));
 
-    let Event::Text(t) = h1_events.next()? else {
-        return None;
+    let Some(first) = h1_events.next() else {
+        return Ok(None);
+    };
+    let Event::Text(t) = first else {
+        return Err(anyhow!("H1 見出しにテキスト以外の要素が含まれています"));
     };
     if h1_events.next().is_some() {
-        return None;
+        return Err(anyhow!("H1 見出しにテキスト以外の要素が含まれています"));
     }
 
-    Some(t.to_string())
+    Ok(Some(t.to_string()))
+}
+
+/// レンダリング済みの body HTML から目次 HTML を生成します。
+/// 見出しがない場合は空文字を返します。
+fn extract_toc_html(body: &str) -> String {
+    let doc = Html::parse_fragment(body);
+    let selector = Selector::parse("h2[id], h3[id], h4[id]").unwrap();
+
+    let items: Vec<(usize, String, String)> = doc
+        .select(&selector)
+        .map(|el| {
+            let level = match el.value().name() {
+                "h2" => 1,
+                "h3" => 2,
+                "h4" => 3,
+                _ => 4,
+            };
+            let id = el.value().attr("id").unwrap_or("").to_string();
+            let inner = el.inner_html();
+            (level, id, inner)
+        })
+        .collect();
+
+    if items.is_empty() {
+        return String::new();
+    }
+
+    let mut html = Vec::<String>::new();
+    let mut prev_level = 0;
+
+    for (level, id, inner) in &items {
+        // 階層を下る
+        (prev_level..*level).for_each(|_| html.push("<ul><li>".to_string()));
+        // 階層を上る
+        (*level..prev_level).for_each(|_| html.push("</li></ul>".to_string()));
+        // 次の要素へ
+        if *level <= prev_level {
+            html.push("</li><li>".to_string());
+        }
+        // リンクを追加
+        html.push(format!("<a href=\"#{}\">{}</a>", id, inner));
+        prev_level = *level;
+    }
+    // 閉じる
+    (0..prev_level).for_each(|_| html.push("</li></ul>".to_string()));
+
+    format!(
+        "<details id=\"toc\"><summary>目次</summary>{}</details>",
+        html.join("")
+    )
 }
