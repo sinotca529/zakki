@@ -7,9 +7,9 @@ fn gen_id(cntr: &[i32]) -> String {
 }
 
 pub fn assign_header_id<'a>(
-    mut events: Vec<Event<'a>>,
+    events: &mut Vec<Event<'a>>,
     _ctxt: &mut Metadata,
-) -> anyhow::Result<Vec<Event<'a>>> {
+) -> anyhow::Result<()> {
     let mut id_counter = [0; 6];
 
     for e in events.iter_mut() {
@@ -21,5 +21,5 @@ pub fn assign_header_id<'a>(
         }
     }
 
-    Ok(events)
+    Ok(())
 }

@@ -2,12 +2,12 @@ use crate::command::build::renderer::metadata::Metadata;
 use pulldown_cmark::{Event, Tag};
 
 pub fn table_wrapper_pass<'a>(
-    events: Vec<Event<'a>>,
+    events: &mut Vec<Event<'a>>,
     _ctxt: &mut Metadata,
-) -> anyhow::Result<Vec<Event<'a>>> {
+) -> anyhow::Result<()> {
     let mut out_events = Vec::with_capacity(events.len());
 
-    for e in events.into_iter() {
+    for e in events.drain(..) {
         match e {
             Event::Start(Tag::Table(_)) => {
                 out_events.push(Event::InlineHtml(r#"<div class="table-wrapper">"#.into()));
@@ -21,5 +21,6 @@ pub fn table_wrapper_pass<'a>(
         }
     }
 
-    Ok(out_events)
+    *events = out_events;
+    Ok(())
 }

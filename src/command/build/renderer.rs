@@ -150,6 +150,7 @@ impl<'a> Renderer<'a> {
         ctxt.is_sub =
             !dst_rel_path.ends_with("index.html") && dst_rel_path.components().count() >= 3;
         ctxt.set_dst_rel_path(dst_rel_path.to_owned());
+        ctxt.set_src_path(src_path.to_owned());
 
         // タイトルを title_map から設定する
         let title = self
@@ -159,12 +160,9 @@ impl<'a> Renderer<'a> {
             .clone();
         ctxt.set_title(title);
 
-        // ウィキリンクを Markdown のリンク構文に変換する
-        let markdown = pass::wiki_link_pass(markdown, src_path, self.title_map);
-
         // Markdown をイベント列に変換
         let opt = Options::all() ^ Options::ENABLE_OLD_FOOTNOTES ^ Options::ENABLE_FOOTNOTES;
-        let mut events: Vec<_> = Parser::new_ext(&markdown, opt).collect();
+        let mut events: Vec<_> = Parser::new_ext(markdown, opt).collect();
 
         // イベント列に対してパスを適用
         pass::read_header_pass(&mut events, &mut ctxt)?;
@@ -173,13 +171,13 @@ impl<'a> Renderer<'a> {
             return Ok(None);
         }
 
-        let events = pass::adjust_link_pass(events, &mut ctxt)?;
-        let events = pass::image_convert_pass(events, &mut ctxt)?;
-        let events = pass::highlight_code_pass(events, &mut ctxt)?;
-        let events = pass::convert_math_pass(events, &mut ctxt)?;
-        let events = pass::assign_header_id(events, &mut ctxt)?;
-        let events = pass::table_wrapper_pass(events, &mut ctxt)?;
-        let events = pass::toc_pass(events, &mut ctxt)?;
+        pass::adjust_link_pass(&mut events, &mut ctxt, self.title_map)?;
+        pass::image_convert_pass(&mut events, &mut ctxt)?;
+        pass::highlight_code_pass(&mut events, &mut ctxt)?;
+        pass::convert_math_pass(&mut events, &mut ctxt)?;
+        pass::assign_header_id(&mut events, &mut ctxt)?;
+        pass::table_wrapper_pass(&mut events, &mut ctxt)?;
+        pass::toc_pass(&mut events, &mut ctxt)?;
 
         // イベント列を HTML に変換
         let html = self.events_to_html(events, &ctxt)?;

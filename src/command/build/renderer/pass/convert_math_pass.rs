@@ -3,9 +3,9 @@ use anyhow::Context as _;
 use pulldown_cmark::Event;
 
 pub fn convert_math_pass<'a>(
-    mut input: Vec<Event<'a>>,
+    events: &mut Vec<Event<'a>>,
     ctxt: &mut Metadata,
-) -> anyhow::Result<Vec<Event<'a>>> {
+) -> anyhow::Result<()> {
     let opts_display = katex::Opts::builder()
         .output_type(katex::opts::OutputType::Html)
         .display_mode(true)
@@ -18,7 +18,7 @@ pub fn convert_math_pass<'a>(
         .unwrap();
 
     let mut math_used = false;
-    for e in &mut input {
+    for e in events.iter_mut() {
         let (latex, opts) = match e {
             Event::InlineMath(latex) => (latex, &opts_inline),
             Event::DisplayMath(latex) => (latex, &opts_display),
@@ -35,5 +35,5 @@ pub fn convert_math_pass<'a>(
         ctxt.push_css_path("katex/katex.min.css");
     }
 
-    Ok(input)
+    Ok(())
 }

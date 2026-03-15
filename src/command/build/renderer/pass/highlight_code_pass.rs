@@ -6,11 +6,11 @@ use serde::Deserialize;
 use std::borrow::Cow;
 
 pub fn highlight_code_pass<'a>(
-    mut events: Vec<Event<'a>>,
+    events: &mut Vec<Event<'a>>,
     ctxt: &mut Metadata,
-) -> Result<Vec<Event<'a>>> {
+) -> Result<()> {
     let Ok(macros) = ctxt.highlights() else {
-        return Ok(events);
+        return Ok(());
     };
 
     let mut is_code_block = false;
@@ -42,7 +42,7 @@ pub fn highlight_code_pass<'a>(
             _ => {}
         }
     }
-    Ok(events)
+    Ok(())
 }
 
 #[derive(Clone, Deserialize, Debug)]

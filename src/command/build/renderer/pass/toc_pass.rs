@@ -4,12 +4,12 @@ use toc::TocBuilder;
 
 pub mod toc;
 
-pub fn toc_pass<'a>(events: Vec<Event<'a>>, ctxt: &mut Metadata) -> anyhow::Result<Vec<Event<'a>>> {
+pub fn toc_pass<'a>(events: &mut Vec<Event<'a>>, ctxt: &mut Metadata) -> anyhow::Result<()> {
     let mut level = None;
     let mut id = None;
 
     let mut toc_builder = TocBuilder::new();
-    for e in &events {
+    for e in events.iter() {
         match e {
             Event::Start(Tag::Heading {
                 level: l, id: i, ..
@@ -29,5 +29,5 @@ pub fn toc_pass<'a>(events: Vec<Event<'a>>, ctxt: &mut Metadata) -> anyhow::Resu
     let toc = toc_builder.build();
     ctxt.set_toc(toc);
 
-    Ok(events)
+    Ok(())
 }
