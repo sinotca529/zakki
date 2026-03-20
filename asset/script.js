@@ -48,15 +48,6 @@ function cryptoMain() {
 }
 
 //-----------------------------------------------------
-// Theme
-//-----------------------------------------------------
-
-function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute("theme");
-  setTheme(currentTheme === "dark" ? "" : "dark");
-}
-
-//-----------------------------------------------------
 // Search
 //-----------------------------------------------------
 
