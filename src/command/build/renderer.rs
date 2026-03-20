@@ -12,7 +12,7 @@ use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_htm
 use context::Metadata;
 use itertools::Itertools;
 use context::Context;
-use pulldown_cmark::{Event, MetadataBlockKind, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{Event, Options, Parser};
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
@@ -264,32 +264,43 @@ impl<'a> Renderer<'a> {
 
 }
 
-/// Markdown の YAML フロントマターから `title` フィールドを抽出します。
-/// YAML ブロックがない場合または `title` フィールドがない場合は `Ok(None)` を返します。
-pub fn extract_title(markdown: &str) -> Result<Option<String>> {
-    let opt = Options::all() ^ Options::ENABLE_OLD_FOOTNOTES ^ Options::ENABLE_FOOTNOTES;
-    let events: Vec<_> = Parser::new_ext(markdown, opt).collect();
+/// ファイルを BufReader で読み、YAML フロントマター部分だけ取り出して title を返します。
+/// フロントマター終端の `---` に達した時点で読み込みを止めるため、大きなファイルでも効率的です。
+pub fn extract_title_from_path(path: &std::path::Path) -> Result<Option<String>> {
+    use std::io::{BufRead as _, BufReader};
 
-    let header_text = events
-        .iter()
-        .skip_while(|e| !matches!(e, Event::Start(Tag::MetadataBlock(MetadataBlockKind::YamlStyle))))
-        .take_while(|e| !matches!(e, Event::End(TagEnd::MetadataBlock(MetadataBlockKind::YamlStyle))))
-        .filter_map(|e| match e {
-            Event::Text(t) => Some(t.as_ref()),
-            _ => None,
-        })
-        .next();
+    let file = std::fs::File::open(path)?;
+    let mut lines = BufReader::new(file).lines();
 
-    let Some(header_text) = header_text else {
+    match lines.next() {
+        Some(Ok(line)) if line == "---" => {}
+        _ => return Ok(None),
+    }
+
+    let mut yaml = String::new();
+    for line in lines {
+        let line = line?;
+        if line == "---" {
+            break;
+        }
+        yaml.push_str(&line);
+        yaml.push('\n');
+    }
+
+    if yaml.is_empty() {
         return Ok(None);
-    };
+    }
 
+    parse_title_from_yaml(&yaml)
+}
+
+fn parse_title_from_yaml(yaml: &str) -> Result<Option<String>> {
     #[derive(Deserialize)]
     struct TitleOnly {
         title: Option<String>,
     }
 
-    let parsed: TitleOnly = serde_yaml::from_str(header_text)?;
+    let parsed: TitleOnly = serde_yaml::from_str(yaml)?;
     Ok(parsed.title)
 }
 

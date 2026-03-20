@@ -8,7 +8,7 @@ use anyhow::{Context as _, Result};
 use rayon::prelude::*;
 use renderer::Renderer;
 use renderer::context::Metadata;
-use renderer::extract_title;
+use renderer::extract_title_from_path;
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::PathBuf;
@@ -52,8 +52,7 @@ fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
         if !path.extension_is("md") {
             continue;
         }
-        let md = std::fs::read_to_string(path)?;
-        let title = extract_title(&md).with_context(|| path.display().to_string())?;
+        let title = extract_title_from_path(path).with_context(|| path.display().to_string())?;
         if let Some(title) = title {
             map.insert(path.clone(), title);
         }
