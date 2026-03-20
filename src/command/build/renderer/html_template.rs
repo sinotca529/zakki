@@ -1,5 +1,6 @@
 use crate::include_asset;
 use crate::command::build::renderer::context::Metadata;
+use itertools::Itertools as _;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -89,7 +90,6 @@ pub fn all_tags_html(metas: &[Metadata]) -> String {
     tag_set
         .iter()
         .map(|t| tag_link_html(t, "index.html"))
-        .collect::<Vec<_>>()
         .join(" ")
 }
 

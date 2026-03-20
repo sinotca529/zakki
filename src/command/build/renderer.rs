@@ -63,15 +63,15 @@ impl<'a> Renderer<'a> {
             .config
             .css_list()
             .iter()
-            .map(|p| &p[..])
-            .chain(ctxt.css_list().iter().map(|p| &p[..]));
+            .map(String::as_str)
+            .chain(ctxt.css_list().iter().map(String::as_str));
 
         let js_list = self
             .config
             .js_list()
             .iter()
-            .map(|p| &p[..])
-            .chain(ctxt.js_list().iter().map(|p| &p[..]));
+            .map(String::as_str)
+            .chain(ctxt.js_list().iter().map(String::as_str));
 
         let toc = extract_toc_html(&body);
         let article = format!("{}<div id=\"main-content\">{}</div>", toc, body);

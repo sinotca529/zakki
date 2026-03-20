@@ -45,11 +45,8 @@ impl PathExt for Path {
     }
 
     fn has_file(&self, file_name: &str) -> std::io::Result<bool> {
-        let has_file = std::fs::read_dir(self)?
+        Ok(std::fs::read_dir(self)?
             .filter_map(|f| f.ok())
-            .map(|f| f.file_name())
-            .any(|f| f == file_name);
-
-        Ok(has_file)
+            .any(|f| f.file_name() == file_name))
     }
 }

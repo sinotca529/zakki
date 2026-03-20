@@ -53,7 +53,7 @@ fn md_to_html_sub_pass<'a>(events: &mut Vec<Event<'a>>) {
             let is_local = !url.starts_with("http://") && !url.starts_with("https://");
             let is_md = url.ends_with(".md");
             if is_local && is_md {
-                *url = format!("{}.html", &url[..url.len() - ".md".len()]).into();
+                *url = format!("{}.html", url.strip_suffix(".md").unwrap()).into();
             }
         }
     });

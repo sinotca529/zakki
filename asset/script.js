@@ -107,10 +107,7 @@ function loadScriptLazily(script_path) {
 }
 
 function loadScripts(scripts, callback) {
-  // すべてのスクリプトが読み込まれた後にコールバックを呼び出す
-  Promise.all(scripts.map(loadScriptLazily)).then(() => {
-    callback();
-  });
+  Promise.all(scripts.map(loadScriptLazily)).then(callback);
 }
 
 let debounceTimer;

@@ -24,10 +24,7 @@ pub fn highlight_code<'a>(
             }
             Event::Text(t) => {
                 if is_code_block {
-                    let code = t.to_string();
-
-                    let mut code = code
-                        .to_string()
+                    let mut code = t
                         .replace('&', "&amp;")
                         .replace('<', "&lt;")
                         .replace('>', "&gt;");

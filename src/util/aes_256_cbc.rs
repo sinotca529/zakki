@@ -1,4 +1,3 @@
-use super::VecExt;
 use aes::cipher::{BlockEncryptMut, KeyIvInit, block_padding::Pkcs7};
 use rand::Rng;
 use sha2::{Digest, Sha256};
@@ -17,7 +16,7 @@ fn encode_with_random_iv(key: &[u8; 32], data: &[u8]) -> Vec<u8> {
 }
 
 fn encode(iv: &[u8; 16], key: &[u8; 32], data: &[u8]) -> Vec<u8> {
-    let iv_vec: Vec<_> = iv.into();
-    let cypher = Aes256CbcEnc::new(key.into(), iv.into()).encrypt_padded_vec_mut::<Pkcs7>(data);
-    iv_vec.extended(cypher)
+    let mut result = iv.to_vec();
+    result.extend(Aes256CbcEnc::new(key.into(), iv.into()).encrypt_padded_vec_mut::<Pkcs7>(data));
+    result
 }
