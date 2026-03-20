@@ -12,8 +12,9 @@ use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_htm
 use context::Metadata;
 use itertools::Itertools;
 use context::Context;
-use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{Event, MetadataBlockKind, Options, Parser, Tag, TagEnd};
 use scraper::{Html, Selector};
+use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
@@ -263,28 +264,33 @@ impl<'a> Renderer<'a> {
 
 }
 
-/// Markdown からタイトルを抽出します。
-/// H1 がない場合は `Ok(None)`、H1 にテキスト以外の要素が含まれる場合は `Err` を返します。
+/// Markdown の YAML フロントマターから `title` フィールドを抽出します。
+/// YAML ブロックがない場合または `title` フィールドがない場合は `Ok(None)` を返します。
 pub fn extract_title(markdown: &str) -> Result<Option<String>> {
     let opt = Options::all() ^ Options::ENABLE_OLD_FOOTNOTES ^ Options::ENABLE_FOOTNOTES;
     let events: Vec<_> = Parser::new_ext(markdown, opt).collect();
-    let mut h1_events = events
-        .iter()
-        .skip_while(|e| !matches!(e, Event::Start(Tag::Heading { level, .. }) if *level == HeadingLevel::H1))
-        .skip(1)
-        .take_while(|e| !matches!(e, Event::End(TagEnd::Heading(HeadingLevel::H1))));
 
-    let Some(first) = h1_events.next() else {
+    let header_text = events
+        .iter()
+        .skip_while(|e| !matches!(e, Event::Start(Tag::MetadataBlock(MetadataBlockKind::YamlStyle))))
+        .take_while(|e| !matches!(e, Event::End(TagEnd::MetadataBlock(MetadataBlockKind::YamlStyle))))
+        .filter_map(|e| match e {
+            Event::Text(t) => Some(t.as_ref()),
+            _ => None,
+        })
+        .next();
+
+    let Some(header_text) = header_text else {
         return Ok(None);
     };
-    let Event::Text(t) = first else {
-        return Err(anyhow!("H1 見出しにテキスト以外の要素が含まれています"));
-    };
-    if h1_events.next().is_some() {
-        return Err(anyhow!("H1 見出しにテキスト以外の要素が含まれています"));
+
+    #[derive(Deserialize)]
+    struct TitleOnly {
+        title: Option<String>,
     }
 
-    Ok(Some(t.to_string()))
+    let parsed: TitleOnly = serde_yaml::from_str(header_text)?;
+    Ok(parsed.title)
 }
 
 /// レンダリング済みの body HTML から目次 HTML を生成します。
