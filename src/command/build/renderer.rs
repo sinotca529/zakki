@@ -182,6 +182,7 @@ impl<'a> Renderer<'a> {
 
         pass::adjust_link(&mut events, &mut ctxt, self.title_map)?;
         pass::convert_image(&mut events, &mut ctxt)?;
+        pass::add_code_caption(&mut events, &mut ctxt)?;
         pass::highlight_code(&mut events, &mut ctxt)?;
         pass::convert_math(&mut events, &mut ctxt)?;
         pass::assign_header_id(&mut events, &mut ctxt)?;

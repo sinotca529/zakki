@@ -291,6 +291,27 @@ pre > code {
   color: var(--code-fg);
 }
 
+/* コードブロック caption */
+
+figure.code-figure {
+  text-align: left;
+  margin: 1rem 0;
+}
+
+figure.code-figure figcaption {
+  font-size: 0.85rem;
+  font-family: var(--code-font);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  padding: 0.2rem 1rem;
+  color: var(--muted);
+}
+
+figure.code-figure pre {
+  margin-top: 0;
+}
+
 /* テーブル */
 
 table {
