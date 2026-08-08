@@ -12,11 +12,13 @@ Markdown から HTML への変換は [`pulldown-cmark`](https://docs.rs/pulldown
 - ページの暗号化
 - サイト内検索
 - コードハイライト
+- コードブロックへのキャプション付け
 - `file://` プロトコルでの動作
 
 ## 使い方
 
 - `zakki init` コマンドでひな形を作成します。
+- `zakki new <path>` コマンドで記事のテンプレートを作成します。
 - `zakki build` コマンドでサイトを生成します (下書きは変換されません)。
 - `zakki build -d` コマンドでサイトを生成します (下書きも変換されます)。
 
@@ -102,13 +104,12 @@ Markdown ファイルは `public/`, `private/`, `/draft` 下に直接配置し�
 
 ```md
 ---
+title: 見出し # 記事のタイトル (必須)
 create: 2024-05-13 # 記事の作成日 (必須)
 update: 2024-08-15 # 記事の最終更新日 (必須)
 tag: [数学, tips] # 記事に付けるタグ
 password: test # 暗号化の際のパスワード (指定がない場合、 zakki.toml の値を使用)
 ---
-
-# 見出し
 
 こんにちは
 ```
@@ -139,6 +140,18 @@ r@ここは赤@g@ここは緑@b@ここは青@
 ```
 ````
 
+### コードブロックのキャプション
+
+言語指定に `:キャプション` を付けると、コードブロックにタイトルを表示できます。
+
+````md
+```rust:main.rs
+fn main() {
+    println!("Hello, world!");
+}
+```
+````
+
 ## 暗号化のしくみ
 
 [staticrypt](https://github.com/robinmoisson/staticrypt) と同様の仕組みでページを暗号化しています。<br>
@@ -147,7 +160,7 @@ r@ここは赤@g@ここは緑@b@ここは青@
 
 ## サイト内検索
 
-サイト内検索には [bloom fileter](https://ja.wikipedia.org/wiki/%E3%83%96%E3%83%AB%E3%83%BC%E3%83%A0%E3%83%95%E3%82%A3%E3%83%AB%E3%82%BF) を用いています。
+サイト内検索には [bloom filter](https://ja.wikipedia.org/wiki/%E3%83%96%E3%83%AB%E3%83%BC%E3%83%A0%E3%83%95%E3%82%A3%E3%83%AB%E3%82%BF) を用いています。
 Bloom filter はメタデータの小ささと引き換えに、偽陽性を許すアルゴリズムです。
 `zakki.toml` の `search_fp` を使うと、この偽陽性率の目安を指定できます。
 小さい数値を指定するほど、メタデータのサイズが大きくなります。
