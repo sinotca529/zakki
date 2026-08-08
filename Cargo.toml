@@ -11,7 +11,6 @@ aes = "0.8.4"
 anyhow = "1.0.95"
 base64 = "0.22.1"
 cbc = { version = "0.1.2", features = ["std"] }
-chrono = "0.4.45"
 clap = { version = "4.5.23", features = ["derive"] }
 itertools = "0.14.0"
 katex = "0.4.6"

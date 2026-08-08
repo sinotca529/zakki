@@ -18,7 +18,6 @@ Markdown から HTML への変換は [`pulldown-cmark`](https://docs.rs/pulldown
 ## 使い方
 
 - `zakki init` コマンドでひな形を作成します。
-- `zakki new <path>` コマンドで記事のテンプレートを作成します。
 - `zakki build` コマンドでサイトを生成します (下書きは変換されません)。
 - `zakki build -d` コマンドでサイトを生成します (下書きも変換されます)。
 
