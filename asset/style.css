@@ -57,7 +57,7 @@ p {
 }
 
 .site-title {
-  margin: 0;js
+  margin: 0;
   font-size: 1.5rem;
 }
 
@@ -202,12 +202,29 @@ main {
   gap: 0.5rem;
 }
 
-/* 日付 */
+/* ページタイトル */
+
+#page-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+  line-height: 1.3;
+}
+
+/* 日付・タグのメタ情報 */
+
+#page-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
 
 #date {
   font-size: 0.9rem;
   color: var(--muted);
-  margin-bottom: 0.5rem;
 }
 
 /* 目次 */
@@ -272,6 +289,27 @@ pre > code {
 :not(pre) > code {
   font-family: var(--code-font);
   color: var(--code-fg);
+}
+
+/* コードブロック caption */
+
+figure.code-figure {
+  text-align: left;
+  margin: 1rem 0;
+}
+
+figure.code-figure figcaption {
+  font-size: 0.85rem;
+  font-family: var(--code-font);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  padding: 0.2rem 1rem;
+  color: var(--muted);
+}
+
+figure.code-figure pre {
+  margin-top: 0;
 }
 
 /* テーブル */

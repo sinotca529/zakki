@@ -1,3 +1,4 @@
+mod add_code_caption;
 mod assign_header_id;
 mod convert_math;
 mod highlight_code;
@@ -6,6 +7,7 @@ mod adjust_link;
 mod read_header;
 mod wrap_table;
 
+pub use add_code_caption::add_code_caption;
 pub use assign_header_id::assign_header_id;
 pub use convert_math::convert_math;
 pub use highlight_code::{HighlightRule, highlight_code};

@@ -12,8 +12,9 @@ use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_htm
 use context::Metadata;
 use itertools::Itertools;
 use context::Context;
-use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{Event, Options, Parser};
 use scraper::{Html, Selector};
+use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
@@ -62,15 +63,15 @@ impl<'a> Renderer<'a> {
             .config
             .css_list()
             .iter()
-            .map(|p| &p[..])
-            .chain(ctxt.css_list().iter().map(|p| &p[..]));
+            .map(String::as_str)
+            .chain(ctxt.css_list().iter().map(String::as_str));
 
         let js_list = self
             .config
             .js_list()
             .iter()
-            .map(|p| &p[..])
-            .chain(ctxt.js_list().iter().map(|p| &p[..]));
+            .map(String::as_str)
+            .chain(ctxt.js_list().iter().map(String::as_str));
 
         let toc = extract_toc_html(&body);
         let article = format!("{}<div id=\"main-content\">{}</div>", toc, body);
@@ -181,6 +182,7 @@ impl<'a> Renderer<'a> {
 
         pass::adjust_link(&mut events, &mut ctxt, self.title_map)?;
         pass::convert_image(&mut events, &mut ctxt)?;
+        pass::add_code_caption(&mut events, &mut ctxt)?;
         pass::highlight_code(&mut events, &mut ctxt)?;
         pass::convert_math(&mut events, &mut ctxt)?;
         pass::assign_header_id(&mut events, &mut ctxt)?;
@@ -263,28 +265,44 @@ impl<'a> Renderer<'a> {
 
 }
 
-/// Markdown からタイトルを抽出します。
-/// H1 がない場合は `Ok(None)`、H1 にテキスト以外の要素が含まれる場合は `Err` を返します。
-pub fn extract_title(markdown: &str) -> Result<Option<String>> {
-    let opt = Options::all() ^ Options::ENABLE_OLD_FOOTNOTES ^ Options::ENABLE_FOOTNOTES;
-    let events: Vec<_> = Parser::new_ext(markdown, opt).collect();
-    let mut h1_events = events
-        .iter()
-        .skip_while(|e| !matches!(e, Event::Start(Tag::Heading { level, .. }) if *level == HeadingLevel::H1))
-        .skip(1)
-        .take_while(|e| !matches!(e, Event::End(TagEnd::Heading(HeadingLevel::H1))));
+/// ファイルを BufReader で読み、YAML フロントマター部分だけ取り出して title を返します。
+/// フロントマター終端の `---` に達した時点で読み込みを止めるため、大きなファイルでも効率的です。
+pub fn extract_title_from_path(path: &std::path::Path) -> Result<Option<String>> {
+    use std::io::{BufRead as _, BufReader};
 
-    let Some(first) = h1_events.next() else {
-        return Ok(None);
-    };
-    let Event::Text(t) = first else {
-        return Err(anyhow!("H1 見出しにテキスト以外の要素が含まれています"));
-    };
-    if h1_events.next().is_some() {
-        return Err(anyhow!("H1 見出しにテキスト以外の要素が含まれています"));
+    let file = std::fs::File::open(path)?;
+    let mut lines = BufReader::new(file).lines();
+
+    match lines.next() {
+        Some(Ok(line)) if line == "---" => {}
+        _ => return Ok(None),
     }
 
-    Ok(Some(t.to_string()))
+    let mut yaml = String::new();
+    for line in lines {
+        let line = line?;
+        if line == "---" {
+            break;
+        }
+        yaml.push_str(&line);
+        yaml.push('\n');
+    }
+
+    if yaml.is_empty() {
+        return Ok(None);
+    }
+
+    parse_title_from_yaml(&yaml)
+}
+
+fn parse_title_from_yaml(yaml: &str) -> Result<Option<String>> {
+    #[derive(Deserialize)]
+    struct TitleOnly {
+        title: Option<String>,
+    }
+
+    let parsed: TitleOnly = serde_yaml::from_str(yaml)?;
+    Ok(parsed.title)
 }
 
 /// レンダリング済みの body HTML から目次 HTML を生成します。
