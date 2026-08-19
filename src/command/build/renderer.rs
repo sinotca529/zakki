@@ -120,15 +120,8 @@ impl<'a> Renderer<'a> {
             .text()
             .join(" ");
 
-        // テキストをワードに分割する
-        let words: HashSet<_> = crate::util::segment(&text)
-            .into_iter()
-            // スペースのみの場合は無視する
-            .map(|w| w.trim())
-            .filter(|w| !w.is_empty())
-            // 小文字に統一する
-            .map(|w| w.to_lowercase())
-            .collect();
+        // テキストをトークンに分割する
+        let words: HashSet<_> = crate::util::tokenize(&text).into_iter().collect();
 
         // Bloom filter を構築する
         let fp = self.config.search_fp();
@@ -219,7 +212,6 @@ impl<'a> Renderer<'a> {
         let dst_dir = zakki_dst_dir()?;
         copy_asset!("style.css", dst_dir)?;
         copy_asset!("script.js", dst_dir)?;
-        copy_asset!("segmenter.js", dst_dir)?;
 
         copy_asset!("katex/LICENSE", dst_dir)?;
         copy_asset!("katex/katex.min.css", dst_dir)?;

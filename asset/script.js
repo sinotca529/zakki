@@ -51,40 +51,90 @@ function cryptoMain() {
 // Search
 //-----------------------------------------------------
 
-// (json, Set<string>) -> integer
-function hitRate(bloom_filter, words) {
-  if (words.size == 0) return 0;
+// 検索インデックス用にテキストをトークンへ分割する。
+//
+// - ASCII 英数字の連続は、そのまま 1 つのトークンにする (例: rust → rust)
+// - それ以外の文字の連続は、文字バイグラムにする (例: 検索語 → 検索, 索語)
+//
+// 注意: src/util/tokenizer.rs の tokenize() と同じ規則である必要がある。
+// 片方だけを変更すると検索がヒットしなくなる。
+function tokenize(text) {
+  // 0: 区切り文字, 1: ASCII 英数字, 2: それ以外の文字 (日本語など)
+  const classOf = (c) =>
+    !/[\p{L}\p{N}]/u.test(c) ? 0 : c.charCodeAt(0) < 128 ? 1 : 2;
 
-  const filter = b64ToU8Arr(bloom_filter.filter);
-  const num_hash = bloom_filter.num_hash;
-  const num_bit = filter.byteLength * 8;
+  const tokens = [];
+  let run = [];
+  let cur = 0;
 
-  let num_hit_word = 0;
-  for (const word of words) {
-    const hashes = fxhash32_multi(word, num_hash).map((h) => h % num_bit);
-    const hit = hashes.every((h) => filter[(h / 8) | 0] & (1 << h % 8));
-    if (hit) num_hit_word += 1;
+  const flush = () => {
+    if (run.length === 0) return;
+    if (cur === 1 || run.length === 1) {
+      // 1 文字しかない run はバイグラムを作れないので、その文字自体をトークンにする
+      tokens.push(run.join("").toLowerCase());
+    } else {
+      for (let i = 0; i + 2 <= run.length; i++) {
+        tokens.push(run.slice(i, i + 2).join("").toLowerCase());
+      }
+    }
+    run = [];
+  };
+
+  // 末尾の区切り文字は、最後の run を掃き出すための番兵
+  for (const c of text + " ") {
+    const cls = classOf(c);
+    if (cls !== cur) {
+      flush();
+      cur = cls;
+    }
+    if (cls !== 0) run.push(c);
   }
 
-  return num_hit_word / words.size;
+  return tokens;
+}
+
+// Bloom filter が word を含むかを調べる (偽陽性あり)
+function contains(filter, word) {
+  const num_bit = filter.bits.byteLength * 8;
+  return fxhash32_multi(word, filter.num_hash)
+    .map((h) => h % num_bit)
+    .every((h) => filter.bits[(h / 8) | 0] & (1 << h % 8));
 }
 
 function search(query) {
-  if (!query) return [];
+  const terms = [...new Set(tokenize(query))];
+  if (terms.length === 0) return [];
 
-  const words = new Set(
-    segment(query).flatMap((w) => (w.trim() ? w.trim().toLowerCase() : [])),
-  );
+  const filters = BLOOM_FILTER.map((bf) => ({
+    bits: b64ToU8Arr(bf.filter),
+    num_hash: bf.num_hash,
+  }));
 
-  return BLOOM_FILTER.flatMap((bf, i) => {
-    const r = hitRate(bf, words);
-    if (r == 0) return [];
-    return {
-      title: METADATA[i].title,
-      path: METADATA[i].path,
-      rate: r,
-    };
-  }).sort((a, b) => b.rate - a.rate);
+  // 語ごとに、どのページにヒットするかを調べる
+  const hits = terms.map((t) => filters.map((f) => contains(f, t)));
+
+  // ヒットしたページ数から IDF を求める。
+  // 多くのページに出る語 (「の」など) ほど重みが小さくなる。
+  const num_page = filters.length;
+  const idf = hits.map((h) => {
+    const df = h.filter(Boolean).length;
+    return Math.log((num_page - df + 0.5) / (df + 0.5) + 1);
+  });
+
+  const total_idf = idf.reduce((a, b) => a + b, 0);
+  if (total_idf === 0) return [];
+
+  return filters
+    .flatMap((_, i) => {
+      const score = idf.reduce((acc, w, t) => (hits[t][i] ? acc + w : acc), 0);
+      if (score === 0) return [];
+      return {
+        title: METADATA[i].title,
+        path: METADATA[i].path,
+        rate: score / total_idf,
+      };
+    })
+    .sort((a, b) => b.rate - a.rate);
 }
 
 function loadScriptLazily(script_path) {
@@ -119,9 +169,8 @@ function searchAndRender() {
     const path_to_root =
       document.head.querySelector('meta[name="path_to_root"]').content ?? "";
     const metadata_path = `${path_to_root}/metadata.js`;
-    const segmenter_path = `${path_to_root}/segmenter.js`;
     const filter_path = `${path_to_root}/bloom_filter.js`;
-    loadScripts([metadata_path, segmenter_path, filter_path], () => {
+    loadScripts([metadata_path, filter_path], () => {
       debounceTimer = null;
 
       const result = search(query);
