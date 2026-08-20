@@ -2,6 +2,13 @@
 name = "zakki"
 version = "0.18.0"
 edition = "2024"
+description = "A static site generator with per-page encryption and serverless full-text search"
+license = "MIT"
+repository = "https://github.com/sinotca529/zakki"
+readme = "README.md"
+keywords = ["static-site", "ssg", "markdown", "blog", "generator"]
+categories = ["command-line-utilities", "text-processing"]
+exclude = ["/.github"]
 
 [profile.release]
 strip = true

@@ -1,0 +1,5 @@
+[workspace]
+# リリース済みバージョンは cargo レジストリではなく git tag (v0.18.0 形式) から判定する。
+git_only = true
+# crates.io への publish は行わない (git_only を使う場合は明示が必須)。
+publish = false
