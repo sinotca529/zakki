@@ -1,17 +1,89 @@
 name: Release
 
-# Releasesへのファイル追加のために書き込み権限が必要
-permissions:
-  contents: write
-
+# リリースは Release PR 方式で行う。
+#   1. main へのマージごとに、バージョンと CHANGELOG を更新する Release PR が作られる/更新される
+#   2. その Release PR をマージすると、tag と GitHub Release が作られ、バイナリが添付される
+# tag を手で打って push する必要はない。
 on:
   push:
-    tags:
-      - v*
+    branches:
+      - main
 
 jobs:
-  build:
+  # 未リリースのコミットから Release PR を作る/更新する。
+  release-pr:
+    name: Release PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: release-plz-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Create release PR
+        uses: release-plz/action@v0.5
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Release PR がマージされた回だけ、tag と GitHub Release を作る。
+  # バージョンが変わっていない普通のマージでは何も起きない。
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    outputs:
+      released: ${{ steps.release-plz.outputs.releases_created }}
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Create release
+        id: release-plz
+        uses: release-plz/action@v0.5
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract tag
+        id: tag
+        if: steps.release-plz.outputs.releases_created == 'true'
+        env:
+          RELEASES: ${{ steps.release-plz.outputs.releases }}
+        run: echo "tag=$(jq -r '.[0].tag' <<<"$RELEASES")" >> "$GITHUB_OUTPUT"
+
+  # ビルド済みバイナリを Release に添付する。
+  #
+  # GITHUB_TOKEN が作った tag は他の workflow を起動しないため、
+  # tag push をトリガーにせず、同じ workflow の中でビルドする。
+  upload-binary:
+    name: Upload binary
+    needs: release
+    if: needs.release.outputs.released == 'true'
     runs-on: ${{ matrix.job.os }}
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -19,47 +91,30 @@ jobs:
           - {
               os: ubuntu-latest,
               target: x86_64-unknown-linux-gnu,
-              use-cross: false,
               extension: "",
             }
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
 
-      # Rustのpackage名を取得して環境変数に入れておく。(後のステップで使用)
-      - name: Extract crate information
-        shell: bash
-        run: |
-          echo "PROJECT_NAME=$(sed -n 's/^name = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
-
-      # rustcやcargoをインストール
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: ${{ matrix.job.target }}
-          override: true
-          profile: minimal
+          targets: ${{ matrix.job.target }}
 
-      # targetに応じてcargoもしくはcrossを使用してビルド
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: ${{ matrix.job.use-cross }}
-          command: build
-          args: --release --target ${{ matrix.job.target }}
+        run: cargo build --release --target ${{ matrix.job.target }}
 
-      # ビルド済みバイナリをリネーム
-      - name: Rename artifacts
-        shell: bash
+      - name: Rename artifact
         run: |
-          mv target/${{ matrix.job.target }}/release/${{ env.PROJECT_NAME }}{,-${{ matrix.job.target }}${{ matrix.job.extension }}}
+          mv target/${{ matrix.job.target }}/release/zakki${{ matrix.job.extension }} \
+             zakki-${{ matrix.job.target }}${{ matrix.job.extension }}
 
-      # ビルド済みバイナリをReleasesに配置
-      - name: Release
-        uses: softprops/action-gh-release@v1
+      - name: Upload to release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: |
-            target/${{ matrix.job.target }}/release/${{ env.PROJECT_NAME }}-${{ matrix.job.target }}${{ matrix.job.extension }}
+        run: |
+          gh release upload "${{ needs.release.outputs.tag }}" \
+            "zakki-${{ matrix.job.target }}${{ matrix.job.extension }}" --clobber

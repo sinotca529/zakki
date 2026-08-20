@@ -1,0 +1,3 @@
+[workspace]
+# crates.io には publish せず、リリース済みバージョンは git tag (v0.18.0 形式) から判定する。
+git_only = true
