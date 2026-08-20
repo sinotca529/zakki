@@ -78,7 +78,8 @@ Zakki のディレクトリ構造は次のようになっています。
 
 ### 記事の追加
 
-Markdown ファイルは `public/`, `private/`, `/draft` 下に直接配置します。
+Markdown ファイルは `public/`, `private/`, `draft/` 下に配置します。
+
 ```txt
 .
 └── src
@@ -86,15 +87,20 @@ Markdown ファイルは `public/`, `private/`, `/draft` 下に直接配置し�
       └── foo.md
 ```
 
-画像ファイルなどがある場合は、ファイル名と同名のディレクトリを作成し、そこに配置します。
+画像などの Markdown 以外のファイルは、`src/` 内の位置関係を保ったまま `build/` 下にコピーされます。
+Markdown からは相対パスでそのまま参照できます。
+
+記事に関連するファイルをまとめる置き方は、例えば次のどちらでも構いません。
 
 ```txt
 .
-└── src
-   └── public
-      ├── foo.md
-      └── foo
-        └── img.png
+└── src/public/
+   ├── foo.md        # ![](foo/img.png) と参照する
+   ├── foo/
+   │  └── img.png
+   └── bar/
+      ├── index.md   # ![](img.png) と参照する
+      └── img.png
 ```
 
 ### ページのメタデータ
