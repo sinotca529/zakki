@@ -1,6 +1,9 @@
 use crate::{copy_asset, path::zakki_root};
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail};
 
 pub fn init() -> Result<()> {
-    copy_asset!("zakki.toml", zakki_root()?)
+    if zakki_root().is_ok() {
+        bail!("Current directory is already a zakki project.");
+    }
+    copy_asset!("zakki.toml", std::env::current_dir()?)
 }
