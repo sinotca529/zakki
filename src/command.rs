@@ -7,11 +7,14 @@ use clap::Subcommand;
 
 #[derive(PartialEq, Eq, Debug, Subcommand)]
 pub enum Command {
+    /// Initialize the current directory as a zakki project.
     Init,
+    /// Build the document.
     Build {
         #[arg(short = 'd', long)]
         render_draft: bool,
     },
+    /// Clean build directory.
     Clean,
 }
 
