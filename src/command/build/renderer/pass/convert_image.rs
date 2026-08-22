@@ -1,10 +1,7 @@
 use crate::command::build::renderer::context::Context;
 use pulldown_cmark::{CowStr, Event, LinkType::Inline, Tag, TagEnd};
 
-pub fn convert_image<'a>(
-    events: &mut Vec<Event<'a>>,
-    _: &mut Context,
-) -> anyhow::Result<()> {
+pub fn convert_image<'a>(events: &mut Vec<Event<'a>>, _: &mut Context) -> anyhow::Result<()> {
     let mut url = None;
     let mut title = None;
     let mut alt = None;

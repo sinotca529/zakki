@@ -5,10 +5,7 @@ use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
 /// `<figure class="code-figure">` と `<figcaption>` で囲む。
 ///
 /// 例: ` ```python:ソートアルゴリズム ` → figcaption 付きの figure に変換
-pub fn add_code_caption<'a>(
-    events: &mut Vec<Event<'a>>,
-    _: &mut Context,
-) -> anyhow::Result<()> {
+pub fn add_code_caption<'a>(events: &mut Vec<Event<'a>>, _: &mut Context) -> anyhow::Result<()> {
     let mut out = Vec::with_capacity(events.len());
     let mut in_captioned = false;
 

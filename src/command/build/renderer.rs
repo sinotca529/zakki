@@ -1,5 +1,5 @@
-mod html_template;
 pub mod context;
+mod html_template;
 mod pass;
 
 use crate::copy_asset;
@@ -8,10 +8,10 @@ use crate::util::{BloomFilter, PathExt as _};
 use crate::{config::Config, util};
 use anyhow::{Context as _, Result, anyhow};
 use base64::{Engine, prelude::BASE64_STANDARD};
-use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_html};
-use context::Metadata;
-use itertools::Itertools;
 use context::Context;
+use context::Metadata;
+use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_html};
+use itertools::Itertools;
 use pulldown_cmark::{Event, Options, Parser};
 use scraper::{Html, Selector};
 use serde::Deserialize;
@@ -121,7 +121,7 @@ impl<'a> Renderer<'a> {
             .join(" ");
 
         // テキストをトークンに分割する
-        let words: HashSet<_> = crate::util::tokenize(&text).into_iter().collect();
+        let words: HashSet<_> = util::tokenize(&text).into_iter().collect();
 
         // Bloom filter を構築する
         let fp = self.config.search_fp();
@@ -254,7 +254,6 @@ impl<'a> Renderer<'a> {
 
         Ok(())
     }
-
 }
 
 /// ファイルを BufReader で読み、YAML フロントマター部分だけ取り出して title を返します。

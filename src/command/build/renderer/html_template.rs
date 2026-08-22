@@ -1,5 +1,5 @@
-use crate::include_asset;
 use crate::command::build::renderer::context::Metadata;
+use crate::include_asset;
 use itertools::Itertools as _;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -67,9 +67,15 @@ pub fn cards_html(metas: &[Metadata]) -> String {
         .filter(|m| !m.is_sub)
         .map(|m| {
             let path = m.path.to_str().unwrap_or_default();
-            let extra_class = if m.path.starts_with("private/") { " crypto" } else { "" };
+            let extra_class = if m.path.starts_with("private/") {
+                " crypto"
+            } else {
+                ""
+            };
             let tags_data = m.tags.join(",");
-            let tag_links: String = m.tags.iter()
+            let tag_links: String = m
+                .tags
+                .iter()
                 .map(|t| tag_link_html(t, "index.html"))
                 .collect();
             format!(

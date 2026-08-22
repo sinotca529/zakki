@@ -5,10 +5,7 @@ use regex::Regex;
 use serde::Deserialize;
 use std::borrow::Cow;
 
-pub fn highlight_code<'a>(
-    events: &mut Vec<Event<'a>>,
-    ctxt: &mut Context,
-) -> Result<()> {
+pub fn highlight_code<'a>(events: &mut Vec<Event<'a>>, ctxt: &mut Context) -> Result<()> {
     let Ok(macros) = ctxt.highlights() else {
         return Ok(());
     };

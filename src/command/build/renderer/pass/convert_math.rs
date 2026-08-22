@@ -2,10 +2,7 @@ use crate::command::build::renderer::context::Context;
 use anyhow::Context as _;
 use pulldown_cmark::Event;
 
-pub fn convert_math<'a>(
-    events: &mut Vec<Event<'a>>,
-    ctxt: &mut Context,
-) -> anyhow::Result<()> {
+pub fn convert_math<'a>(events: &mut Vec<Event<'a>>, ctxt: &mut Context) -> anyhow::Result<()> {
     let opts_display = katex::Opts::builder()
         .output_type(katex::opts::OutputType::Html)
         .display_mode(true)

@@ -1,10 +1,7 @@
 use crate::command::build::renderer::context::Context;
 use pulldown_cmark::{Event, Tag};
 
-pub fn wrap_table<'a>(
-    events: &mut Vec<Event<'a>>,
-    _ctxt: &mut Context,
-) -> anyhow::Result<()> {
+pub fn wrap_table<'a>(events: &mut Vec<Event<'a>>, _ctxt: &mut Context) -> anyhow::Result<()> {
     let mut out_events = Vec::with_capacity(events.len());
 
     for e in events.drain(..) {
