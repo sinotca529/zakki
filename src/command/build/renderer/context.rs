@@ -98,10 +98,6 @@ impl Context {
     setter!(password, String);
     setter!(highlights, Vec<HighlightRule>);
 
-    pub fn push_js_path(&mut self, path: impl Into<String>) {
-        self.js_paths.push(path.into());
-    }
-
     pub fn push_css_path(&mut self, path: impl Into<String>) {
         self.css_paths.push(path.into());
     }
