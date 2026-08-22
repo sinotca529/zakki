@@ -19,19 +19,17 @@ pub fn highlight_code<'a>(events: &mut Vec<Event<'a>>, ctxt: &mut Context) -> Re
             Event::End(TagEnd::CodeBlock) => {
                 is_code_block = false;
             }
-            Event::Text(t) => {
-                if is_code_block {
-                    let mut code = t
-                        .replace('&', "&amp;")
-                        .replace('<', "&lt;")
-                        .replace('>', "&gt;");
+            Event::Text(t) if is_code_block => {
+                let mut code = t
+                    .replace('&', "&amp;")
+                    .replace('<', "&lt;")
+                    .replace('>', "&gt;");
 
-                    for m in macros {
-                        code = m.replace_all(&code).to_string();
-                    }
-
-                    *e = Event::InlineHtml(code.into());
+                for m in macros {
+                    code = m.replace_all(&code).to_string();
                 }
+
+                *e = Event::InlineHtml(code.into());
             }
             _ => {}
         }
@@ -47,10 +45,10 @@ pub struct HighlightRule {
 
 impl HighlightRule {
     pub fn replace_all<'a>(&self, code: &'a str) -> Cow<'a, str> {
-        let Ok(pat) = Regex::new(&format!("{}(.*?){}", &self.delim[0], &self.delim[1])) else {
+        let Ok(pat) = Regex::new(&format!("{}(.*?){}", self.delim[0], self.delim[1])) else {
             return code.into();
         };
 
-        pat.replace_all(code, format!("<span style=\"{}\">$1</span>", &self.style))
+        pat.replace_all(code, format!("<span style=\"{}\">$1</span>", self.style))
     }
 }

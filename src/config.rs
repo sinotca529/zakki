@@ -83,7 +83,7 @@ impl Config {
         Self {
             footer: file_config.footer.unwrap_or(format!(
                 "&copy; {}. All rights reserved.",
-                &file_config.site_name
+                file_config.site_name
             )),
             site_name: file_config.site_name,
             publish_url: file_config.publish_url,
