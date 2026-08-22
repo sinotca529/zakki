@@ -1,3 +1,5 @@
+use itertools::Itertools as _;
+
 /// 文字の種別。
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Class {
@@ -21,8 +23,8 @@ fn class(c: char) -> Class {
 
 /// 検索インデックス用にテキストをトークンへ分割します。
 ///
-/// - ASCII 英数字の連続は、そのまま 1 つのトークンにします (例: `rust` → `rust`)
-/// - それ以外の文字の連続は、文字バイグラムにします (例: `検索語` → `検索`, `索語`)
+/// - ASCII 英数字の連続は、そのまま 1 トークンにします (例: `rust` -> `rust`)
+/// - それ以外の文字の連続は、文字バイグラムにします (例: `検索語` -> `検索`, `索語`)
 /// - 区切り文字をまたぐバイグラムは作りません
 ///
 /// バイグラムを使うのは、日本語には単語境界がなく、分かち書きに頼ると
@@ -33,34 +35,21 @@ fn class(c: char) -> Class {
 /// クライアント側の `asset/script.js` の `tokenize()` と同じ規則である必要があります。
 /// 片方だけを変更すると検索がヒットしなくなります。
 pub fn tokenize(text: &str) -> Vec<String> {
-    let mut tokens = Vec::new();
-    let mut run: Vec<char> = Vec::new();
-    let mut cur = Class::Sep;
-
-    // 末尾の区切り文字は、最後の run を掃き出すための番兵
-    for c in text.chars().chain(std::iter::once(' ')) {
-        let cls = class(c);
-        if cls != cur {
-            push_run(&mut tokens, &run, cur);
-            run.clear();
-            cur = cls;
-        }
-        if cls != Class::Sep {
-            run.push(c);
-        }
-    }
-
-    tokens
+    text.chars()
+        .chunk_by(|c| class(*c))
+        .into_iter()
+        .flat_map(|(cls, run)| tokens_of(cls, &run.collect::<Vec<_>>()))
+        .collect()
 }
 
-fn push_run(tokens: &mut Vec<String>, run: &[char], cls: Class) {
+fn tokens_of(cls: Class, run: &[char]) -> Vec<String> {
     let lower = |cs: &[char]| cs.iter().collect::<String>().to_lowercase();
     match cls {
-        Class::Sep => {}
-        Class::Ascii => tokens.push(lower(run)),
+        Class::Sep => vec![],
+        Class::Ascii => vec![lower(run)],
         // 1 文字しかない run はバイグラムを作れないので、その文字自体をトークンにする
-        Class::Wide if run.len() == 1 => tokens.push(lower(run)),
-        Class::Wide => run.windows(2).for_each(|w| tokens.push(lower(w))),
+        Class::Wide if run.len() == 1 => vec![lower(run)],
+        Class::Wide => run.windows(2).map(lower).collect(),
     }
 }
 
