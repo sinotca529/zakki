@@ -12,7 +12,7 @@ use context::Context;
 use context::Metadata;
 use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_html};
 use itertools::Itertools;
-use pulldown_cmark::{Event, Options, Parser};
+use jotdown::{Event, Parser};
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
@@ -30,14 +30,14 @@ impl<'a> Renderer<'a> {
 
     pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Context>> {
         let src = src.as_ref();
-        if !src.extension_is("md") {
+        if !src.extension_is("dj") {
             util::copy_file(src, dst_path_of(src)?)?;
             return Ok(None);
         }
 
-        let raw_md = std::fs::read_to_string(src)?;
+        let raw_src = std::fs::read_to_string(src)?;
         let dst_path = dst_path_of(src)?;
-        let Some((html, meta)) = self.md_to_html(&raw_md, src, dst_path.clone())? else {
+        let Some((html, meta)) = self.dj_to_html(&raw_src, src, dst_path.clone())? else {
             return Ok(None);
         };
 
@@ -47,11 +47,7 @@ impl<'a> Renderer<'a> {
     }
 
     fn events_to_html(&self, events: Vec<Event>, ctxt: &Context) -> Result<String> {
-        let body = {
-            let mut body = String::new();
-            pulldown_cmark::html::push_html(&mut body, events.into_iter());
-            body
-        };
+        let body = jotdown::html::render_to_string(events.into_iter());
 
         let path_to_root = ctxt
             .dst_rel_path()?
@@ -132,12 +128,12 @@ impl<'a> Renderer<'a> {
         Ok(filter)
     }
 
-    /// Markdown を HTML に変換します。
+    /// djot を HTML に変換します。
     /// 変換後の HTML とメタデータを返します。
-    /// Markdown がドラフト記事であり、ドラフトを描画しない設定の場合は `None` を返します。
-    fn md_to_html(
+    /// ドラフト記事であり、ドラフトを描画しない設定の場合は `None` を返します。
+    fn dj_to_html(
         &self,
-        markdown: &str,
+        src: &str,
         src_path: &Path,
         dst_path: PathBuf,
     ) -> Result<Option<(String, Context)>> {
@@ -162,16 +158,18 @@ impl<'a> Renderer<'a> {
             .clone();
         ctxt.set_title(title);
 
-        // Markdown をイベント列に変換
-        let opt = Options::all() ^ Options::ENABLE_OLD_FOOTNOTES ^ Options::ENABLE_FOOTNOTES;
-        let mut events: Vec<_> = Parser::new_ext(markdown, opt).collect();
-
-        // イベント列に対してパスを適用
-        pass::read_header(&mut events, &mut ctxt)?;
+        // djot にフロントマターの構文はないため、パースの前に切り出す
+        let (yaml, body) = split_front_matter(src)?;
+        pass::read_header(yaml, &mut ctxt)?;
 
         if !self.config.render_draft() && ctxt.is_draft {
             return Ok(None);
         }
+
+        // 本文をイベント列に変換
+        let mut events: Vec<_> = Parser::new(body).collect();
+
+        // イベント列に対してパスを適用
 
         pass::adjust_link(&mut events, &mut ctxt, self.title_map)?;
         pass::convert_image(&mut events, &mut ctxt)?;
@@ -254,6 +252,20 @@ impl<'a> Renderer<'a> {
 
         Ok(())
     }
+}
+
+/// `---` で囲まれた YAML フロントマターと、それ以降の本文に分けます。
+fn split_front_matter(src: &str) -> Result<(&str, &str)> {
+    let rest = src
+        .strip_prefix("---\n")
+        .ok_or_else(|| anyhow!("Yaml header is not existing."))?;
+
+    let (yaml, body) = rest
+        .split_once("\n---\n")
+        .or_else(|| rest.strip_suffix("\n---").map(|yaml| (yaml, "")))
+        .ok_or_else(|| anyhow!("Yaml header is not closed."))?;
+
+    Ok((yaml, body))
 }
 
 /// ファイルを BufReader で読み、YAML フロントマター部分だけ取り出して title を返します。

@@ -1,44 +1,45 @@
+use super::{escape, raw_html};
 use crate::command::build::renderer::context::Context;
-use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
+use jotdown::{Container, Event};
 
-/// コードブロックの info string に `:タイトル` が含まれている場合、
-/// `<figure class="code-figure">` と `<figcaption>` で囲む。
+/// コードブロックに `caption` 属性がある場合、
+/// `<figure class="code-figure">` と `<figcaption>` で囲みます。
 ///
-/// 例: ` ```python:ソートアルゴリズム ` → figcaption 付きの figure に変換
-pub fn add_code_caption<'a>(events: &mut Vec<Event<'a>>, _: &mut Context) -> anyhow::Result<()> {
+/// 例:
+/// ```txt
+/// {caption="main.rs"}
+/// ```rust
+/// fn main() {}
+/// ```
+/// ```
+pub fn add_code_caption<'a>(
+    events: &mut Vec<Event<'a>>,
+    _ctxt: &mut Context,
+) -> anyhow::Result<()> {
     let mut out = Vec::with_capacity(events.len());
     let mut in_captioned = false;
 
     for e in events.drain(..) {
         match e {
-            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) => {
-                match info.split_once(':') {
-                    Some((lang, title)) if !title.trim().is_empty() => {
-                        let title = title
-                            .trim()
-                            .replace('&', "&amp;")
-                            .replace('<', "&lt;")
-                            .replace('>', "&gt;");
-                        in_captioned = true;
-                        out.push(Event::Html(
-                            format!(
-                                r#"<figure class="code-figure"><figcaption>{title}</figcaption>"#
-                            )
-                            .into(),
-                        ));
-                        out.push(Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(
-                            lang.to_owned().into(),
-                        ))));
-                    }
-                    _ => {
-                        out.push(Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))));
-                    }
+            Event::Start(Container::CodeBlock { language }, mut attrs) => {
+                let caption = attrs.get_value("caption").map(|v| v.to_string());
+                if let Some(caption) = caption {
+                    // caption 属性が <pre> に出力されないよう取り除く
+                    attrs.retain(|(k, _)| k.key() != Some("caption"));
+                    in_captioned = true;
+                    out.extend(raw_html(format!(
+                        r#"<figure class="code-figure"><figcaption>{}</figcaption>"#,
+                        escape(&caption)
+                    )));
                 }
+                out.push(Event::Start(Container::CodeBlock { language }, attrs));
             }
-            Event::End(TagEnd::CodeBlock) if in_captioned => {
-                in_captioned = false;
-                out.push(e);
-                out.push(Event::Html("</figure>".into()));
+            Event::End(Container::CodeBlock { language }) => {
+                out.push(Event::End(Container::CodeBlock { language }));
+                if in_captioned {
+                    in_captioned = false;
+                    out.extend(raw_html("</figure>"));
+                }
             }
             _ => out.push(e),
         }

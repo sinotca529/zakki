@@ -1,23 +1,24 @@
+use super::raw_html;
 use crate::command::build::renderer::context::Context;
-use pulldown_cmark::{Event, Tag};
+use jotdown::{Container, Event};
 
 pub fn wrap_table<'a>(events: &mut Vec<Event<'a>>, _ctxt: &mut Context) -> anyhow::Result<()> {
-    let mut out_events = Vec::with_capacity(events.len());
+    let mut out = Vec::with_capacity(events.len());
 
     for e in events.drain(..) {
         match e {
-            Event::Start(Tag::Table(_)) => {
-                out_events.push(Event::InlineHtml(r#"<div class="table-wrapper">"#.into()));
-                out_events.push(e);
+            Event::Start(Container::Table, _) => {
+                out.extend(raw_html(r#"<div class="table-wrapper">"#));
+                out.push(e);
             }
-            Event::End(pulldown_cmark::TagEnd::Table) => {
-                out_events.push(e);
-                out_events.push(Event::InlineHtml("</div>".into()));
+            Event::End(Container::Table) => {
+                out.push(e);
+                out.extend(raw_html("</div>"));
             }
-            _ => out_events.push(e),
+            _ => out.push(e),
         }
     }
 
-    *events = out_events;
+    *events = out;
     Ok(())
 }
