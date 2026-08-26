@@ -34,8 +34,8 @@ fn raw_html<'a>(html: impl Into<Cow<'a, str>>) -> [Event<'a>; 3] {
     ]
 }
 
-/// HTML の特殊文字をエスケープします。
-fn escape(text: &str) -> String {
+/// HTML のテキスト内容として使えるようエスケープします。
+fn escape_html_text(text: &str) -> String {
     text.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
@@ -50,7 +50,10 @@ fn attrs_to_html(attrs: &Attributes) -> String {
 
     // クラスは複数書けるので、まとめて 1 つの属性にする
     if let Some(class) = attrs.get_value("class") {
-        out.push_str(&format!(r#" class="{}""#, escape_attr(&class.to_string())));
+        out.push_str(&format!(
+            r#" class="{}""#,
+            escape_html_attr(&class.to_string())
+        ));
     }
 
     for (kind, value) in attrs {
@@ -62,14 +65,14 @@ fn attrs_to_html(attrs: &Attributes) -> String {
         out.push_str(&format!(
             r#" {}="{}""#,
             key,
-            escape_attr(&value.to_string())
+            escape_html_attr(&value.to_string())
         ));
     }
 
     out
 }
 
-/// HTML の属性値をエスケープします。
-fn escape_attr(value: &str) -> String {
-    escape(value).replace('"', "&quot;")
+/// HTML の属性値として使えるようエスケープします。
+fn escape_html_attr(value: &str) -> String {
+    escape_html_text(value).replace('"', "&quot;")
 }

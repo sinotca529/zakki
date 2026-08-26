@@ -1,4 +1,4 @@
-use super::{escape, raw_html};
+use super::{escape_html_text, raw_html};
 use crate::command::build::renderer::context::Context;
 use jotdown::{Container, Event};
 
@@ -29,7 +29,7 @@ pub fn add_code_caption<'a>(
                     in_captioned = true;
                     out.extend(raw_html(format!(
                         r#"<figure class="code-figure"><figcaption>{}</figcaption>"#,
-                        escape(&caption)
+                        escape_html_text(&caption)
                     )));
                 }
                 out.push(Event::Start(Container::CodeBlock { language }, attrs));

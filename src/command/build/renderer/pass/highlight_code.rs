@@ -1,4 +1,4 @@
-use super::{escape, raw_html};
+use super::{escape_html_text, raw_html};
 use crate::command::build::renderer::context::Context;
 use anyhow::Result;
 use jotdown::{Container, Event};
@@ -26,7 +26,7 @@ pub fn highlight_code<'a>(events: &mut Vec<Event<'a>>, ctxt: &mut Context) -> Re
                 out.push(e);
             }
             Event::Str(ref s) if is_code_block => {
-                let mut code = escape(s);
+                let mut code = escape_html_text(s);
                 for m in macros {
                     code = m.replace_all(&code).to_string();
                 }
