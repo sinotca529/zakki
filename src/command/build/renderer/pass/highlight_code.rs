@@ -1,39 +1,42 @@
+use super::{escape_html_text, raw_html};
 use crate::command::build::renderer::context::Context;
 use anyhow::Result;
-use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
+use jotdown::{Container, Event};
 use regex::Regex;
 use serde::Deserialize;
 use std::borrow::Cow;
 
+/// コードブロックの中身に、記事で指定された区切り文字のスタイルを適用します。
 pub fn highlight_code<'a>(events: &mut Vec<Event<'a>>, ctxt: &mut Context) -> Result<()> {
     let Ok(macros) = ctxt.highlights() else {
         return Ok(());
     };
 
+    let mut out = Vec::with_capacity(events.len());
     let mut is_code_block = false;
-    for e in events.iter_mut() {
-        match e {
-            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(_))) => {
-                is_code_block = true;
-            }
-            Event::End(TagEnd::CodeBlock) => {
-                is_code_block = false;
-            }
-            Event::Text(t) if is_code_block => {
-                let mut code = t
-                    .replace('&', "&amp;")
-                    .replace('<', "&lt;")
-                    .replace('>', "&gt;");
 
+    for e in events.drain(..) {
+        match e {
+            Event::Start(Container::CodeBlock { .. }, _) => {
+                is_code_block = true;
+                out.push(e);
+            }
+            Event::End(Container::CodeBlock { .. }) => {
+                is_code_block = false;
+                out.push(e);
+            }
+            Event::Str(ref s) if is_code_block => {
+                let mut code = escape_html_text(s);
                 for m in macros {
                     code = m.replace_all(&code).to_string();
                 }
-
-                *e = Event::InlineHtml(code.into());
+                out.extend(raw_html(code));
             }
-            _ => {}
+            _ => out.push(e),
         }
     }
+
+    *events = out;
     Ok(())
 }
 

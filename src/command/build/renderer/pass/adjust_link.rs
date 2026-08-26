@@ -1,60 +1,53 @@
 use crate::command::build::renderer::context::Context;
-use pulldown_cmark::{Event, LinkType, Tag};
+use jotdown::{Container, Event};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+/// リンクを調整します。
+///
+/// - リンク文字列が空のローカルリンクは、リンク先の記事のタイトルで埋めます
+///   (例: `[](foo.dj)` → `[foo の title](foo.html)`)
+/// - ローカルリンクの `.dj` 拡張子を `.html` に変換します
 pub fn adjust_link<'a>(
     events: &mut Vec<Event<'a>>,
     ctxt: &mut Context,
     title_map: &HashMap<PathBuf, String>,
 ) -> anyhow::Result<()> {
-    wiki_link_sub_pass(events, ctxt, title_map)?;
-    md_to_html_sub_pass(events);
-    Ok(())
-}
+    let src_dir = ctxt
+        .src_path()?
+        .parent()
+        .unwrap_or(Path::new(""))
+        .to_owned();
 
-/// `[[path]]` 形式のウィキリンクについて、タイトルマップからタイトルを取得して差し替えます。
-fn wiki_link_sub_pass<'a>(
-    events: &mut Vec<Event<'a>>,
-    ctxt: &mut Context,
-    title_map: &HashMap<PathBuf, String>,
-) -> anyhow::Result<()> {
-    let src_path = ctxt.src_path()?;
-    let src_dir = src_path.parent().unwrap_or(Path::new("")).to_owned();
+    let mut out = Vec::with_capacity(events.len());
+    let mut iter = std::mem::take(events).into_iter().peekable();
 
-    // [[path]] 形式のとき、次の Text イベントでタイトルを差し替えるために保持する
-    let mut pending_title: Option<String> = None;
-
-    for e in events.iter_mut() {
+    while let Some(e) = iter.next() {
         match e {
-            Event::Start(Tag::Link {
-                link_type: LinkType::WikiLink { has_pothole: false },
-                dest_url,
-                ..
-            }) => {
-                pending_title = title_map.get(&src_dir.join(dest_url.as_ref())).cloned();
+            Event::Start(Container::Link(url, link_type), attrs) => {
+                let is_local = !url.starts_with("http://") && !url.starts_with("https://");
+
+                let is_empty_text = matches!(iter.peek(), Some(Event::End(Container::Link(..))));
+                let title = (is_local && is_empty_text)
+                    .then(|| title_map.get(&src_dir.join(url.as_ref())))
+                    .flatten()
+                    .cloned();
+
+                let url: Cow<'a, str> = match url.strip_suffix(".dj") {
+                    Some(stem) if is_local => format!("{stem}.html").into(),
+                    _ => url,
+                };
+
+                out.push(Event::Start(Container::Link(url, link_type), attrs));
+                if let Some(title) = title {
+                    out.push(Event::Str(title.into()));
+                }
             }
-            Event::Text(text) if pending_title.is_some() => {
-                *text = pending_title.take().unwrap().into();
-            }
-            _ => {
-                pending_title = None;
-            }
+            _ => out.push(e),
         }
     }
 
+    *events = out;
     Ok(())
-}
-
-/// ローカルリンクの .md 拡張子を .html に変換します。
-fn md_to_html_sub_pass<'a>(events: &mut Vec<Event<'a>>) {
-    events.iter_mut().for_each(|mut e| {
-        if let Event::Start(Tag::Link { dest_url: url, .. }) = &mut e {
-            let is_local = !url.starts_with("http://") && !url.starts_with("https://");
-            let is_md = url.ends_with(".md");
-            if is_local && is_md {
-                *url = format!("{}.html", url.strip_suffix(".md").unwrap()).into();
-            }
-        }
-    });
 }

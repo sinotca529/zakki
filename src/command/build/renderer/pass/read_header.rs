@@ -1,27 +1,13 @@
 use super::HighlightRule;
 use crate::command::build::renderer::context::Context;
-use MetadataBlockKind::YamlStyle;
-use anyhow::bail;
-use pulldown_cmark::{Event, Tag};
-use pulldown_cmark::{MetadataBlockKind, TagEnd};
 use serde::Deserialize;
 
-pub fn read_header(events: &mut Vec<Event>, meta: &mut Context) -> anyhow::Result<()> {
-    let header = events
-        .iter()
-        .skip_while(|e| !matches!(e, Event::Start(Tag::MetadataBlock(YamlStyle))))
-        .take_while(|e| !matches!(e, Event::End(TagEnd::MetadataBlock(YamlStyle))))
-        .filter_map(|e| match e {
-            Event::Text(t) => Some(t),
-            _ => None,
-        })
-        .next();
-
-    let Some(header) = header else {
-        bail!("Yaml header is not existing.")
-    };
-
-    let header: YamlHeader = serde_yaml::from_str(header)?;
+/// YAML フロントマターを読み、メタデータを Context に設定します。
+///
+/// djot にはフロントマターの構文がないため、本文をパースする前に
+/// 呼び出し側で切り出した YAML を受け取ります。
+pub fn read_header(yaml: &str, meta: &mut Context) -> anyhow::Result<()> {
+    let header: YamlHeader = serde_yaml::from_str(yaml)?;
     meta.set_create_date(header.create_date);
     meta.set_last_update_date(header.last_update_date);
     meta.set_tags(header.tags);
