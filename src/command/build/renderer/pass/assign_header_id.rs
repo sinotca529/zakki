@@ -16,6 +16,8 @@ pub fn assign_header_id<'a>(
     _ctxt: &mut Context,
 ) -> anyhow::Result<()> {
     let mut id_counter = [0; 6];
+    // 見出しは入れ子にならないので、Start で採番した id を End でも使う
+    let mut current_id = None;
     let mut out = Vec::with_capacity(events.len());
 
     for e in events.drain(..) {
@@ -25,10 +27,12 @@ pub fn assign_header_id<'a>(
                 let l = level as usize;
                 id_counter.iter_mut().skip(l).for_each(|c| *c = 0);
                 id_counter[l - 1] += 1;
+                let id: std::borrow::Cow<str> = gen_id(&id_counter[1..]).into();
+                current_id = Some(id.clone());
                 let heading = Container::Heading {
                     level,
                     has_section: false,
-                    id: gen_id(&id_counter[1..]).into(),
+                    id,
                 };
                 out.push(Event::Start(heading, attrs));
             }
@@ -36,7 +40,7 @@ pub fn assign_header_id<'a>(
                 out.push(Event::End(Container::Heading {
                     level,
                     has_section: false,
-                    id: "".into(),
+                    id: current_id.take().unwrap_or_default(),
                 }));
             }
             _ => out.push(e),

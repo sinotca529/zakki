@@ -59,7 +59,11 @@ fn attrs_to_html(attrs: &Attributes) -> String {
             _ => {}
         }
         let Some(key) = kind.key() else { continue };
-        out.push_str(&format!(r#" {}="{}""#, key, escape_attr(&value.to_string())));
+        out.push_str(&format!(
+            r#" {}="{}""#,
+            key,
+            escape_attr(&value.to_string())
+        ));
     }
 
     out

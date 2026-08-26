@@ -28,8 +28,7 @@ pub fn adjust_link<'a>(
             Event::Start(Container::Link(url, link_type), attrs) => {
                 let is_local = !url.starts_with("http://") && !url.starts_with("https://");
 
-                let is_empty_text =
-                    matches!(iter.peek(), Some(Event::End(Container::Link(..))));
+                let is_empty_text = matches!(iter.peek(), Some(Event::End(Container::Link(..))));
                 let title = (is_local && is_empty_text)
                     .then(|| title_map.get(&src_dir.join(url.as_ref())))
                     .flatten()

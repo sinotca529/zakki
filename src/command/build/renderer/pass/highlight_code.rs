@@ -1,10 +1,10 @@
 use super::{escape, raw_html};
 use crate::command::build::renderer::context::Context;
 use anyhow::Result;
+use jotdown::{Container, Event};
 use regex::Regex;
 use serde::Deserialize;
 use std::borrow::Cow;
-use jotdown::{Container, Event};
 
 /// コードブロックの中身に、記事で指定された区切り文字のスタイルを適用します。
 pub fn highlight_code<'a>(events: &mut Vec<Event<'a>>, ctxt: &mut Context) -> Result<()> {

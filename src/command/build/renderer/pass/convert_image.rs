@@ -3,10 +3,7 @@ use crate::command::build::renderer::context::Context;
 use jotdown::{Container, Event};
 
 /// 画像を `<figure>` で囲み、alt テキストを `<figcaption>` にします。
-pub fn convert_image<'a>(
-    events: &mut Vec<Event<'a>>,
-    _ctxt: &mut Context,
-) -> anyhow::Result<()> {
+pub fn convert_image<'a>(events: &mut Vec<Event<'a>>, _ctxt: &mut Context) -> anyhow::Result<()> {
     let mut out = Vec::with_capacity(events.len());
     let mut url: Option<String> = None;
     let mut attrs_html = String::new();

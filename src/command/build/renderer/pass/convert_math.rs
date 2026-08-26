@@ -4,10 +4,7 @@ use anyhow::Context as _;
 use jotdown::{Container, Event};
 
 /// 数式を KaTeX でレンダリング済みの HTML に置き換えます。
-pub fn convert_math<'a>(
-    events: &mut Vec<Event<'a>>,
-    ctxt: &mut Context,
-) -> anyhow::Result<()> {
+pub fn convert_math<'a>(events: &mut Vec<Event<'a>>, ctxt: &mut Context) -> anyhow::Result<()> {
     let opts_display = katex::Opts::builder()
         .output_type(katex::opts::OutputType::Html)
         .display_mode(true)
