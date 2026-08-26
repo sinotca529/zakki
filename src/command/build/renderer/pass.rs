@@ -24,13 +24,13 @@ use std::borrow::Cow;
 /// djot は生の HTML を素通ししないため、パスが HTML を差し込むときは
 /// `RawInline` で明示する必要があります。
 fn raw_html<'a>(html: impl Into<Cow<'a, str>>) -> [Event<'a>; 3] {
-    let format = || Container::RawInline {
+    let raw_inline = Container::RawInline {
         format: "html".into(),
     };
     [
-        Event::Start(format(), Attributes::new()),
+        Event::Start(raw_inline.clone(), Attributes::new()),
         Event::Str(html.into()),
-        Event::End(format()),
+        Event::End(raw_inline),
     ]
 }
 
