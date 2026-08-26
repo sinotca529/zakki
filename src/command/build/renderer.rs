@@ -255,17 +255,29 @@ impl<'a> Renderer<'a> {
 }
 
 /// `---` で囲まれた YAML フロントマターと、それ以降の本文に分けます。
+/// 改行は LF と CRLF のどちらでも構いません。
 fn split_front_matter(src: &str) -> Result<(&str, &str)> {
-    let rest = src
-        .strip_prefix("---\n")
-        .ok_or_else(|| anyhow!("Yaml header is not existing."))?;
+    let is_delimiter = |line: &str| line.trim_end_matches(['\r', '\n']) == "---";
 
-    let (yaml, body) = rest
-        .split_once("\n---\n")
-        .or_else(|| rest.strip_suffix("\n---").map(|yaml| (yaml, "")))
-        .ok_or_else(|| anyhow!("Yaml header is not closed."))?;
+    let mut lines = src.split_inclusive('\n');
 
-    Ok((yaml, body))
+    let first = lines.next().unwrap_or_default();
+    if !is_delimiter(first) {
+        return Err(anyhow!("Yaml header is not existing."));
+    }
+
+    let yaml_start = first.len();
+    let mut yaml_end = yaml_start;
+
+    for line in lines {
+        if is_delimiter(line) {
+            let body_start = yaml_end + line.len();
+            return Ok((&src[yaml_start..yaml_end], &src[body_start..]));
+        }
+        yaml_end += line.len();
+    }
+
+    Err(anyhow!("Yaml header is not closed."))
 }
 
 /// ファイルを BufReader で読み、YAML フロントマター部分だけ取り出して title を返します。
@@ -356,4 +368,52 @@ fn extract_toc_html(body: &str) -> String {
         "<details id=\"toc\"><summary>目次</summary>{}</details>",
         html.join("")
     )
+}
+
+#[cfg(test)]
+mod test {
+    use super::split_front_matter;
+
+    #[test]
+    fn splits_lf_document() {
+        let src = "---\ntitle: a\n---\n\n## 見出し\n";
+        assert_eq!(
+            split_front_matter(src).unwrap(),
+            ("title: a\n", "\n## 見出し\n")
+        );
+    }
+
+    #[test]
+    fn splits_crlf_document() {
+        let src = "---\r\ntitle: a\r\n---\r\n\r\n## 見出し\r\n";
+        assert_eq!(
+            split_front_matter(src).unwrap(),
+            ("title: a\r\n", "\r\n## 見出し\r\n")
+        );
+    }
+
+    #[test]
+    fn accepts_document_without_body() {
+        let src = "---\ntitle: a\n---";
+        assert_eq!(split_front_matter(src).unwrap(), ("title: a\n", ""));
+    }
+
+    #[test]
+    fn rejects_document_without_header() {
+        assert!(split_front_matter("## 見出し\n").is_err());
+    }
+
+    #[test]
+    fn rejects_unclosed_header() {
+        assert!(split_front_matter("---\ntitle: a\n").is_err());
+    }
+
+    #[test]
+    fn does_not_split_at_thematic_break_in_body() {
+        // 本文中の区切り線を終端と誤認しないこと (終端は最初の --- 行)
+        let src = "---\ntitle: a\n---\n\n本文\n\n---\n\n続き\n";
+        let (yaml, body) = split_front_matter(src).unwrap();
+        assert_eq!(yaml, "title: a\n");
+        assert!(body.contains("続き"));
+    }
 }
