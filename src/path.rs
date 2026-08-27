@@ -42,7 +42,7 @@ pub fn dst_path_of(src_path: impl AsRef<Path>) -> Result<PathBuf> {
     let src_path = src_path.as_ref();
     let rel = src_path.strip_prefix(zakki_src_dir()?).unwrap();
 
-    if rel.extension_is("dj") {
+    if rel.extension_is("md") {
         Ok(zakki_dst_dir()?.join(rel.with_extension("html")))
     } else {
         Ok(zakki_dst_dir()?.join(rel))

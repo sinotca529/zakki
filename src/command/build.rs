@@ -49,7 +49,7 @@ pub fn build(render_draft: bool) -> Result<()> {
 fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
     let mut map = HashMap::new();
     for path in files {
-        if !path.extension_is("dj") {
+        if !path.extension_is("md") {
             continue;
         }
         let title = extract_title_from_path(path).with_context(|| path.display().to_string())?;

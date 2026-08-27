@@ -8,11 +8,13 @@ use crate::util::{BloomFilter, PathExt as _};
 use crate::{config::Config, util};
 use anyhow::{Context as _, Result, anyhow};
 use base64::{Engine, prelude::BASE64_STANDARD};
+use comrak::nodes::AstNode;
+use comrak::{Arena, Options, format_html, parse_document};
 use context::Context;
 use context::Metadata;
 use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_html};
 use itertools::Itertools;
-use jotdown::{Event, Parser};
+use regex::Regex;
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
@@ -30,14 +32,14 @@ impl<'a> Renderer<'a> {
 
     pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Context>> {
         let src = src.as_ref();
-        if !src.extension_is("dj") {
+        if !src.extension_is("md") {
             util::copy_file(src, dst_path_of(src)?)?;
             return Ok(None);
         }
 
         let raw_src = std::fs::read_to_string(src)?;
         let dst_path = dst_path_of(src)?;
-        let Some((html, meta)) = self.dj_to_html(&raw_src, src, dst_path.clone())? else {
+        let Some((html, meta)) = self.md_to_html(&raw_src, src, dst_path.clone())? else {
             return Ok(None);
         };
 
@@ -46,8 +48,17 @@ impl<'a> Renderer<'a> {
         Ok(Some(meta))
     }
 
-    fn events_to_html(&self, events: Vec<Event>, ctxt: &Context) -> Result<String> {
-        let body = jotdown::html::render_to_string(events.into_iter());
+    fn render_page<'n>(
+        &self,
+        root: &'n AstNode<'n>,
+        options: &Options,
+        ctxt: &Context,
+    ) -> Result<String> {
+        let body = {
+            let mut buf = String::new();
+            format_html(root, options, &mut buf)?;
+            assign_header_ids(&buf)
+        };
 
         let path_to_root = ctxt
             .dst_rel_path()?
@@ -128,10 +139,10 @@ impl<'a> Renderer<'a> {
         Ok(filter)
     }
 
-    /// djot を HTML に変換します。
+    /// Markdown を HTML に変換します。
     /// 変換後の HTML とメタデータを返します。
     /// ドラフト記事であり、ドラフトを描画しない設定の場合は `None` を返します。
-    fn dj_to_html(
+    fn md_to_html(
         &self,
         src: &str,
         src_path: &Path,
@@ -158,29 +169,27 @@ impl<'a> Renderer<'a> {
             .clone();
         ctxt.set_title(title);
 
-        // djot にフロントマターの構文はないため、パースの前に切り出す
-        let (yaml, body) = split_front_matter(src)?;
-        pass::read_header(yaml, &mut ctxt)?;
+        // Markdown を AST に変換
+        let arena = Arena::new();
+        let options = markdown_options();
+        let root = parse_document(&arena, src, &options);
+
+        // AST に対してパスを適用
+        pass::read_header(root, &mut ctxt)?;
 
         if !self.config.render_draft() && ctxt.is_draft {
             return Ok(None);
         }
 
-        // 本文をイベント列に変換
-        let mut events: Vec<_> = Parser::new(body).collect();
+        pass::adjust_link(&arena, root, &mut ctxt, self.title_map)?;
+        pass::convert_image(root)?;
+        pass::add_code_caption(&arena, root)?;
+        pass::highlight_code(root, &mut ctxt)?;
+        pass::convert_math(root, &mut ctxt)?;
+        pass::wrap_table(&arena, root)?;
 
-        // イベント列に対してパスを適用
-
-        pass::adjust_link(&mut events, &mut ctxt, self.title_map)?;
-        pass::convert_image(&mut events, &mut ctxt)?;
-        pass::add_code_caption(&mut events, &mut ctxt)?;
-        pass::highlight_code(&mut events, &mut ctxt)?;
-        pass::convert_math(&mut events, &mut ctxt)?;
-        pass::assign_header_id(&mut events, &mut ctxt)?;
-        pass::wrap_table(&mut events, &mut ctxt)?;
-
-        // イベント列を HTML に変換
-        let html = self.events_to_html(events, &ctxt)?;
+        // AST を HTML に変換
+        let html = self.render_page(root, &options, &ctxt)?;
 
         // HTML に対してパスを適用
         let filter = self.make_bloom_filter(&html)?;
@@ -254,30 +263,51 @@ impl<'a> Renderer<'a> {
     }
 }
 
-/// `---` で囲まれた YAML フロントマターと、それ以降の本文に分けます。
-/// 改行は LF と CRLF のどちらでも構いません。
-fn split_front_matter(src: &str) -> Result<(&str, &str)> {
-    let is_delimiter = |line: &str| line.trim_end_matches(['\r', '\n']) == "---";
+/// Markdown のパース設定です。
+fn markdown_options() -> Options<'static> {
+    let mut options = Options::default();
 
-    let mut lines = src.split_inclusive('\n');
+    let ext = &mut options.extension;
+    ext.front_matter_delimiter = Some("---".to_owned());
+    ext.table = true;
+    ext.strikethrough = true;
+    ext.tasklist = true;
+    ext.autolink = true;
+    ext.footnotes = true;
+    ext.description_lists = true;
+    ext.superscript = true;
+    ext.subscript = true;
+    ext.alerts = true;
+    ext.math_dollars = true;
+    ext.wikilinks_title_after_pipe = true;
 
-    let first = lines.next().unwrap_or_default();
-    if !is_delimiter(first) {
-        return Err(anyhow!("Yaml header is not existing."));
-    }
+    // パスが差し込む HTML を出力するために必要
+    options.render.r#unsafe = true;
 
-    let yaml_start = first.len();
-    let mut yaml_end = yaml_start;
+    options
+}
 
-    for line in lines {
-        if is_delimiter(line) {
-            let body_start = yaml_end + line.len();
-            return Ok((&src[yaml_start..yaml_end], &src[body_start..]));
-        }
-        yaml_end += line.len();
-    }
+/// 見出しに階層番号の id を振ります。
+///
+/// 目次のリンク先になるため、目次生成と同じく HTML の段階で行います。
+fn assign_header_ids(body: &str) -> String {
+    let pattern = Regex::new("<h([1-6])>").unwrap();
+    let mut counter = [0; 6];
 
-    Err(anyhow!("Yaml header is not closed."))
+    pattern
+        .replace_all(body, |caps: &regex::Captures| {
+            let level: usize = caps[1].parse().unwrap();
+            counter.iter_mut().skip(level).for_each(|c| *c = 0);
+            counter[level - 1] += 1;
+            let id = counter[1..]
+                .iter()
+                .take_while(|&&c| c > 0)
+                .map(|c| c.to_string())
+                .collect::<Vec<_>>()
+                .join(".");
+            format!(r#"<h{level} id="{id}">"#)
+        })
+        .into_owned()
 }
 
 /// ファイルを BufReader で読み、YAML フロントマター部分だけ取り出して title を返します。
@@ -372,48 +402,30 @@ fn extract_toc_html(body: &str) -> String {
 
 #[cfg(test)]
 mod test {
-    use super::split_front_matter;
+    use super::assign_header_ids;
 
     #[test]
-    fn splits_lf_document() {
-        let src = "---\ntitle: a\n---\n\n## 見出し\n";
+    fn numbers_headings_by_level() {
+        let body = "<h2>a</h2><h3>b</h3><h3>c</h3><h2>d</h2>";
         assert_eq!(
-            split_front_matter(src).unwrap(),
-            ("title: a\n", "\n## 見出し\n")
+            assign_header_ids(body),
+            r#"<h2 id="1">a</h2><h3 id="1.1">b</h3><h3 id="1.2">c</h3><h2 id="2">d</h2>"#
         );
     }
 
     #[test]
-    fn splits_crlf_document() {
-        let src = "---\r\ntitle: a\r\n---\r\n\r\n## 見出し\r\n";
+    fn skips_h1_in_the_id() {
+        // h1 はページタイトル用なので番号に含めない
+        let body = "<h1>title</h1><h2>a</h2>";
         assert_eq!(
-            split_front_matter(src).unwrap(),
-            ("title: a\r\n", "\r\n## 見出し\r\n")
+            assign_header_ids(body),
+            r#"<h1 id="">title</h1><h2 id="1">a</h2>"#
         );
     }
 
     #[test]
-    fn accepts_document_without_body() {
-        let src = "---\ntitle: a\n---";
-        assert_eq!(split_front_matter(src).unwrap(), ("title: a\n", ""));
-    }
-
-    #[test]
-    fn rejects_document_without_header() {
-        assert!(split_front_matter("## 見出し\n").is_err());
-    }
-
-    #[test]
-    fn rejects_unclosed_header() {
-        assert!(split_front_matter("---\ntitle: a\n").is_err());
-    }
-
-    #[test]
-    fn does_not_split_at_thematic_break_in_body() {
-        // 本文中の区切り線を終端と誤認しないこと (終端は最初の --- 行)
-        let src = "---\ntitle: a\n---\n\n本文\n\n---\n\n続き\n";
-        let (yaml, body) = split_front_matter(src).unwrap();
-        assert_eq!(yaml, "title: a\n");
-        assert!(body.contains("続き"));
+    fn leaves_body_without_headings() {
+        let body = "<p>本文</p>";
+        assert_eq!(assign_header_ids(body), body);
     }
 }

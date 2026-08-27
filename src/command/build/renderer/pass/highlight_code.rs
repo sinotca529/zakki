@@ -1,42 +1,47 @@
-use super::{escape_html_text, raw_html};
+use super::escape_html_text;
 use crate::command::build::renderer::context::Context;
 use anyhow::Result;
-use jotdown::{Container, Event};
+use comrak::nodes::{AstNode, NodeHtmlBlock, NodeValue};
 use regex::Regex;
 use serde::Deserialize;
 use std::borrow::Cow;
 
 /// コードブロックの中身に、記事で指定された区切り文字のスタイルを適用します。
-pub fn highlight_code<'a>(events: &mut Vec<Event<'a>>, ctxt: &mut Context) -> Result<()> {
+///
+/// スタイルは `<span>` として埋め込むため、コードブロックごと
+/// 生の HTML に置き換えます。
+pub fn highlight_code<'a>(root: &'a AstNode<'a>, ctxt: &mut Context) -> Result<()> {
     let Ok(macros) = ctxt.highlights() else {
         return Ok(());
     };
 
-    let mut out = Vec::with_capacity(events.len());
-    let mut is_code_block = false;
+    let targets: Vec<_> = root
+        .descendants()
+        .filter_map(|node| match &node.data().value {
+            NodeValue::CodeBlock(code) => Some((node, code.info.clone(), code.literal.clone())),
+            _ => None,
+        })
+        .collect();
 
-    for e in events.drain(..) {
-        match e {
-            Event::Start(Container::CodeBlock { .. }, _) => {
-                is_code_block = true;
-                out.push(e);
-            }
-            Event::End(Container::CodeBlock { .. }) => {
-                is_code_block = false;
-                out.push(e);
-            }
-            Event::Str(ref s) if is_code_block => {
-                let mut code = escape_html_text(s);
-                for m in macros {
-                    code = m.replace_all(&code).to_string();
-                }
-                out.extend(raw_html(code));
-            }
-            _ => out.push(e),
+    for (node, info, literal) in targets {
+        let mut code = escape_html_text(&literal);
+        for m in macros {
+            code = m.replace_all(&code).to_string();
         }
+
+        let class = info
+            .split_whitespace()
+            .next()
+            .filter(|lang| !lang.is_empty())
+            .map(|lang| format!(r#" class="language-{}""#, escape_html_text(lang)))
+            .unwrap_or_default();
+
+        node.data_mut().value = NodeValue::HtmlBlock(NodeHtmlBlock {
+            block_type: 0,
+            literal: format!("<pre><code{class}>{code}</code></pre>"),
+        });
     }
 
-    *events = out;
     Ok(())
 }
 

@@ -1,54 +1,52 @@
-use super::{attrs_to_html, raw_html};
-use crate::command::build::renderer::context::Context;
-use jotdown::{Container, Event};
+use super::{escape_html_attr, text_of};
+use comrak::nodes::{AstNode, NodeValue};
 
 /// 画像を `<figure>` で囲み、alt テキストを `<figcaption>` にします。
-pub fn convert_image<'a>(events: &mut Vec<Event<'a>>, _ctxt: &mut Context) -> anyhow::Result<()> {
-    let mut out = Vec::with_capacity(events.len());
-    let mut url: Option<String> = None;
-    let mut attrs_html = String::new();
-    let mut alt = String::new();
-
-    for e in events.drain(..) {
-        match e {
-            Event::Start(Container::Image(u, _), attrs) => {
-                url = Some(u.into_owned());
-                attrs_html = attrs_to_html(&attrs);
-                alt.clear();
+pub fn convert_image<'a>(root: &'a AstNode<'a>) -> anyhow::Result<()> {
+    let targets: Vec<_> = root
+        .descendants()
+        .filter_map(|node| match &node.data().value {
+            NodeValue::Image(link) => {
+                Some((node, link.url.clone(), link.title.clone(), text_of(node)))
             }
-            Event::Str(ref s) if url.is_some() => alt.push_str(s),
-            Event::End(Container::Image(..)) => {
-                let url = url.take().unwrap();
-                let attrs_html = std::mem::take(&mut attrs_html);
-                let alt = (!alt.is_empty()).then(|| std::mem::take(&mut alt));
+            _ => None,
+        })
+        .collect();
 
-                let img_tag = make_image_tag(&url, &alt, &attrs_html);
-                let figcaption_tag = alt
-                    .as_ref()
-                    .map(|alt| format!(r#"<figcaption>{}</figcaption>"#, alt))
-                    .unwrap_or_default();
+    for (node, url, title, alt) in targets {
+        let alt = (!alt.is_empty()).then_some(alt);
 
-                out.extend(raw_html(format!(
-                    r#"<figure><div class="zakki-scroll">{img_tag}</div>{figcaption_tag}</figure>"#
-                )));
-            }
-            _ => out.push(e),
-        }
+        let img_tag = make_image_tag(&url, &alt, &title);
+        let figcaption_tag = alt
+            .as_ref()
+            .map(|alt| format!(r#"<figcaption>{}</figcaption>"#, alt))
+            .unwrap_or_default();
+
+        // 子ノード (alt テキスト) は figure に取り込んだので取り除く
+        node.children().for_each(|child| child.detach());
+        node.data_mut().value = NodeValue::HtmlInline(format!(
+            r#"<figure><div class="zakki-scroll">{img_tag}</div>{figcaption_tag}</figure>"#
+        ));
     }
 
-    *events = out;
     Ok(())
 }
 
-fn make_image_tag(url: &str, alt: &Option<String>, attrs_html: &str) -> String {
+fn make_image_tag(url: &str, alt: &Option<String>, title: &str) -> String {
     if url.ends_with(".svg") {
-        return format!(r#"<object type="image/svg+xml" data="{url}"{attrs_html}></object>"#);
+        return format!(r#"<object type="image/svg+xml" data="{url}"></object>"#);
     }
 
     let alt_attr = alt
         .as_ref()
-        .map(|t| format!(r#" alt="{}""#, t))
+        .map(|t| format!(r#" alt="{}""#, escape_html_attr(t)))
         .unwrap_or_default();
 
-    format!(r#"<img loading="lazy" src="{url}"{alt_attr}{attrs_html}/>"#)
+    let title_attr = if title.is_empty() {
+        String::new()
+    } else {
+        format!(r#" title="{}""#, escape_html_attr(title))
+    };
+
+    format!(r#"<img loading="lazy" src="{url}"{alt_attr}{title_attr}/>"#)
 }
