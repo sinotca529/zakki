@@ -1,4 +1,4 @@
-use super::{escape_html_attr, text_of};
+use super::{escape_html_attr, escape_html_text, text_of};
 use comrak::nodes::{AstNode, NodeValue};
 
 /// 画像を `<figure>` で囲み、alt テキストを `<figcaption>` にします。
@@ -47,7 +47,7 @@ fn make_figure_tag(url: &str, alt: &str, title: &str) -> String {
 
     let figcaption_tag = alt
         .as_ref()
-        .map(|alt| format!(r#"<figcaption>{}</figcaption>"#, escape_html_attr(alt)))
+        .map(|alt| format!(r#"<figcaption>{}</figcaption>"#, escape_html_text(alt)))
         .unwrap_or_default();
 
     format!(r#"<figure><div class="zakki-scroll">{img_tag}</div>{figcaption_tag}</figure>"#)
