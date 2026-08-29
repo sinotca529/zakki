@@ -19,7 +19,7 @@ pub fn convert_image<'a>(root: &'a AstNode<'a>) -> anyhow::Result<()> {
         let img_tag = make_image_tag(&url, &alt, &title);
         let figcaption_tag = alt
             .as_ref()
-            .map(|alt| format!(r#"<figcaption>{}</figcaption>"#, alt))
+            .map(|alt| format!(r#"<figcaption>{}</figcaption>"#, escape_html_attr(alt)))
             .unwrap_or_default();
 
         // 子ノード (alt テキスト) は figure に取り込んだので取り除く
