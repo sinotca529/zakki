@@ -16,11 +16,7 @@ pub fn adjust_link<'a>(
     ctx: &mut Context,
     title_map: &HashMap<PathBuf, String>,
 ) -> anyhow::Result<()> {
-    let src_dir = ctx
-        .src_path()?
-        .parent()
-        .unwrap_or(Path::new(""))
-        .to_owned();
+    let src_dir = ctx.src_path()?.parent().unwrap_or(Path::new("")).to_owned();
 
     let links: Vec<_> = root
         .descendants()
