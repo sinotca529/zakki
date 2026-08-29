@@ -33,6 +33,7 @@ pub fn convert_image<'a>(root: &'a AstNode<'a>) -> anyhow::Result<()> {
 }
 
 fn make_image_tag(url: &str, alt: &Option<String>, title: &str) -> String {
+    // 文字列を選択できるようにするため、 SVG は object ノードで囲む
     if url.ends_with(".svg") {
         return format!(r#"<object type="image/svg+xml" data="{url}"></object>"#);
     }

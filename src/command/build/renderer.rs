@@ -30,16 +30,16 @@ impl<'a> Renderer<'a> {
         Self { config, title_map }
     }
 
-    pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Context>> {
-        let src = src.as_ref();
-        if !src.extension_is("md") {
-            util::copy_file(src, dst_path_of(src)?)?;
+    pub fn render(&self, src_path: impl AsRef<Path>) -> Result<Option<Context>> {
+        let src_path = src_path.as_ref();
+        if !src_path.extension_is("md") {
+            util::copy_file(src_path, dst_path_of(src_path)?)?;
             return Ok(None);
         }
 
-        let raw_src = std::fs::read_to_string(src)?;
-        let dst_path = dst_path_of(src)?;
-        let Some((html, meta)) = self.md_to_html(&raw_src, src, dst_path.clone())? else {
+        let content = std::fs::read_to_string(src_path)?;
+        let dst_path = dst_path_of(src_path)?;
+        let Some((html, meta)) = self.md_to_html(&content, src_path, dst_path.clone())? else {
             return Ok(None);
         };
 
@@ -144,7 +144,7 @@ impl<'a> Renderer<'a> {
     /// ドラフト記事であり、ドラフトを描画しない設定の場合は `None` を返します。
     fn md_to_html(
         &self,
-        src: &str,
+        content: &str,
         src_path: &Path,
         dst_path: PathBuf,
     ) -> Result<Option<(String, Context)>> {
@@ -161,18 +161,10 @@ impl<'a> Renderer<'a> {
         ctxt.set_dst_rel_path(dst_rel_path.to_owned());
         ctxt.set_src_path(src_path.to_owned());
 
-        // タイトルを title_map から設定する
-        let title = self
-            .title_map
-            .get(src_path)
-            .with_context(|| anyhow!("タイトルが見つかりません: {}", src_path.display()))?
-            .clone();
-        ctxt.set_title(title);
-
         // Markdown を AST に変換
         let arena = Arena::new();
         let options = markdown_options();
-        let root = parse_document(&arena, src, &options);
+        let root = parse_document(&arena, content, &options);
 
         // AST に対してパスを適用
         pass::read_header(root, &mut ctxt)?;

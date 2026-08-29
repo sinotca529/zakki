@@ -4,7 +4,7 @@ use comrak::nodes::{AstNode, NodeValue};
 use serde::Deserialize;
 
 /// YAML フロントマターを読み、メタデータを Context に設定します。
-pub fn read_header<'a>(root: &'a AstNode<'a>, meta: &mut Context) -> anyhow::Result<()> {
+pub fn read_header<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Result<()> {
     let front_matter = root
         .descendants()
         .find_map(|node| match &node.data().value {
@@ -17,14 +17,15 @@ pub fn read_header<'a>(root: &'a AstNode<'a>, meta: &mut Context) -> anyhow::Res
     };
 
     let header: YamlHeader = serde_yaml::from_str(&strip_delimiters(&front_matter))?;
-    meta.set_create_date(header.create_date);
-    meta.set_last_update_date(header.last_update_date);
-    meta.set_tags(header.tags);
+    ctx.set_create_date(header.create_date);
+    ctx.set_last_update_date(header.last_update_date);
+    ctx.set_title(header.title);
+    ctx.set_tags(header.tags);
     if let Some(h) = header.highlights {
-        meta.set_highlights(h);
+        ctx.set_highlights(h);
     }
     if let Some(pwd) = header.password {
-        meta.set_password(pwd);
+        ctx.set_password(pwd);
     }
 
     Ok(())
@@ -48,6 +49,9 @@ struct YamlHeader {
     /// 記事の最終更新日
     #[serde(rename = "update")]
     pub last_update_date: String,
+
+    /// 記事のタイトル
+    pub title: String,
 
     /// 記事につけられたタグ
     #[serde(default)]

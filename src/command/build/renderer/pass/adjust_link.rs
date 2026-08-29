@@ -22,8 +22,6 @@ pub fn adjust_link<'a>(
         .unwrap_or(Path::new(""))
         .to_owned();
 
-    let is_local = |url: &str| !url.starts_with("http://") && !url.starts_with("https://");
-
     let links: Vec<_> = root
         .descendants()
         .filter_map(|node| match &node.data().value {
@@ -35,7 +33,7 @@ pub fn adjust_link<'a>(
 
     for (node, url, is_wiki) in links {
         // ウィキリンクとリンク文字列が空のリンクは、リンク先の記事のタイトルで埋める
-        let fill_title = is_local(&url) && (is_wiki || text_of(node).is_empty());
+        let fill_title = is_local_url(&url) && (is_wiki || text_of(node).is_empty());
         if let Some(title) = fill_title
             .then(|| title_map.get(&src_dir.join(&url)))
             .flatten()
@@ -46,7 +44,7 @@ pub fn adjust_link<'a>(
         }
 
         let html_url = match url.strip_suffix(".md") {
-            Some(stem) if is_local(&url) => format!("{stem}.html"),
+            Some(stem) if is_local_url(&url) => format!("{stem}.html"),
             _ => url,
         };
 
@@ -64,4 +62,8 @@ pub fn adjust_link<'a>(
     }
 
     Ok(())
+}
+
+fn is_local_url(url: &str) -> bool {
+    !url.starts_with("http://") && !url.starts_with("https://")
 }
