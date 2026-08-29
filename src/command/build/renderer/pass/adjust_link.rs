@@ -1,3 +1,4 @@
+use super::text_of;
 use crate::command::build::renderer::context::Context;
 use anyhow::anyhow;
 use comrak::Arena;
@@ -42,7 +43,10 @@ pub fn adjust_link<'a>(
         }
 
         // url の末尾は html に変更する
-        let html_url = format!("{}.html", url.strip_suffix(".md").unwrap());
+        let url_stem = url
+            .strip_suffix(".md")
+            .expect("is_local_md_url を満たす url のみが到達するため、末尾は必ず .md である");
+        let html_url = format!("{url_stem}.html");
 
         // ウィキリンクも通常のリンクとして描画する
         let mut data = node.data_mut();
