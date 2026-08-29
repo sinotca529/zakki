@@ -29,15 +29,15 @@ pub fn adjust_link<'a>(
         })
         .collect();
 
-    for (node, url, has_title) in md_links {
-        // タイトル未指定の場合 (ウィキリンクを含む) は、リンク先の記事のタイトルで埋める
-        if !has_title {
-            let title = title_map
-                .get(&src_dir.join(&url))
-                .ok_or(anyhow!("リンク先の記事が存在しません : {}", url))?;
+    for (node, url, title_is_specified) in md_links {
+        let link_title = title_map
+            .get(&src_dir.join(&url))
+            .ok_or_else(|| anyhow!("リンク先の記事が存在しません : {}", url))?;
 
+        // タイトル未指定の場合 (ウィキリンクを含む) は、リンク先の記事のタイトルで埋める
+        if !title_is_specified {
             node.children().for_each(|child| child.detach());
-            let text = NodeValue::Text(title.clone().into());
+            let text = NodeValue::Text(link_title.clone().into());
             node.append(arena.alloc(AstNode::from(text)));
         }
 
