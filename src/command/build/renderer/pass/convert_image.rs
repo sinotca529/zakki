@@ -29,17 +29,17 @@ fn make_figure_tag(url: &str, alt: &str, title: &str) -> String {
     let alt = (!alt.is_empty()).then_some(alt);
     let title = (!title.is_empty()).then_some(title);
 
+    let title_attr = title
+        .map(|title| format!(r#" title="{}""#, escape_html_attr(title)))
+        .unwrap_or_default();
+
     let img_tag = if url.ends_with(".svg") {
         // 文字列を選択できるようにするため、 SVG は object ノードで囲む
-        format!(r#"<object type="image/svg+xml" data="{url}"></object>"#)
+        format!(r#"<object type="image/svg+xml" data="{url}"{title_attr}></object>"#)
     } else {
         let alt_attr = alt
             .as_ref()
             .map(|t| format!(r#" alt="{}""#, escape_html_attr(t)))
-            .unwrap_or_default();
-
-        let title_attr = title
-            .map(|title| format!(r#" title="{}""#, escape_html_attr(title)))
             .unwrap_or_default();
 
         format!(r#"<img loading="lazy" src="{url}"{alt_attr}{title_attr}/>"#)
