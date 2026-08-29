@@ -20,6 +20,7 @@ pub fn build(render_draft: bool) -> Result<()> {
     super::clean::clean()?;
 
     let files = zakki_src_dir()?.descendants_file_paths()?;
+    // Wikilink のタイトルを書くため、全記事のタイトルを先んじて取得する。
     let title_map = collect_titles(&files)?;
     let renderer = Renderer::new(&cfg, &title_map);
 
