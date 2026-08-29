@@ -15,7 +15,7 @@ pub fn read_header<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Resu
         });
 
     let Some(front_matter) = front_matter else {
-        anyhow::bail!("yaml ヘッダーがありません。記事の先頭を '---' で初めてください。")
+        anyhow::bail!("記事は yaml ヘッダーで始めてください")
     };
 
     let front_matter_body = front_matter
