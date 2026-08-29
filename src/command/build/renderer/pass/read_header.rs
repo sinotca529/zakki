@@ -5,6 +5,7 @@ use serde::Deserialize;
 
 /// YAML フロントマターを読み、メタデータを Context に設定します。
 pub fn read_header<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Result<()> {
+    // 区切り ('---') を含むヘッダ文字列
     let front_matter = root
         .descendants()
         .find_map(|node| match &node.data().value {
@@ -16,7 +17,7 @@ pub fn read_header<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Resu
         anyhow::bail!("Yaml header is not existing.")
     };
 
-    let header: YamlHeader = serde_yaml::from_str(&strip_delimiters(&front_matter))?;
+    let header: YamlHeader = serde_yaml::from_str(strip_delimiters(&front_matter))?;
     ctx.set_create_date(header.create_date);
     ctx.set_last_update_date(header.last_update_date);
     ctx.set_title(header.title);
@@ -31,15 +32,18 @@ pub fn read_header<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Resu
     Ok(())
 }
 
-/// フロントマターのノードは区切りの `---` を含むため、それを取り除きます。
-/// 改行は LF と CRLF のどちらでも構いません。
-fn strip_delimiters(front_matter: &str) -> String {
-    front_matter
-        .lines()
-        .filter(|line| line.trim_end_matches(['\r', '\n']) != "---")
-        .collect::<Vec<_>>()
-        .join("\n")
+/// 先頭行と末尾行を除いた行を返します。
+/// Yaml ヘッダの区切り行 (`---`) の除去に利用します。
+fn strip_delimiters(front_matter: &str) -> &str {
+    let start = front_matter.find('\n').unwrap() + 1;
+    let end = front_matter
+        .rfind('\r')
+        .or(front_matter.rfind('\n'))
+        .unwrap();
+
+    &front_matter[start..end]
 }
+
 #[derive(Deserialize, Debug)]
 struct YamlHeader {
     /// 記事の作成日
