@@ -1,4 +1,3 @@
-use super::text_of;
 use crate::command::build::renderer::context::Context;
 use anyhow::anyhow;
 use comrak::Arena;
@@ -23,16 +22,16 @@ pub fn adjust_link<'a>(
         .descendants()
         .filter_map(|node| match &node.data().value {
             NodeValue::Link(link) if is_local_md_url(&link.url) => {
-                Some((node, link.url.clone(), text_of(node)))
+                Some((node, link.url.clone(), node.first_child().is_some()))
             }
-            NodeValue::WikiLink(link) => Some((node, link.url.clone(), String::new())),
+            NodeValue::WikiLink(link) => Some((node, link.url.clone(), false)),
             _ => None,
         })
         .collect();
 
-    for (node, url, title) in md_links {
+    for (node, url, has_title) in md_links {
         // タイトル未指定の場合 (ウィキリンクを含む) は、リンク先の記事のタイトルで埋める
-        if title.is_empty() {
+        if !has_title {
             let title = title_map
                 .get(&src_dir.join(&url))
                 .ok_or(anyhow!("リンク先の記事が存在しません : {}", url))?;
