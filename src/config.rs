@@ -47,7 +47,7 @@ impl FileConfig {
             .find(|f| f == "zakki.toml");
 
         let Some(cfg) = cfg else {
-            bail!("zakki.toml is not found.");
+            bail!("zakki.toml が見つかりませんでした");
         };
 
         let cfg = std::fs::read(cfg)?;

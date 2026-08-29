@@ -14,7 +14,7 @@ pub fn read_header<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Resu
         });
 
     let Some(front_matter) = front_matter else {
-        anyhow::bail!("Yaml header is not existing.")
+        anyhow::bail!("yaml ヘッダーがありません。記事の先頭を '---' で初めてください。")
     };
 
     let header: YamlHeader = serde_yaml::from_str(strip_delimiters(&front_matter))?;

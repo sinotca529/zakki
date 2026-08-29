@@ -17,7 +17,7 @@ static ZAKKI_ROOT_DIR: LazyLock<Result<PathBuf>> = LazyLock::new(|| {
         dir = d.parent();
     }
 
-    bail!("Failed to detect zakki root.");
+    bail!("このディレクトリは zakki 用のものではありません");
 });
 
 static ZAKKI_SRC_DIR: LazyLock<Result<PathBuf>> =
