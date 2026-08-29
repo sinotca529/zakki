@@ -13,10 +13,10 @@ use std::path::{Path, PathBuf};
 pub fn adjust_link<'a>(
     arena: &'a Arena<'a>,
     root: &'a AstNode<'a>,
-    ctxt: &mut Context,
+    ctx: &mut Context,
     title_map: &HashMap<PathBuf, String>,
 ) -> anyhow::Result<()> {
-    let src_dir = ctxt
+    let src_dir = ctx
         .src_path()?
         .parent()
         .unwrap_or(Path::new(""))

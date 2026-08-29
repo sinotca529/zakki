@@ -52,7 +52,7 @@ impl<'a> Renderer<'a> {
         &self,
         root: &'n AstNode<'n>,
         options: &Options,
-        ctxt: &Context,
+        ctx: &Context,
     ) -> Result<String> {
         let body = {
             let mut buf = String::new();
@@ -60,7 +60,7 @@ impl<'a> Renderer<'a> {
             assign_header_ids(&buf)
         };
 
-        let path_to_root = ctxt
+        let path_to_root = ctx
             .dst_rel_path()?
             .parent()
             .unwrap()
@@ -71,32 +71,32 @@ impl<'a> Renderer<'a> {
             .css_list()
             .iter()
             .map(String::as_str)
-            .chain(ctxt.css_list().iter().map(String::as_str));
+            .chain(ctx.css_list().iter().map(String::as_str));
 
         let js_list = self
             .config
             .js_list()
             .iter()
             .map(String::as_str)
-            .chain(ctxt.js_list().iter().map(String::as_str));
+            .chain(ctx.js_list().iter().map(String::as_str));
 
         let toc = extract_toc_html(&body);
         let article = format!("{}<div id=\"main-content\">{}</div>", toc, body);
 
-        let html = if ctxt.to_encrypt {
-            let password = ctxt.password()?;
+        let html = if ctx.to_encrypt {
+            let password = ctx.password()?;
             let cypher = util::encode_with_password(password, article.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);
 
             crypto_html(
                 &path_to_root,
                 self.config.site_name(),
-                ctxt.title()?,
-                ctxt.create_date()?,
-                ctxt.last_update_date()?,
+                ctx.title()?,
+                ctx.create_date()?,
+                ctx.last_update_date()?,
                 css_list,
                 js_list,
-                ctxt.tags()?,
+                ctx.tags()?,
                 &encoded,
                 self.config.footer(),
             )
@@ -104,12 +104,12 @@ impl<'a> Renderer<'a> {
             page_html(
                 &path_to_root,
                 self.config.site_name(),
-                ctxt.title()?,
-                ctxt.create_date()?,
-                ctxt.last_update_date()?,
+                ctx.title()?,
+                ctx.create_date()?,
+                ctx.last_update_date()?,
                 css_list,
                 js_list,
-                ctxt.tags()?,
+                ctx.tags()?,
                 &article,
                 self.config.footer(),
             )
@@ -148,18 +148,18 @@ impl<'a> Renderer<'a> {
         src_path: &Path,
         dst_path: PathBuf,
     ) -> Result<Option<(String, Context)>> {
-        let mut ctxt = Context::default();
+        let mut ctx = Context::default();
         if let Some(password) = self.config.password() {
-            ctxt.set_password(password.clone());
+            ctx.set_password(password.clone());
         }
 
         let dst_rel_path = dst_path.strip_prefix(zakki_dst_dir()?).unwrap();
-        ctxt.is_draft = dst_rel_path.starts_with("draft/");
-        ctxt.to_encrypt = dst_rel_path.starts_with("private/");
-        ctxt.is_sub =
+        ctx.is_draft = dst_rel_path.starts_with("draft/");
+        ctx.to_encrypt = dst_rel_path.starts_with("private/");
+        ctx.is_sub =
             !dst_rel_path.ends_with("index.html") && dst_rel_path.components().count() >= 3;
-        ctxt.set_dst_rel_path(dst_rel_path.to_owned());
-        ctxt.set_src_path(src_path.to_owned());
+        ctx.set_dst_rel_path(dst_rel_path.to_owned());
+        ctx.set_src_path(src_path.to_owned());
 
         // Markdown を AST に変換
         let arena = Arena::new();
@@ -167,27 +167,27 @@ impl<'a> Renderer<'a> {
         let root = parse_document(&arena, content, &options);
 
         // AST に対してパスを適用
-        pass::read_header(root, &mut ctxt)?;
+        pass::read_header(root, &mut ctx)?;
 
-        if !self.config.render_draft() && ctxt.is_draft {
+        if !self.config.render_draft() && ctx.is_draft {
             return Ok(None);
         }
 
-        pass::adjust_link(&arena, root, &mut ctxt, self.title_map)?;
+        pass::adjust_link(&arena, root, &mut ctx, self.title_map)?;
         pass::convert_image(root)?;
         pass::add_code_caption(&arena, root)?;
-        pass::highlight_code(root, &mut ctxt)?;
-        pass::convert_math(root, &mut ctxt)?;
+        pass::highlight_code(root, &mut ctx)?;
+        pass::convert_math(root, &mut ctx)?;
         pass::wrap_table(&arena, root)?;
 
         // AST を HTML に変換
-        let html = self.render_page(root, &options, &ctxt)?;
+        let html = self.render_page(root, &options, &ctx)?;
 
         // HTML に対してパスを適用
         let filter = self.make_bloom_filter(&html)?;
-        ctxt.set_bloom_filter(filter);
+        ctx.set_bloom_filter(filter);
 
-        Ok(Some((html, ctxt)))
+        Ok(Some((html, ctx)))
     }
 
     pub fn render_index(&self, metadatas: &[Metadata]) -> Result<()> {

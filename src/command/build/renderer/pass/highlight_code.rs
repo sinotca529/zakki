@@ -10,8 +10,8 @@ use std::borrow::Cow;
 ///
 /// スタイルは `<span>` として埋め込むため、コードブロックごと
 /// 生の HTML に置き換えます。
-pub fn highlight_code<'a>(root: &'a AstNode<'a>, ctxt: &mut Context) -> Result<()> {
-    let Ok(macros) = ctxt.highlights() else {
+pub fn highlight_code<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> Result<()> {
+    let Ok(macros) = ctx.highlights() else {
         return Ok(());
     };
 

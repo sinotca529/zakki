@@ -3,7 +3,7 @@ use anyhow::Context as _;
 use comrak::nodes::{AstNode, NodeValue};
 
 /// 数式を KaTeX でレンダリング済みの HTML に置き換えます。
-pub fn convert_math<'a>(root: &'a AstNode<'a>, ctxt: &mut Context) -> anyhow::Result<()> {
+pub fn convert_math<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Result<()> {
     let opts_display = katex::Opts::builder()
         .output_type(katex::opts::OutputType::Html)
         .display_mode(true)
@@ -36,7 +36,7 @@ pub fn convert_math<'a>(root: &'a AstNode<'a>, ctxt: &mut Context) -> anyhow::Re
     }
 
     if math_used {
-        ctxt.push_css_path("katex/katex.min.css");
+        ctx.push_css_path("katex/katex.min.css");
     }
 
     Ok(())
