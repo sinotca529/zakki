@@ -24,7 +24,7 @@ pub fn adjust_link<'a>(
             NodeValue::Link(link) if is_local_md_url(&link.url) => {
                 Some((node, link.url.clone(), node.first_child().is_some()))
             }
-            NodeValue::WikiLink(link) => Some((node, link.url.clone(), false)),
+            NodeValue::WikiLink(link) => Some((node, link.url.clone(), text_of(node) != link.url)),
             _ => None,
         })
         .collect();
