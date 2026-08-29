@@ -22,7 +22,7 @@ pub fn read_header<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Resu
         .trim_end()
         .strip_prefix("---")
         .and_then(|s| s.strip_suffix("---"))
-        .with_context(|| "yaml ヘッダーは --- で開始・終了する必要があります")?;
+        .context("yaml ヘッダーは --- で開始・終了する必要があります")?;
 
     let header: YamlHeader = serde_yaml::from_str(front_matter_body)?;
 
