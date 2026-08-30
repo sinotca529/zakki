@@ -1,5 +1,5 @@
 use super::HighlightRule;
-use crate::command::build::renderer::context::Context;
+use crate::command::build::renderer::{FRONT_MATTER_DELIMITER, context::Context};
 use anyhow::Context as _;
 use comrak::nodes::{AstNode, NodeValue};
 use serde::Deserialize;
@@ -20,8 +20,8 @@ pub fn read_header<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Resu
 
     let front_matter_body = front_matter
         .trim_end()
-        .strip_prefix("---")
-        .and_then(|s| s.strip_suffix("---"))
+        .strip_prefix(FRONT_MATTER_DELIMITER)
+        .and_then(|s| s.strip_suffix(FRONT_MATTER_DELIMITER))
         .context("yaml ヘッダーは --- で開始・終了する必要があります")?;
 
     let header: YamlHeader = serde_yaml::from_str(front_matter_body)?;
