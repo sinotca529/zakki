@@ -14,7 +14,8 @@ pub trait PathExt {
     /// ディレクトリ直下に file_name のファイルを持つか確かめます
     fn has_file(&self, file_name: &str) -> std::io::Result<bool>;
 
-    /// `.` と `..` を解決したパスを返します
+    /// `.` と `..` を解決したパスを返します。
+    /// ファイルの存在確認やリンクの解決は行わず、パスの変換のみ実施します。
     fn normalized(&self) -> PathBuf;
 }
 
