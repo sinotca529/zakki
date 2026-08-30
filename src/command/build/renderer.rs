@@ -19,6 +19,8 @@ use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+const FRONT_MATTER_DELIMITER: &str = "---";
+
 pub struct Renderer<'a> {
     config: &'a Config,
     title_map: &'a HashMap<PathBuf, String>,
@@ -259,7 +261,7 @@ fn markdown_options() -> Options<'static> {
     let mut options = Options::default();
 
     let ext = &mut options.extension;
-    ext.front_matter_delimiter = Some("---".to_owned());
+    ext.front_matter_delimiter = Some(FRONT_MATTER_DELIMITER.to_owned());
     ext.table = true;
     ext.strikethrough = true;
     ext.tasklist = true;
@@ -290,14 +292,14 @@ pub fn extract_title_from_path(path: &std::path::Path) -> Result<Option<String>>
     let mut lines = BufReader::new(file).lines();
 
     match lines.next() {
-        Some(Ok(line)) if line == "---" => {}
+        Some(Ok(line)) if line == FRONT_MATTER_DELIMITER => {}
         _ => return Ok(None),
     }
 
     let mut yaml = String::new();
     for line in lines {
         let line = line?;
-        if line == "---" {
+        if line == FRONT_MATTER_DELIMITER {
             break;
         }
         yaml.push_str(&line);
