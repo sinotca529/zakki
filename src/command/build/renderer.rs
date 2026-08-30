@@ -339,7 +339,7 @@ fn extract_toc_html(body: &str) -> String {
                 _ => 4,
             };
             let id = el.value().attr("id").unwrap_or("").to_string();
-            let inner = el.inner_html();
+            let inner = el.text().collect();
             (level, id, inner)
         })
         .collect();
@@ -361,7 +361,7 @@ fn extract_toc_html(body: &str) -> String {
             html.push("</li><li>".to_string());
         }
         // リンクを追加
-        html.push(format!("<a href=\"#{}\">{}</a>", id, inner));
+        html.push(format!("<a href=\"#{id}\">{inner}</a>"));
         prev_level = *level;
     }
     // 閉じる
