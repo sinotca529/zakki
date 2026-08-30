@@ -14,7 +14,6 @@ use context::Context;
 use context::Metadata;
 use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_html};
 use itertools::Itertools;
-use regex::Regex;
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
@@ -57,7 +56,7 @@ impl<'a> Renderer<'a> {
         let body = {
             let mut buf = String::new();
             format_html(root, options, &mut buf)?;
-            assign_header_ids(&buf)
+            buf
         };
 
         let path_to_root = ctx
@@ -273,33 +272,13 @@ fn markdown_options() -> Options<'static> {
     ext.math_dollars = true;
     ext.wikilinks_title_after_pipe = true;
 
+    ext.header_id_prefix = Some("".to_string());
+    ext.header_id_prefix_in_href = true;
+
     // パスが差し込む HTML を出力するために必要
     options.render.r#unsafe = true;
 
     options
-}
-
-/// 見出しに階層番号の id を振ります。
-///
-/// 目次のリンク先になるため、目次生成と同じく HTML の段階で行います。
-fn assign_header_ids(body: &str) -> String {
-    let pattern = Regex::new("<h([1-6])>").unwrap();
-    let mut counter = [0; 6];
-
-    pattern
-        .replace_all(body, |caps: &regex::Captures| {
-            let level: usize = caps[1].parse().unwrap();
-            counter.iter_mut().skip(level).for_each(|c| *c = 0);
-            counter[level - 1] += 1;
-            let id = counter[1..]
-                .iter()
-                .take_while(|&&c| c > 0)
-                .map(|c| c.to_string())
-                .collect::<Vec<_>>()
-                .join(".");
-            format!(r#"<h{level} id="{id}">"#)
-        })
-        .into_owned()
 }
 
 /// ファイルを BufReader で読み、YAML フロントマター部分だけ取り出して title を返します。
@@ -390,34 +369,4 @@ fn extract_toc_html(body: &str) -> String {
         "<details id=\"toc\"><summary>目次</summary>{}</details>",
         html.join("")
     )
-}
-
-#[cfg(test)]
-mod test {
-    use super::assign_header_ids;
-
-    #[test]
-    fn numbers_headings_by_level() {
-        let body = "<h2>a</h2><h3>b</h3><h3>c</h3><h2>d</h2>";
-        assert_eq!(
-            assign_header_ids(body),
-            r#"<h2 id="1">a</h2><h3 id="1.1">b</h3><h3 id="1.2">c</h3><h2 id="2">d</h2>"#
-        );
-    }
-
-    #[test]
-    fn skips_h1_in_the_id() {
-        // h1 はページタイトル用なので番号に含めない
-        let body = "<h1>title</h1><h2>a</h2>";
-        assert_eq!(
-            assign_header_ids(body),
-            r#"<h1 id="">title</h1><h2 id="1">a</h2>"#
-        );
-    }
-
-    #[test]
-    fn leaves_body_without_headings() {
-        let body = "<p>本文</p>";
-        assert_eq!(assign_header_ids(body), body);
-    }
 }
