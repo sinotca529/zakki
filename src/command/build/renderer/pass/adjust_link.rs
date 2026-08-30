@@ -34,7 +34,12 @@ pub fn adjust_link<'a>(
     for (node, url, title_is_specified) in md_links {
         let link_title = title_map
             .get(&src_dir.join(&url).normalized())
-            .ok_or_else(|| anyhow!("リンク先の記事が存在しません : {}", url))?;
+            .ok_or_else(|| {
+                anyhow!(
+                    "リンク先の記事が存在しないか、タイトルが設定されていません : {}",
+                    url
+                )
+            })?;
 
         // タイトル未指定の場合 (ウィキリンクを含む) は、リンク先の記事のタイトルで埋める
         if !title_is_specified {
