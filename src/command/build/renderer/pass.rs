@@ -38,7 +38,7 @@ fn text_of<'a>(node: &'a AstNode<'a>) -> String {
 }
 
 /// HTML のテキスト内容として使えるようエスケープします。
-fn escape_html_text(text: &str) -> String {
+pub(super) fn escape_html_text(text: &str) -> String {
     text.replace('&', "&amp;").replace('<', "&lt;")
 }
 

@@ -14,6 +14,7 @@ use context::Context;
 use context::Metadata;
 use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_html};
 use itertools::Itertools;
+use pass::escape_html_text;
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
@@ -361,7 +362,11 @@ fn extract_toc_html(body: &str) -> String {
             html.push("</li><li>".to_string());
         }
         // リンクを追加
-        html.push(format!("<a href=\"#{id}\">{inner}</a>"));
+        html.push(format!(
+            "<a href=\"#{}\">{}</a>",
+            id,
+            escape_html_text(inner)
+        ));
         prev_level = *level;
     }
     // 閉じる
