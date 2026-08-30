@@ -39,12 +39,14 @@ fn text_of<'a>(node: &'a AstNode<'a>) -> String {
 
 /// HTML のテキスト内容として使えるようエスケープします。
 fn escape_html_text(text: &str) -> String {
-    text.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
+    text.replace('&', "&amp;").replace('<', "&lt;")
 }
 
 /// HTML の属性値として使えるようエスケープします。
-fn escape_html_attr(value: &str) -> String {
-    escape_html_text(value).replace('"', "&quot;")
+fn escape_html_attr(attr: &str) -> String {
+    attr.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('\'', "&apos;")
+        .replace('"', "&quot;")
 }
