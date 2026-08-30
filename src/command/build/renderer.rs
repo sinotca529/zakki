@@ -340,7 +340,9 @@ fn extract_toc_html(body: &str) -> String {
                 _ => 4,
             };
             let id = el.value().attr("id").unwrap_or("").to_string();
-            let inner = el.text().collect();
+            // 見出しに含まれる装飾やアンカーごと拾わないよう、テキストだけを取り出す。
+            // inner_html() だと comrak が挿入するアンカーの <a> が入れ子になり不都合。
+            let inner: String = el.text().collect();
             (level, id, inner)
         })
         .collect();
