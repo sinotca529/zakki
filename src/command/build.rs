@@ -55,7 +55,7 @@ fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
         }
         let title = extract_title_from_path(path).with_context(|| path.display().to_string())?;
         if let Some(title) = title {
-            map.insert(path.clone(), title);
+            map.insert(path.normalized(), title);
         }
     }
     Ok(map)

@@ -1,5 +1,6 @@
 use super::text_of;
 use crate::command::build::renderer::context::Context;
+use crate::util::PathExt as _;
 use anyhow::anyhow;
 use comrak::Arena;
 use comrak::nodes::{AstNode, NodeLink, NodeValue};
@@ -32,7 +33,7 @@ pub fn adjust_link<'a>(
 
     for (node, url, title_is_specified) in md_links {
         let link_title = title_map
-            .get(&src_dir.join(&url))
+            .get(&src_dir.join(&url).normalized())
             .ok_or_else(|| anyhow!("リンク先の記事が存在しません : {}", url))?;
 
         // タイトル未指定の場合 (ウィキリンクを含む) は、リンク先の記事のタイトルで埋める
