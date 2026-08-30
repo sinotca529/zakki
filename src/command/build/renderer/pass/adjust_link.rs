@@ -45,7 +45,7 @@ pub fn adjust_link<'a>(
         // url の末尾は html に変更する
         let url_stem = url
             .strip_suffix(".md")
-            .expect("is_local_md_url を満たす url のみが到達するため、末尾は必ず .md である");
+            .expect("title_map に対応が存在する url のみが到達するため、末尾は必ず .md である");
         let html_url = format!("{url_stem}.html");
 
         // ウィキリンクも通常のリンクとして描画する
