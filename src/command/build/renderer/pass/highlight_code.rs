@@ -1,10 +1,11 @@
+use std::borrow::Cow;
+
 use super::escape_html_text;
 use crate::command::build::renderer::{context::Context, pass::escape_html_attr};
 use anyhow::Result;
 use comrak::nodes::{AstNode, NodeHtmlBlock, NodeValue};
 use regex::Regex;
 use serde::Deserialize;
-use std::borrow::Cow;
 
 /// コードブロックの中身に、記事で指定された区切り文字のスタイルを適用します。
 ///
@@ -46,19 +47,36 @@ pub fn highlight_code<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> Result<()
 }
 
 #[derive(Clone, Deserialize, Debug)]
+struct HighlightRuleConfig {
+    pub delim: [String; 2],
+    pub style: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(try_from = "HighlightRuleConfig")]
 pub struct HighlightRule {
-    delim: [String; 2],
+    pattern: Regex,
     style: String,
+}
+
+impl TryFrom<HighlightRuleConfig> for HighlightRule {
+    type Error = regex::Error;
+
+    fn try_from(value: HighlightRuleConfig) -> Result<Self, Self::Error> {
+        let open = regex::escape(&value.delim[0]);
+        let close = regex::escape(&value.delim[1]);
+        let pattern = Regex::new(&format!("{open}(.*?){close}"))?;
+
+        Ok(Self {
+            pattern,
+            style: value.style,
+        })
+    }
 }
 
 impl HighlightRule {
     pub fn replace_all<'a>(&self, code: &'a str) -> Cow<'a, str> {
-        let start_delim = regex::escape(&self.delim[0]);
-        let end_delim = regex::escape(&self.delim[1]);
-        let Ok(pat) = Regex::new(&format!("{start_delim}(.*?){end_delim}")) else {
-            return code.into();
-        };
-
-        pat.replace_all(code, format!("<span style=\"{}\">$1</span>", self.style))
+        self.pattern
+            .replace_all(code, format!("<span style=\"{}\">$1</span>", self.style))
     }
 }

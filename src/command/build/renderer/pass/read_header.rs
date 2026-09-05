@@ -1,5 +1,6 @@
-use super::HighlightRule;
-use crate::command::build::renderer::{FRONT_MATTER_DELIMITER, context::Context};
+use crate::command::build::renderer::{
+    FRONT_MATTER_DELIMITER, context::Context, pass::HighlightRule,
+};
 use anyhow::Context as _;
 use comrak::nodes::{AstNode, NodeValue};
 use serde::Deserialize;
