@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 pub trait PathExt {
     /// 拡張子が ext かどうかを確認します。
@@ -13,6 +13,10 @@ pub trait PathExt {
 
     /// ディレクトリ直下に file_name のファイルを持つか確かめます
     fn has_file(&self, file_name: &str) -> std::io::Result<bool>;
+
+    /// `.` と `..` を解決したパスを返します。
+    /// ファイルの存在確認やリンクの解決は行わず、パスの変換のみ実施します。
+    fn normalized(&self) -> PathBuf;
 }
 
 impl PathExt for Path {
@@ -48,5 +52,19 @@ impl PathExt for Path {
         Ok(std::fs::read_dir(self)?
             .filter_map(|f| f.ok())
             .any(|f| f.file_name() == file_name))
+    }
+
+    fn normalized(&self) -> PathBuf {
+        let mut out = PathBuf::new();
+        for c in self.components() {
+            match c {
+                Component::ParentDir => {
+                    out.pop();
+                }
+                Component::CurDir => {}
+                c => out.push(c),
+            }
+        }
+        out
     }
 }

@@ -1,22 +1,29 @@
 pub mod context;
+mod heading_id;
 mod html_template;
 mod pass;
 
+use crate::command::build::renderer::heading_id::NumberedHeadings;
 use crate::copy_asset;
 use crate::path::{dst_path_of, zakki_dst_dir};
 use crate::util::{BloomFilter, PathExt as _};
 use crate::{config::Config, util};
 use anyhow::{Context as _, Result, anyhow};
 use base64::{Engine, prelude::BASE64_STANDARD};
+use comrak::nodes::AstNode;
+use comrak::options::Plugins;
+use comrak::{Arena, Options, format_html_with_plugins, parse_document};
 use context::Context;
 use context::Metadata;
 use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_html};
 use itertools::Itertools;
-use jotdown::{Event, Parser};
+use pass::escape_html_text;
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+
+const FRONT_MATTER_DELIMITER: &str = "---";
 
 pub struct Renderer<'a> {
     config: &'a Config,
@@ -28,16 +35,16 @@ impl<'a> Renderer<'a> {
         Self { config, title_map }
     }
 
-    pub fn render(&self, src: impl AsRef<Path>) -> Result<Option<Context>> {
-        let src = src.as_ref();
-        if !src.extension_is("dj") {
-            util::copy_file(src, dst_path_of(src)?)?;
+    pub fn render(&self, src_path: impl AsRef<Path>) -> Result<Option<Context>> {
+        let src_path = src_path.as_ref();
+        if !src_path.extension_is("md") {
+            util::copy_file(src_path, dst_path_of(src_path)?)?;
             return Ok(None);
         }
 
-        let raw_src = std::fs::read_to_string(src)?;
-        let dst_path = dst_path_of(src)?;
-        let Some((html, meta)) = self.dj_to_html(&raw_src, src, dst_path.clone())? else {
+        let content = std::fs::read_to_string(src_path)?;
+        let dst_path = dst_path_of(src_path)?;
+        let Some((html, meta)) = self.md_to_html(&content, src_path, dst_path.clone())? else {
             return Ok(None);
         };
 
@@ -46,10 +53,23 @@ impl<'a> Renderer<'a> {
         Ok(Some(meta))
     }
 
-    fn events_to_html(&self, events: Vec<Event>, ctxt: &Context) -> Result<String> {
-        let body = jotdown::html::render_to_string(events.into_iter());
+    fn render_page<'n>(
+        &self,
+        root: &'n AstNode<'n>,
+        options: &Options,
+        ctx: &Context,
+    ) -> Result<String> {
+        let body = {
+            let heading_adapter = NumberedHeadings::default();
+            let mut plugins = Plugins::default();
+            plugins.render.heading_adapter = Some(&heading_adapter);
 
-        let path_to_root = ctxt
+            let mut buf = String::new();
+            format_html_with_plugins(root, options, &mut buf, &plugins)?;
+            buf
+        };
+
+        let path_to_root = ctx
             .dst_rel_path()?
             .parent()
             .unwrap()
@@ -60,32 +80,32 @@ impl<'a> Renderer<'a> {
             .css_list()
             .iter()
             .map(String::as_str)
-            .chain(ctxt.css_list().iter().map(String::as_str));
+            .chain(ctx.css_list().iter().map(String::as_str));
 
         let js_list = self
             .config
             .js_list()
             .iter()
             .map(String::as_str)
-            .chain(ctxt.js_list().iter().map(String::as_str));
+            .chain(ctx.js_list().iter().map(String::as_str));
 
         let toc = extract_toc_html(&body);
         let article = format!("{}<div id=\"main-content\">{}</div>", toc, body);
 
-        let html = if ctxt.to_encrypt {
-            let password = ctxt.password()?;
+        let html = if ctx.to_encrypt {
+            let password = ctx.password()?;
             let cypher = util::encode_with_password(password, article.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);
 
             crypto_html(
                 &path_to_root,
                 self.config.site_name(),
-                ctxt.title()?,
-                ctxt.create_date()?,
-                ctxt.last_update_date()?,
+                ctx.title()?,
+                ctx.create_date()?,
+                ctx.last_update_date()?,
                 css_list,
                 js_list,
-                ctxt.tags()?,
+                ctx.tags()?,
                 &encoded,
                 self.config.footer(),
             )
@@ -93,12 +113,12 @@ impl<'a> Renderer<'a> {
             page_html(
                 &path_to_root,
                 self.config.site_name(),
-                ctxt.title()?,
-                ctxt.create_date()?,
-                ctxt.last_update_date()?,
+                ctx.title()?,
+                ctx.create_date()?,
+                ctx.last_update_date()?,
                 css_list,
                 js_list,
-                ctxt.tags()?,
+                ctx.tags()?,
                 &article,
                 self.config.footer(),
             )
@@ -128,65 +148,56 @@ impl<'a> Renderer<'a> {
         Ok(filter)
     }
 
-    /// djot を HTML に変換します。
+    /// Markdown を HTML に変換します。
     /// 変換後の HTML とメタデータを返します。
     /// ドラフト記事であり、ドラフトを描画しない設定の場合は `None` を返します。
-    fn dj_to_html(
+    fn md_to_html(
         &self,
-        src: &str,
+        content: &str,
         src_path: &Path,
         dst_path: PathBuf,
     ) -> Result<Option<(String, Context)>> {
-        let mut ctxt = Context::default();
+        let mut ctx = Context::default();
         if let Some(password) = self.config.password() {
-            ctxt.set_password(password.clone());
+            ctx.set_password(password.clone());
         }
 
         let dst_rel_path = dst_path.strip_prefix(zakki_dst_dir()?).unwrap();
-        ctxt.is_draft = dst_rel_path.starts_with("draft/");
-        ctxt.to_encrypt = dst_rel_path.starts_with("private/");
-        ctxt.is_sub =
+        ctx.is_draft = dst_rel_path.starts_with("draft/");
+        ctx.to_encrypt = dst_rel_path.starts_with("private/");
+        ctx.is_sub =
             !dst_rel_path.ends_with("index.html") && dst_rel_path.components().count() >= 3;
-        ctxt.set_dst_rel_path(dst_rel_path.to_owned());
-        ctxt.set_src_path(src_path.to_owned());
+        ctx.set_dst_rel_path(dst_rel_path.to_owned());
+        ctx.set_src_path(src_path.to_owned());
 
-        // タイトルを title_map から設定する
-        let title = self
-            .title_map
-            .get(src_path)
-            .with_context(|| anyhow!("タイトルが見つかりません: {}", src_path.display()))?
-            .clone();
-        ctxt.set_title(title);
+        // Markdown を AST に変換
+        let arena = Arena::new();
+        let options = markdown_options();
+        let root = parse_document(&arena, content, &options);
 
-        // djot にフロントマターの構文はないため、パースの前に切り出す
-        let (yaml, body) = split_front_matter(src)?;
-        pass::read_header(yaml, &mut ctxt)?;
+        // AST に対してパスを適用
+        pass::read_header(root, &mut ctx)?;
 
-        if !self.config.render_draft() && ctxt.is_draft {
+        if !self.config.render_draft() && ctx.is_draft {
             return Ok(None);
         }
 
-        // 本文をイベント列に変換
-        let mut events: Vec<_> = Parser::new(body).collect();
+        pass::validate_heading_order(root)?;
+        pass::adjust_link(&arena, root, &mut ctx, self.title_map)?;
+        pass::convert_image(root)?;
+        pass::add_code_caption(&arena, root)?;
+        pass::highlight_code(root, &mut ctx)?;
+        pass::convert_math(root, &mut ctx)?;
+        pass::wrap_table(&arena, root)?;
 
-        // イベント列に対してパスを適用
-
-        pass::adjust_link(&mut events, &mut ctxt, self.title_map)?;
-        pass::convert_image(&mut events, &mut ctxt)?;
-        pass::add_code_caption(&mut events, &mut ctxt)?;
-        pass::highlight_code(&mut events, &mut ctxt)?;
-        pass::convert_math(&mut events, &mut ctxt)?;
-        pass::assign_header_id(&mut events, &mut ctxt)?;
-        pass::wrap_table(&mut events, &mut ctxt)?;
-
-        // イベント列を HTML に変換
-        let html = self.events_to_html(events, &ctxt)?;
+        // AST を HTML に変換
+        let html = self.render_page(root, &options, &ctx)?;
 
         // HTML に対してパスを適用
         let filter = self.make_bloom_filter(&html)?;
-        ctxt.set_bloom_filter(filter);
+        ctx.set_bloom_filter(filter);
 
-        Ok(Some((html, ctxt)))
+        Ok(Some((html, ctx)))
     }
 
     pub fn render_index(&self, metadatas: &[Metadata]) -> Result<()> {
@@ -254,30 +265,28 @@ impl<'a> Renderer<'a> {
     }
 }
 
-/// `---` で囲まれた YAML フロントマターと、それ以降の本文に分けます。
-/// 改行は LF と CRLF のどちらでも構いません。
-fn split_front_matter(src: &str) -> Result<(&str, &str)> {
-    let is_delimiter = |line: &str| line.trim_end_matches(['\r', '\n']) == "---";
+/// Markdown のパース設定です。
+fn markdown_options() -> Options<'static> {
+    let mut options = Options::default();
 
-    let mut lines = src.split_inclusive('\n');
+    let ext = &mut options.extension;
+    ext.front_matter_delimiter = Some(FRONT_MATTER_DELIMITER.to_owned());
+    ext.table = true;
+    ext.strikethrough = true;
+    ext.tasklist = true;
+    ext.autolink = true;
+    ext.footnotes = true;
+    ext.description_lists = true;
+    ext.superscript = true;
+    ext.subscript = true;
+    ext.alerts = true;
+    ext.math_dollars = true;
+    ext.wikilinks_title_after_pipe = true;
 
-    let first = lines.next().unwrap_or_default();
-    if !is_delimiter(first) {
-        return Err(anyhow!("Yaml header is not existing."));
-    }
+    // パスが差し込む HTML を出力するために必要
+    options.render.r#unsafe = true;
 
-    let yaml_start = first.len();
-    let mut yaml_end = yaml_start;
-
-    for line in lines {
-        if is_delimiter(line) {
-            let body_start = yaml_end + line.len();
-            return Ok((&src[yaml_start..yaml_end], &src[body_start..]));
-        }
-        yaml_end += line.len();
-    }
-
-    Err(anyhow!("Yaml header is not closed."))
+    options
 }
 
 /// ファイルを BufReader で読み、YAML フロントマター部分だけ取り出して title を返します。
@@ -289,14 +298,14 @@ pub fn extract_title_from_path(path: &std::path::Path) -> Result<Option<String>>
     let mut lines = BufReader::new(file).lines();
 
     match lines.next() {
-        Some(Ok(line)) if line == "---" => {}
+        Some(Ok(line)) if line == FRONT_MATTER_DELIMITER => {}
         _ => return Ok(None),
     }
 
     let mut yaml = String::new();
     for line in lines {
         let line = line?;
-        if line == "---" {
+        if line == FRONT_MATTER_DELIMITER {
             break;
         }
         yaml.push_str(&line);
@@ -336,7 +345,8 @@ fn extract_toc_html(body: &str) -> String {
                 _ => 4,
             };
             let id = el.value().attr("id").unwrap_or("").to_string();
-            let inner = el.inner_html();
+            // 目次はナビゲーションなので、見出しの <code> や <strong> は落としてテキストだけにする。
+            let inner: String = el.text().collect();
             (level, id, inner)
         })
         .collect();
@@ -350,70 +360,26 @@ fn extract_toc_html(body: &str) -> String {
 
     for (level, id, inner) in &items {
         // 階層を下る
-        (prev_level..*level).for_each(|_| html.push("<ul><li>".to_string()));
+        (prev_level..*level).for_each(|_| html.push("<ol><li>".to_string()));
         // 階層を上る
-        (*level..prev_level).for_each(|_| html.push("</li></ul>".to_string()));
+        (*level..prev_level).for_each(|_| html.push("</li></ol>".to_string()));
         // 次の要素へ
         if *level <= prev_level {
             html.push("</li><li>".to_string());
         }
         // リンクを追加
-        html.push(format!("<a href=\"#{}\">{}</a>", id, inner));
+        html.push(format!(
+            "<a href=\"#{}\">{}</a>",
+            id,
+            escape_html_text(inner)
+        ));
         prev_level = *level;
     }
     // 閉じる
-    (0..prev_level).for_each(|_| html.push("</li></ul>".to_string()));
+    (0..prev_level).for_each(|_| html.push("</li></ol>".to_string()));
 
     format!(
         "<details id=\"toc\"><summary>目次</summary>{}</details>",
         html.join("")
     )
-}
-
-#[cfg(test)]
-mod test {
-    use super::split_front_matter;
-
-    #[test]
-    fn splits_lf_document() {
-        let src = "---\ntitle: a\n---\n\n## 見出し\n";
-        assert_eq!(
-            split_front_matter(src).unwrap(),
-            ("title: a\n", "\n## 見出し\n")
-        );
-    }
-
-    #[test]
-    fn splits_crlf_document() {
-        let src = "---\r\ntitle: a\r\n---\r\n\r\n## 見出し\r\n";
-        assert_eq!(
-            split_front_matter(src).unwrap(),
-            ("title: a\r\n", "\r\n## 見出し\r\n")
-        );
-    }
-
-    #[test]
-    fn accepts_document_without_body() {
-        let src = "---\ntitle: a\n---";
-        assert_eq!(split_front_matter(src).unwrap(), ("title: a\n", ""));
-    }
-
-    #[test]
-    fn rejects_document_without_header() {
-        assert!(split_front_matter("## 見出し\n").is_err());
-    }
-
-    #[test]
-    fn rejects_unclosed_header() {
-        assert!(split_front_matter("---\ntitle: a\n").is_err());
-    }
-
-    #[test]
-    fn does_not_split_at_thematic_break_in_body() {
-        // 本文中の区切り線を終端と誤認しないこと (終端は最初の --- 行)
-        let src = "---\ntitle: a\n---\n\n本文\n\n---\n\n続き\n";
-        let (yaml, body) = split_front_matter(src).unwrap();
-        assert_eq!(yaml, "title: a\n");
-        assert!(body.contains("続き"));
-    }
 }
