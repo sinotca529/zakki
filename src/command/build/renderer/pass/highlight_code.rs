@@ -1,5 +1,5 @@
 use super::escape_html_text;
-use crate::command::build::renderer::context::Context;
+use crate::command::build::renderer::{context::Context, pass::escape_html_attr};
 use anyhow::Result;
 use comrak::nodes::{AstNode, NodeHtmlBlock, NodeValue};
 use regex::Regex;
@@ -33,7 +33,7 @@ pub fn highlight_code<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> Result<()
             .split_whitespace()
             .next()
             .filter(|lang| !lang.is_empty())
-            .map(|lang| format!(r#" class="language-{}""#, escape_html_text(lang)))
+            .map(|lang| format!(r#" class="language-{}""#, escape_html_attr(lang)))
             .unwrap_or_default();
 
         node.data_mut().value = NodeValue::HtmlBlock(NodeHtmlBlock {
