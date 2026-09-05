@@ -13,7 +13,7 @@ pub use convert_image::convert_image;
 pub use convert_math::convert_math;
 pub use highlight_code::{HighlightRule, highlight_code};
 pub use read_header::read_header;
-pub use validate_heading_order::validate_headeing_order;
+pub use validate_heading_order::validate_heading_order;
 pub use wrap_table::wrap_table;
 
 use comrak::Arena;

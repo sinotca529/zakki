@@ -182,7 +182,7 @@ impl<'a> Renderer<'a> {
             return Ok(None);
         }
 
-        pass::validate_headeing_order(root)?;
+        pass::validate_heading_order(root)?;
         pass::adjust_link(&arena, root, &mut ctx, self.title_map)?;
         pass::convert_image(root)?;
         pass::add_code_caption(&arena, root)?;

@@ -6,7 +6,7 @@ use comrak::nodes::{AstNode, NodeValue};
 /// - 次のような、上位のヘッダの登場に先だって下位のヘッダが利用された場合はエラーにします。
 ///   - 階層が飛んでいる場合 (`##` のあとに `####` が来るようなケース)
 ///   - 浅い階層よりも先に深い階層が現れる場合 (`###` のあとに初めて `##` が来るようなケース)
-pub fn validate_headeing_order<'a>(root: &'a AstNode<'a>) -> anyhow::Result<()> {
+pub fn validate_heading_order<'a>(root: &'a AstNode<'a>) -> anyhow::Result<()> {
     let mut prev_level = 1;
 
     for node in root.descendants() {

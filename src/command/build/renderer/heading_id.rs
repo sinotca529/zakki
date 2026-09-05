@@ -4,15 +4,14 @@ use itertools::Itertools as _;
 use std::fmt;
 use std::sync::Mutex;
 
+/// 見出しに階層番号の id を振ります (`1`, `1.1`, `1.2`, `2` ...)。
+/// ただし、 h1 はページタイトル用なので番号に含めません。
 #[derive(Default)]
 pub struct NumberedHeadings {
-    /// 各レベルの採番カウンタ。
     /// `HeadingAdapter` が `&self` かつ `Sync` を要求するため Mutex に入れています。
     numbering: Mutex<HeaderIdGenerator>,
 }
 
-/// 見出しに階層番号の id を振ります (`1`, `1.1`, `1.2`, `2` ...)。
-/// ただし、 h1 はページタイトル用なので番号に含めません。
 impl HeadingAdapter for NumberedHeadings {
     fn enter(
         &self,
@@ -26,7 +25,7 @@ impl HeadingAdapter for NumberedHeadings {
         let id = numbering.next_id(lv);
         write!(
             out,
-            r#"<h{lv} id="{id}""><span class="section-number">{id}. </span>"#
+            r#"<h{lv} id="{id}"><span class="section-number">{id}. </span>"#
         )
     }
 
@@ -35,6 +34,7 @@ impl HeadingAdapter for NumberedHeadings {
     }
 }
 
+/// 各レベルの採番カウンタ。
 #[derive(Default)]
 struct HeaderIdGenerator {
     /// セクション番号を管理するカウンタ。
