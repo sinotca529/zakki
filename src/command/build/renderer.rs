@@ -1,7 +1,9 @@
 pub mod context;
+mod heading_id;
 mod html_template;
 mod pass;
 
+use crate::command::build::renderer::heading_id::NumberedHeadings;
 use crate::copy_asset;
 use crate::path::{dst_path_of, zakki_dst_dir};
 use crate::util::{BloomFilter, PathExt as _};
@@ -9,7 +11,8 @@ use crate::{config::Config, util};
 use anyhow::{Context as _, Result, anyhow};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use comrak::nodes::AstNode;
-use comrak::{Arena, Options, format_html, parse_document};
+use comrak::options::Plugins;
+use comrak::{Arena, Options, format_html_with_plugins, parse_document};
 use context::Context;
 use context::Metadata;
 use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_html};
@@ -57,8 +60,12 @@ impl<'a> Renderer<'a> {
         ctx: &Context,
     ) -> Result<String> {
         let body = {
+            let heading_adapter = NumberedHeadings::default();
+            let mut plugins = Plugins::default();
+            plugins.render.heading_adapter = Some(&heading_adapter);
+
             let mut buf = String::new();
-            format_html(root, options, &mut buf)?;
+            format_html_with_plugins(root, options, &mut buf, &plugins)?;
             buf
         };
 
@@ -274,9 +281,6 @@ fn markdown_options() -> Options<'static> {
     ext.alerts = true;
     ext.math_dollars = true;
     ext.wikilinks_title_after_pipe = true;
-
-    ext.header_id_prefix = Some("".to_string());
-    ext.header_id_prefix_in_href = true;
 
     // パスが差し込む HTML を出力するために必要
     options.render.r#unsafe = true;
