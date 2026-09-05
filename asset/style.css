@@ -240,14 +240,19 @@ main {
   font-weight: bold;
 }
 
-#toc ul {
+#toc ol {
   margin: 0.5rem 0 0;
   padding-left: 1rem;
+  counter-reset: section;
+}
+
+#toc li {
   list-style: none;
 }
 
-#toc li::before {
-  content: "- ";
+#toc ol>li:before {
+  content : counters(section, '.') '. ';
+  counter-increment : section;
   color: var(--muted);
 }
 
@@ -267,9 +272,9 @@ h2 {
   margin-top: 2rem;
 }
 
-h2::before { content: "# ";   color: var(--muted); }
-h3::before { content: "## ";  color: var(--muted); }
-h4::before { content: "### "; color: var(--muted); }
+h2::before { content: attr(id) '. '; color: var(--muted); }
+h3::before { content: attr(id) '. '; color: var(--muted); }
+h4::before { content: attr(id) '. '; color: var(--muted); }
 
 /* コード */
 

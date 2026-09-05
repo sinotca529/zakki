@@ -360,9 +360,9 @@ fn extract_toc_html(body: &str) -> String {
 
     for (level, id, inner) in &items {
         // 階層を下る
-        (prev_level..*level).for_each(|_| html.push("<ul><li>".to_string()));
+        (prev_level..*level).for_each(|_| html.push("<ol><li>".to_string()));
         // 階層を上る
-        (*level..prev_level).for_each(|_| html.push("</li></ul>".to_string()));
+        (*level..prev_level).for_each(|_| html.push("</li></ol>".to_string()));
         // 次の要素へ
         if *level <= prev_level {
             html.push("</li><li>".to_string());
@@ -376,7 +376,7 @@ fn extract_toc_html(body: &str) -> String {
         prev_level = *level;
     }
     // 閉じる
-    (0..prev_level).for_each(|_| html.push("</li></ul>".to_string()));
+    (0..prev_level).for_each(|_| html.push("</li></ol>".to_string()));
 
     format!(
         "<details id=\"toc\"><summary>目次</summary>{}</details>",
