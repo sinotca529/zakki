@@ -53,7 +53,9 @@ pub struct HighlightRule {
 
 impl HighlightRule {
     pub fn replace_all<'a>(&self, code: &'a str) -> Cow<'a, str> {
-        let Ok(pat) = Regex::new(&format!("{}(.*?){}", self.delim[0], self.delim[1])) else {
+        let start_delim = regex::escape(&self.delim[0]);
+        let end_delim = regex::escape(&self.delim[1]);
+        let Ok(pat) = Regex::new(&format!("{start_delim}(.*?){end_delim}")) else {
             return code.into();
         };
 
