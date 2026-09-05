@@ -48,8 +48,8 @@ pub fn highlight_code<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> Result<()
 
 #[derive(Clone, Deserialize, Debug)]
 struct HighlightRuleConfig {
-    pub delim: [String; 2],
-    pub style: String,
+    delim: [String; 2],
+    style: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
