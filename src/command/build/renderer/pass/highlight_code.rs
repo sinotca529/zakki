@@ -46,6 +46,8 @@ pub fn highlight_code<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> Result<()
     Ok(())
 }
 
+/// yaml ヘッダに書かれる形。
+/// 実行時の形は `HighlightRule`。
 #[derive(Clone, Deserialize, Debug)]
 struct HighlightRuleConfig {
     delim: [String; 2],
