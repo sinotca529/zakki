@@ -229,40 +229,12 @@ main {
 
 /* 目次 */
 
-#toc {
-  border: 1px solid var(--border);
-  padding: 0.5rem 0.75rem;
-  margin: 1rem 0;
-}
-
-#toc summary {
-  cursor: pointer;
-  font-weight: bold;
-}
-
-#toc ol {
-  margin: 0.5rem 0 0;
-  padding-left: 1rem;
-  counter-reset: section;
-}
-
-#toc li {
-  list-style: none;
-}
-
-#toc ol>li:before {
-  content : counters(section, '.') '. ';
-  counter-increment : section;
-  color: var(--muted);
-}
-
-#toc a {
-  text-decoration: none;
-}
-
-#toc a:hover {
-  text-decoration: underline;
-}
+#toc { border: 1px solid var(--border); padding: 0.5rem 0.75rem; margin: 1rem 0; }
+#toc summary { cursor: pointer; font-weight: bold; }
+#toc ol { margin: 0.5rem 0 0; padding-left: 1rem; }
+#toc li { list-style: none; }
+#toc a { text-decoration: none; }
+#toc a:hover { text-decoration: underline; }
 
 /* 見出し */
 
@@ -272,9 +244,7 @@ h2 {
   margin-top: 2rem;
 }
 
-h2::before { content: attr(id) '. '; color: var(--muted); }
-h3::before { content: attr(id) '. '; color: var(--muted); }
-h4::before { content: attr(id) '. '; color: var(--muted); }
+.section-number { color: var(--muted); }
 
 /* コード */
 
