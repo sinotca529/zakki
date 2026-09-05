@@ -63,8 +63,10 @@ impl TryFrom<HighlightRuleConfig> for HighlightRule {
     type Error = regex::Error;
 
     fn try_from(value: HighlightRuleConfig) -> Result<Self, Self::Error> {
-        let open = regex::escape(&value.delim[0]);
-        let close = regex::escape(&value.delim[1]);
+        // コード側は escape_html_text を通してから置換される。
+        // そのため、パターンの区切り文字も同様に置換をしておく。
+        let open = regex::escape(&escape_html_text(&value.delim[0]));
+        let close = regex::escape(&escape_html_text(&value.delim[1]));
         let pattern = Regex::new(&format!("{open}(.*?){close}"))?;
 
         Ok(Self {
