@@ -1,4 +1,5 @@
 use crate::command::build::renderer::context::Metadata;
+use crate::command::build::renderer::escape_html_text;
 use crate::include_asset;
 use itertools::Itertools as _;
 use std::collections::BTreeSet;
@@ -48,7 +49,7 @@ fn head<'a>(
         path_to_root = path_to_root.to_str().unwrap(),
         css_list = css_list.collect::<String>(),
         js_list = js_list.collect::<String>(),
-        title = title,
+        title = escape_html_text(title),
     )
 }
 
@@ -83,7 +84,7 @@ pub fn cards_html(metas: &[Metadata]) -> String {
                 extra_class = extra_class,
                 tags_data = tags_data,
                 path = path,
-                title = m.title,
+                title = escape_html_text(&m.title),
                 update = m.update,
                 tag_links = tag_links,
             )
@@ -140,7 +141,7 @@ pub fn page_html<'a>(
         include_asset!("page.html"),
         head = head,
         header = header,
-        title = title,
+        title = escape_html_text(title),
         tag_elems = tag_elems,
         create_date = create_date,
         last_update_date = last_update_date,

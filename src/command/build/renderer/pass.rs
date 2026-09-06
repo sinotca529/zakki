@@ -45,7 +45,7 @@ pub(super) fn escape_html_text(text: &str) -> String {
 }
 
 /// HTML の属性値として使えるようエスケープします。
-fn escape_html_attr(attr: &str) -> String {
+pub(super) fn escape_html_attr(attr: &str) -> String {
     attr.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
