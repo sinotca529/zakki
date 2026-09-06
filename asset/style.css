@@ -229,35 +229,12 @@ main {
 
 /* 目次 */
 
-#toc {
-  border: 1px solid var(--border);
-  padding: 0.5rem 0.75rem;
-  margin: 1rem 0;
-}
-
-#toc summary {
-  cursor: pointer;
-  font-weight: bold;
-}
-
-#toc ul {
-  margin: 0.5rem 0 0;
-  padding-left: 1rem;
-  list-style: none;
-}
-
-#toc li::before {
-  content: "- ";
-  color: var(--muted);
-}
-
-#toc a {
-  text-decoration: none;
-}
-
-#toc a:hover {
-  text-decoration: underline;
-}
+#toc { border: 1px solid var(--border); padding: 0.5rem 0.75rem; margin: 1rem 0; }
+#toc summary { cursor: pointer; font-weight: bold; }
+#toc ol { margin: 0.5rem 0 0; padding-left: 1rem; }
+#toc li { list-style: none; }
+#toc a { text-decoration: none; }
+#toc a:hover { text-decoration: underline; }
 
 /* 見出し */
 
@@ -267,9 +244,7 @@ h2 {
   margin-top: 2rem;
 }
 
-h2::before { content: "# ";   color: var(--muted); }
-h3::before { content: "## ";  color: var(--muted); }
-h4::before { content: "### "; color: var(--muted); }
+.section-number { color: var(--muted); }
 
 /* コード */
 
@@ -343,15 +318,32 @@ blockquote {
 blockquote > :first-child { margin-top: 0; }
 blockquote > :last-child  { margin-bottom: 0; }
 
-blockquote.markdown-alert-note {
-  border-left-color: var(--link);
-  color: inherit;
+/* 注記 (> [!NOTE] など) */
+
+/* comrak は <div class="markdown-alert markdown-alert-note"> を出力し、
+   その先頭に <p class="markdown-alert-title">Note</p> を置く。
+   種別ごとの色は --alert-color に持たせ、枠線と見出しの両方から参照する。 */
+
+.markdown-alert {
+  --alert-color: var(--border);
+  border-left: 3px solid var(--alert-color);
+  margin: 1rem 0;
+  padding: 0.25rem 1rem;
 }
 
-blockquote.markdown-alert-note::before {
-  content: "NOTE: ";
+.markdown-alert > :first-child { margin-top: 0; }
+.markdown-alert > :last-child  { margin-bottom: 0; }
+
+.markdown-alert-title {
   font-weight: bold;
+  color: var(--alert-color);
 }
+
+.markdown-alert-note      { --alert-color: #000080; }
+.markdown-alert-tip       { --alert-color: #006000; }
+.markdown-alert-important { --alert-color: #500080; }
+.markdown-alert-warning   { --alert-color: #805000; }
+.markdown-alert-caution   { --alert-color: #800000; }
 
 /* 定義リスト */
 

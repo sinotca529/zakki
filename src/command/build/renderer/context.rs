@@ -1,5 +1,4 @@
-use super::pass::HighlightRule;
-use crate::util::BloomFilter;
+use crate::{command::build::renderer::pass::HighlightRule, util::BloomFilter};
 use anyhow::{Context as _, Result, anyhow};
 use paste::paste;
 use serde::Serialize;

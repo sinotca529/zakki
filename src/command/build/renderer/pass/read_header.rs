@@ -1,21 +1,41 @@
-use super::HighlightRule;
-use crate::command::build::renderer::context::Context;
+use crate::command::build::renderer::{
+    FRONT_MATTER_DELIMITER, context::Context, pass::HighlightRule,
+};
+use anyhow::Context as _;
+use comrak::nodes::{AstNode, NodeValue};
 use serde::Deserialize;
 
 /// YAML フロントマターを読み、メタデータを Context に設定します。
-///
-/// djot にはフロントマターの構文がないため、本文をパースする前に
-/// 呼び出し側で切り出した YAML を受け取ります。
-pub fn read_header(yaml: &str, meta: &mut Context) -> anyhow::Result<()> {
-    let header: YamlHeader = serde_yaml::from_str(yaml)?;
-    meta.set_create_date(header.create_date);
-    meta.set_last_update_date(header.last_update_date);
-    meta.set_tags(header.tags);
+pub fn read_header<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Result<()> {
+    // 区切り ('---') を含むヘッダ文字列
+    let front_matter = root
+        .descendants()
+        .find_map(|node| match &node.data().value {
+            NodeValue::FrontMatter(text) => Some(text.clone()),
+            _ => None,
+        });
+
+    let Some(front_matter) = front_matter else {
+        anyhow::bail!("記事は yaml ヘッダーで始めてください")
+    };
+
+    let front_matter_body = front_matter
+        .trim_end()
+        .strip_prefix(FRONT_MATTER_DELIMITER)
+        .and_then(|s| s.strip_suffix(FRONT_MATTER_DELIMITER))
+        .context("yaml ヘッダーは --- で開始・終了する必要があります")?;
+
+    let header: YamlHeader = serde_yaml::from_str(front_matter_body)?;
+
+    ctx.set_create_date(header.create_date);
+    ctx.set_last_update_date(header.last_update_date);
+    ctx.set_title(header.title);
+    ctx.set_tags(header.tags);
     if let Some(h) = header.highlights {
-        meta.set_highlights(h);
+        ctx.set_highlights(h);
     }
     if let Some(pwd) = header.password {
-        meta.set_password(pwd);
+        ctx.set_password(pwd);
     }
 
     Ok(())
@@ -30,6 +50,9 @@ struct YamlHeader {
     /// 記事の最終更新日
     #[serde(rename = "update")]
     pub last_update_date: String,
+
+    /// 記事のタイトル
+    pub title: String,
 
     /// 記事につけられたタグ
     #[serde(default)]

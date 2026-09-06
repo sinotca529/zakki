@@ -1,24 +1,18 @@
-use super::raw_html;
-use crate::command::build::renderer::context::Context;
-use jotdown::{Container, Event};
+use super::html_block;
+use comrak::Arena;
+use comrak::nodes::{AstNode, NodeValue};
 
-pub fn wrap_table<'a>(events: &mut Vec<Event<'a>>, _ctxt: &mut Context) -> anyhow::Result<()> {
-    let mut out = Vec::with_capacity(events.len());
+/// 表を横スクロールできるよう `<div class="table-wrapper">` で囲みます。
+pub fn wrap_table<'a>(arena: &'a Arena<'a>, root: &'a AstNode<'a>) -> anyhow::Result<()> {
+    let tables: Vec<_> = root
+        .descendants()
+        .filter(|n| matches!(n.data().value, NodeValue::Table(_)))
+        .collect();
 
-    for e in events.drain(..) {
-        match e {
-            Event::Start(Container::Table, _) => {
-                out.extend(raw_html(r#"<div class="table-wrapper">"#));
-                out.push(e);
-            }
-            Event::End(Container::Table) => {
-                out.push(e);
-                out.extend(raw_html("</div>"));
-            }
-            _ => out.push(e),
-        }
+    for table in tables {
+        table.insert_before(html_block(arena, r#"<div class="table-wrapper">"#));
+        table.insert_after(html_block(arena, "</div>"));
     }
 
-    *events = out;
     Ok(())
 }

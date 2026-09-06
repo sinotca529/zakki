@@ -13,7 +13,7 @@ function indexMain() {
 
   // タグに一致しないカードを非表示
   document.querySelectorAll("#contents-list .card").forEach((card) => {
-    const tags = card.dataset.tags ? card.dataset.tags.split(",") : [];
+    const tags = [...card.querySelectorAll(".card-tags .tag")].map((a) => a.textContent);
     if (!tags.includes(tag)) card.hidden = true;
   });
 
@@ -96,6 +96,10 @@ function tokenize(text) {
 // Bloom filter が word を含むかを調べる (偽陽性あり)
 function contains(filter, word) {
   const num_bit = filter.bits.byteLength * 8;
+
+  // ハッシュ関数が 0 個の場合は未ヒットとみなす
+  if (filter.num_hash === 0) return false;
+
   return fxhash32_multi(word, filter.num_hash)
     .map((h) => h % num_bit)
     .every((h) => filter.bits[(h / 8) | 0] & (1 << h % 8));

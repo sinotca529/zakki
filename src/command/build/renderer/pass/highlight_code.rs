@@ -1,57 +1,86 @@
-use super::{escape_html_text, raw_html};
-use crate::command::build::renderer::context::Context;
-use anyhow::Result;
-use jotdown::{Container, Event};
-use regex::Regex;
-use serde::Deserialize;
 use std::borrow::Cow;
 
+use super::escape_html_text;
+use crate::command::build::renderer::{context::Context, pass::escape_html_attr};
+use anyhow::Result;
+use comrak::nodes::{AstNode, NodeHtmlBlock, NodeValue};
+use regex::Regex;
+use serde::Deserialize;
+
 /// コードブロックの中身に、記事で指定された区切り文字のスタイルを適用します。
-pub fn highlight_code<'a>(events: &mut Vec<Event<'a>>, ctxt: &mut Context) -> Result<()> {
-    let Ok(macros) = ctxt.highlights() else {
+///
+/// スタイルは `<span>` として埋め込むため、コードブロックごと
+/// 生の HTML に置き換えます。
+pub fn highlight_code<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> Result<()> {
+    let Ok(macros) = ctx.highlights() else {
         return Ok(());
     };
 
-    let mut out = Vec::with_capacity(events.len());
-    let mut is_code_block = false;
+    let targets: Vec<_> = root
+        .descendants()
+        .filter_map(|node| match &node.data().value {
+            NodeValue::CodeBlock(code) => Some((node, code.info.clone(), code.literal.clone())),
+            _ => None,
+        })
+        .collect();
 
-    for e in events.drain(..) {
-        match e {
-            Event::Start(Container::CodeBlock { .. }, _) => {
-                is_code_block = true;
-                out.push(e);
-            }
-            Event::End(Container::CodeBlock { .. }) => {
-                is_code_block = false;
-                out.push(e);
-            }
-            Event::Str(ref s) if is_code_block => {
-                let mut code = escape_html_text(s);
-                for m in macros {
-                    code = m.replace_all(&code).to_string();
-                }
-                out.extend(raw_html(code));
-            }
-            _ => out.push(e),
+    for (node, info, literal) in targets {
+        let mut code = escape_html_text(&literal);
+        for m in macros {
+            code = m.replace_all(&code).to_string();
         }
+
+        let class = info
+            .split_whitespace()
+            .next()
+            .filter(|lang| !lang.is_empty())
+            .map(|lang| format!(r#" class="language-{}""#, escape_html_attr(lang)))
+            .unwrap_or_default();
+
+        node.data_mut().value = NodeValue::HtmlBlock(NodeHtmlBlock {
+            block_type: 0,
+            literal: format!("<pre><code{class}>{code}</code></pre>"),
+        });
     }
 
-    *events = out;
     Ok(())
 }
 
+/// yaml ヘッダに書かれる形。
+/// 実行時の形は `HighlightRule`。
 #[derive(Clone, Deserialize, Debug)]
-pub struct HighlightRule {
+struct HighlightRuleConfig {
     delim: [String; 2],
     style: String,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(try_from = "HighlightRuleConfig")]
+pub struct HighlightRule {
+    pattern: Regex,
+    style: String,
+}
+
+impl TryFrom<HighlightRuleConfig> for HighlightRule {
+    type Error = regex::Error;
+
+    fn try_from(value: HighlightRuleConfig) -> Result<Self, Self::Error> {
+        // コード側は escape_html_text を通してから置換される。
+        // そのため、パターンの区切り文字も同様に置換をしておく。
+        let open = regex::escape(&escape_html_text(&value.delim[0]));
+        let close = regex::escape(&escape_html_text(&value.delim[1]));
+        let pattern = Regex::new(&format!("{open}(.*?){close}"))?;
+
+        Ok(Self {
+            pattern,
+            style: value.style,
+        })
+    }
+}
+
 impl HighlightRule {
     pub fn replace_all<'a>(&self, code: &'a str) -> Cow<'a, str> {
-        let Ok(pat) = Regex::new(&format!("{}(.*?){}", self.delim[0], self.delim[1])) else {
-            return code.into();
-        };
-
-        pat.replace_all(code, format!("<span style=\"{}\">$1</span>", self.style))
+        self.pattern
+            .replace_all(code, format!("<span style=\"{}\">$1</span>", self.style))
     }
 }
