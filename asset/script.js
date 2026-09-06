@@ -13,7 +13,7 @@ function indexMain() {
 
   // タグに一致しないカードを非表示
   document.querySelectorAll("#contents-list .card").forEach((card) => {
-    const tags = card.dataset.tags ? card.dataset.tags.split(",") : [];
+    const tags = [...card.querySelectorAll(".card-tags .tag")].map((a) => a.textContent);
     if (!tags.includes(tag)) card.hidden = true;
   });
 

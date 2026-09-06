@@ -6,7 +6,9 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 fn tag_link_html(tag: &str, index_url: &str) -> String {
-    format!(r#"<a class="tag" href="{index_url}?tag={tag}">{tag}</a>"#)
+    let tag_t = escape_html_text(tag);
+    let tag_q = escape_html_text(&encode_query_value(tag));
+    format!(r#"<a class="tag" href="{index_url}?tag={tag_q}">{tag_t}</a>"#)
 }
 
 fn adjust_path_origin(path: &str, path_to_root: &Path) -> String {
@@ -73,16 +75,15 @@ pub fn cards_html(metas: &[Metadata]) -> String {
             } else {
                 ""
             };
-            let tags_data = m.tags.join(",");
             let tag_links: String = m
                 .tags
                 .iter()
                 .map(|t| tag_link_html(t, "index.html"))
                 .collect();
+
             format!(
                 include_asset!("card.html"),
                 extra_class = extra_class,
-                tags_data = tags_data,
                 path = path,
                 title = escape_html_text(&m.title),
                 update = m.update,
@@ -177,4 +178,31 @@ pub fn crypto_html<'a>(
         encoded = encoded_body,
         footer_text = footer,
     )
+}
+
+/// クエリ文字列の値として安全な形にします。
+///
+/// 非 ASCII はそのまま残します。ブラウザが URL を解決する時点で
+/// パーセントエンコードするため動作に影響はなく、
+/// HTML のソース上でタグ名が読めるほうが利点が大きいためです。
+fn encode_query_value(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' | '#' | '+' | '%' | '=' | ' ' | '"' | '<' | '>' | '`' => {
+                let mut buf = [0u8; 4];
+                for b in c.encode_utf8(&mut buf).as_bytes() {
+                    out.push_str(&format!("%{b:02X}"));
+                }
+            }
+            c if c.is_control() => {
+                let mut buf = [0u8; 4];
+                for b in c.encode_utf8(&mut buf).as_bytes() {
+                    out.push_str(&format!("%{b:02X}"));
+                }
+            }
+            c => out.push(c),
+        }
+    }
+    out
 }
