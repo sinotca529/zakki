@@ -194,7 +194,7 @@ impl<'a> Renderer<'a> {
         let html = self.render_page(root, &options, &ctx)?;
 
         // HTML に対してパスを適用
-        let filter = self.make_bloom_filter(&ctx.title()?, &html)?;
+        let filter = self.make_bloom_filter(ctx.title()?, &html)?;
         ctx.set_bloom_filter(filter);
 
         Ok(Some((html, ctx)))
