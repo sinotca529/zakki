@@ -22,7 +22,7 @@ fn header(path_to_root: &Path, site_name: &str) -> String {
     format!(
         include_asset!("header.html"),
         path_to_root = path_to_root.to_str().unwrap(),
-        site_name = site_name,
+        site_name = escape_html_text(site_name),
     )
 }
 
