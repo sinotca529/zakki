@@ -127,12 +127,14 @@ impl<'a> Renderer<'a> {
         Ok(html)
     }
 
-    fn make_bloom_filter(&self, html: &str) -> Result<BloomFilter> {
+    fn make_bloom_filter(&self, title: &str, html: &str) -> Result<BloomFilter> {
         // HTML からテキストを抜き出す
-        let text = Html::parse_document(html)
-            .select(&Selector::parse("#article, #page-title").unwrap())
+        let body = Html::parse_document(html)
+            .select(&Selector::parse("#article").unwrap())
             .flat_map(|e| e.text())
             .join(" ");
+
+        let text = format!("{title} {body}");
 
         // テキストをトークンに分割する
         let words: HashSet<_> = util::tokenize(&text).into_iter().collect();
@@ -192,7 +194,7 @@ impl<'a> Renderer<'a> {
         let html = self.render_page(root, &options, &ctx)?;
 
         // HTML に対してパスを適用
-        let filter = self.make_bloom_filter(&html)?;
+        let filter = self.make_bloom_filter(&ctx.title()?, &html)?;
         ctx.set_bloom_filter(filter);
 
         Ok(Some((html, ctx)))
