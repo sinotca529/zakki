@@ -209,6 +209,10 @@ main {
   gap: 0.5rem;
 }
 
+#tags-list {
+  overflow-wrap: keep-all;
+}
+
 /* ページタイトル */
 
 #page-title {
