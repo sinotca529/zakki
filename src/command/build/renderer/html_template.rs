@@ -1,5 +1,5 @@
 use crate::command::build::renderer::context::Metadata;
-use crate::command::build::renderer::escape_html_text;
+use crate::command::build::renderer::pass::{escape_html_attr, escape_html_text};
 use crate::include_asset;
 use itertools::Itertools as _;
 use std::collections::BTreeSet;
@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 fn tag_link_html(tag: &str, index_url: &str) -> String {
     let tag_t = escape_html_text(tag);
-    let tag_q = escape_html_text(&encode_query_value(tag));
+    let tag_q = escape_html_attr(&encode_query_value(tag));
     format!(r#"<a class="tag" href="{index_url}?tag={tag_q}">{tag_t}</a>"#)
 }
 
