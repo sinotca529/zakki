@@ -176,6 +176,13 @@ main {
 
 /* タグ */
 
+#tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+
+}
+
 .tag {
   display: inline-block;
   border: 1px solid var(--border);

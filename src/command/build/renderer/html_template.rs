@@ -58,10 +58,7 @@ fn head<'a>(
 fn tag_elems(tags: &[String], dst_root_dir: &Path) -> String {
     let index_url = dst_root_dir.join("index.html");
     let index_url = index_url.to_str().unwrap();
-    let nsbp = "\u{00a0}";
-    tags.iter()
-        .map(|t| tag_link_html(t, index_url))
-        .fold(String::new(), |acc, e| format!("{acc}{nsbp}{e}"))
+    tags.iter().map(|t| tag_link_html(t, index_url)).collect()
 }
 
 pub fn cards_html(metas: &[Metadata]) -> String {
