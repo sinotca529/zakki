@@ -45,6 +45,9 @@ jobs:
     permissions:
       contents: write
       pull-requests: read
+    concurrency:
+      group: release-plz-${{ github.ref }}
+      cancel-in-progress: false
     outputs:
       released: ${{ steps.release-plz.outputs.releases_created }}
       tag: ${{ steps.tag.outputs.tag }}
@@ -103,9 +106,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.job.target }}
+          persist-credentials: false
 
       - name: Build
-        run: cargo build --release --target ${{ matrix.job.target }}
+        run: cargo build --release --locked --target ${{ matrix.job.target }}
 
       - name: Rename artifact
         run: |
