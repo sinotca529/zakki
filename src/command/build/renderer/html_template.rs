@@ -187,15 +187,10 @@ pub fn crypto_html<'a>(
 /// HTML のソース上でタグ名が読めるほうが利点が大きいためです。
 fn encode_query_value(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
+    let meta_chars = r#"&#+%= "<>`"#;
     for c in s.chars() {
         match c {
-            '&' | '#' | '+' | '%' | '=' | ' ' | '"' | '<' | '>' | '`' => {
-                let mut buf = [0u8; 4];
-                for b in c.encode_utf8(&mut buf).as_bytes() {
-                    out.push_str(&format!("%{b:02X}"));
-                }
-            }
-            c if c.is_control() => {
+            c if meta_chars.contains(c) || c.is_control() => {
                 let mut buf = [0u8; 4];
                 for b in c.encode_utf8(&mut buf).as_bytes() {
                     out.push_str(&format!("%{b:02X}"));
