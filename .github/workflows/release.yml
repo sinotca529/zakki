@@ -101,12 +101,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.release.outputs.tag }}
+          persist-credentials: false
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.job.target }}
-          persist-credentials: false
 
       - name: Build
         run: cargo build --release --locked --target ${{ matrix.job.target }}
