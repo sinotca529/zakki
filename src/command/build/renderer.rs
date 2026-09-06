@@ -130,10 +130,8 @@ impl<'a> Renderer<'a> {
     fn make_bloom_filter(&self, html: &str) -> Result<BloomFilter> {
         // HTML からテキストを抜き出す
         let text = Html::parse_document(html)
-            .select(&Selector::parse("#article, #title").unwrap())
-            .next()
-            .ok_or_else(|| anyhow!("No body element"))?
-            .text()
+            .select(&Selector::parse("#article, #page-title").unwrap())
+            .flat_map(|e| e.text())
             .join(" ");
 
         // テキストをトークンに分割する
