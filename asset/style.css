@@ -303,8 +303,9 @@ figure.code-figure pre {
 table {
   border-collapse: collapse;
   margin: 1rem auto;
-  display: block;
-  max-width: 100%;
+}
+
+.table-wrapper {
   overflow-x: auto;
 }
 
