@@ -169,8 +169,8 @@ impl<'a> Renderer<'a> {
 
         ctx.is_draft = self.pj_paths.is_draft(src_path);
         ctx.to_encrypt = self.pj_paths.is_private(src_path);
-        ctx.is_sub =
-            !build_rel_path.ends_with("index.html") && build_rel_path.components().count() >= 3;
+        ctx.is_sub = self.pj_paths.is_subpage(src_path);
+
         ctx.set_build_rel_path(build_rel_path.to_owned());
         ctx.set_src_path(src_path.to_owned());
 

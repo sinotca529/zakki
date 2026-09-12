@@ -83,4 +83,13 @@ impl ProjectPaths {
     pub fn is_private(&self, src_path: &Path) -> bool {
         src_path.starts_with(self.src_private_dir())
     }
+
+    /// サブページか否かを返す。
+    /// サブページとは、 public, private, draft 直下になく、かつ、名前が index ではないファイルである。
+    /// サブページはトップページの記事一覧に表示されない。
+    pub fn is_subpage(&self, src_path: &Path) -> bool {
+        let is_index = src_path.file_stem().map(|s| s == "index").unwrap_or(false);
+        let src_rel_path = src_path.strip_prefix(self.src_dir()).unwrap();
+        !is_index && src_rel_path.components().count() >= 3
+    }
 }
