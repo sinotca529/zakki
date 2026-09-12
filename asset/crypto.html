@@ -16,13 +16,9 @@
         <div class="tag-list">{tag_elems}</div>
       </div>
       <div id="article">
-        <input
-          autofocus
-          type="password"
-          id="decrypt-key"
-          placeholder="Enter your secret key"
-        />
+        <input autofocus type="password" id="decrypt-key" placeholder="Enter your secret key" />
         <button id="decrypt-btn">Decode</button>
+        <p id="decrypt-error" role="alert"></p>
       </div>
     </main>
     <footer>{footer_text}</footer>

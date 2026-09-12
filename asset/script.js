@@ -22,15 +22,19 @@ function indexMain() {
 }
 
 async function decryptPage() {
-  const pwd = document.getElementById("decrypt-key").value;
-  const key = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(pwd)
-  );
-
-  const ivCypher = document.body.dataset.cypher;
-  const plain = await decrypt(ivCypher, key);
-  document.getElementById("article").innerHTML = plain;
+  try {
+    const pwd = document.getElementById("decrypt-key").value;
+    const key = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pwd));
+    const plain = await decrypt(document.body.dataset.cypher, key);
+    document.getElementById("article").innerHTML = plain;
+  } catch (e) {
+    const err = document.getElementById("decrypt-error");
+    if (e.name === "OperationError") {
+      err.textContent = "パスワードが違います。";
+    } else {
+      err.textContent = "復号できませんでした。";
+    }
+  }
 }
 
 function cryptoMain() {
