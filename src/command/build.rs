@@ -19,7 +19,16 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
 
     super::clean::clean(pj_paths)?;
 
-    let files = pj_paths.src_dir().descendants_file_paths()?;
+    let files = pj_paths
+        .src_dir()
+        .descendants_file_paths()
+        .with_context(|| {
+            format!(
+                "{} またはその配下のファイルを読めません",
+                pj_paths.src_dir().display()
+            )
+        })?;
+
     // Wikilink のタイトルを書くため、全記事のタイトルを先んじて取得する。
     let title_map = collect_titles(&files)?;
     let renderer = Renderer::new(&cfg, &title_map, pj_paths);

@@ -1,3 +1,4 @@
+use anyhow::Context;
 use serde::Deserialize;
 use std::path::Path;
 
@@ -39,10 +40,14 @@ pub struct FileConfig {
 }
 
 impl FileConfig {
-    pub fn load(config_path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        let cfg = std::fs::read(config_path.as_ref())?;
-        let cfg = std::str::from_utf8(&cfg)?;
-        toml::from_str(cfg).map_err(Into::into)
+    pub fn load(config_path: &Path) -> anyhow::Result<Self> {
+        let cfg = std::fs::read(config_path)
+            .with_context(|| format!("{} を読めません", config_path.display()))?;
+
+        let cfg = std::str::from_utf8(&cfg)
+            .with_context(|| format!("{} が utf-8 ではありません", config_path.display()))?;
+
+        toml::from_str(cfg).with_context(|| format!("{} の中身が不正です", config_path.display()))
     }
 }
 
