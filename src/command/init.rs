@@ -1,9 +1,13 @@
 use std::fs::create_dir_all;
 
 use crate::{copy_asset, path::ProjectPaths};
-use anyhow::{Context as _, anyhow};
+use anyhow::{Context as _, anyhow, bail};
 
 pub fn init() -> anyhow::Result<()> {
+    if ProjectPaths::find().is_ok() {
+        bail!("このプロジェクトはすでに zakki 用です")
+    }
+
     let pj_paths = ProjectPaths::at_current_dir()?;
 
     copy_asset!("zakki.toml", pj_paths.root_dir())?;

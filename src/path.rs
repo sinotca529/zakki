@@ -64,11 +64,8 @@ impl ProjectPaths {
         bail!("このディレクトリは zakki 用のものではありません");
     }
 
-    /// CWD を root としたパス情報を返します (設定ファイルの探索は実施しません)
+    /// CWD を root としたパス情報を返します (設定ファイルの探索・作成は実施しません)
     pub fn at_current_dir() -> anyhow::Result<Self> {
-        if Self::find().is_ok() {
-            bail!("このディレクトリはすでに zakki 用です");
-        }
         Ok(Self::new(std::env::current_dir()?))
     }
 
