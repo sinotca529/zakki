@@ -25,7 +25,7 @@ async function decryptPage() {
   const pwd = document.getElementById("decrypt-key").value;
   const key = await crypto.subtle.digest(
     "SHA-256",
-    Uint8Array.from(pwd, (c) => c.charCodeAt(0)),
+    new TextEncoder().encode(pwd)
   );
 
   const ivCypher = document.body.dataset.cypher;
