@@ -1,19 +1,15 @@
 use crate::util::PathExt;
 use anyhow::{Result, bail};
-use paste::paste;
 use std::path::{Path, PathBuf};
 
 macro_rules! getter {
     ($field:ident, $type:ty) => {
-        paste! {
-            pub fn [<$field>](&self) -> $type {
-                &self.$field
-            }
+        pub fn $field(&self) -> $type {
+            &self.$field
         }
     };
 }
 
-#[derive(Clone)]
 pub struct ProjectPaths {
     root_dir: PathBuf,
     src_dir: PathBuf,
@@ -25,13 +21,13 @@ pub struct ProjectPaths {
 }
 
 impl ProjectPaths {
-    getter!(root_dir, &PathBuf);
-    getter!(src_dir, &PathBuf);
-    getter!(src_public_dir, &PathBuf);
-    getter!(src_private_dir, &PathBuf);
-    getter!(src_draft_dir, &PathBuf);
-    getter!(build_dir, &PathBuf);
-    getter!(config_path, &PathBuf);
+    getter!(root_dir, &Path);
+    getter!(src_dir, &Path);
+    getter!(src_public_dir, &Path);
+    getter!(src_private_dir, &Path);
+    getter!(src_draft_dir, &Path);
+    getter!(build_dir, &Path);
+    getter!(config_path, &Path);
 
     fn new(root_dir: PathBuf) -> Self {
         let src_dir = root_dir.join("src");
