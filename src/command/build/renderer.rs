@@ -25,9 +25,9 @@ use std::path::{Path, PathBuf};
 const FRONT_MATTER_DELIMITER: &str = "---";
 
 pub struct Renderer<'a> {
-    pj_paths: &'a ProjectPaths,
     config: &'a Config,
     title_map: &'a HashMap<PathBuf, String>,
+    pj_paths: &'a ProjectPaths,
 }
 
 impl<'a> Renderer<'a> {
