@@ -41,6 +41,12 @@ p {
   margin: 0 0 1em;
 }
 
+/* スクロール */
+
+.x-scroll {
+  overflow-x: auto;
+}
+
 /* ヘッダー */
 
 .site-header {
@@ -305,9 +311,6 @@ table {
   margin: 1rem auto;
 }
 
-.table-wrapper {
-  overflow-x: auto;
-}
 
 td, th {
   border: 1px solid var(--border);
@@ -386,11 +389,6 @@ dd {
 }
 
 /* 画像 */
-
-.zakki-scroll {
-  max-width: 100%;
-  overflow-x: auto;
-}
 
 figure {
   margin: 1rem 0;
