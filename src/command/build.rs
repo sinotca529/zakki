@@ -22,7 +22,7 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
     let files = pj_paths.src_dir().descendants_file_paths()?;
     // Wikilink のタイトルを書くため、全記事のタイトルを先んじて取得する。
     let title_map = collect_titles(&files)?;
-    let renderer = Renderer::new(&cfg, &title_map, &pj_paths);
+    let renderer = Renderer::new(&cfg, &title_map, pj_paths);
 
     renderer.render_assets()?;
 
