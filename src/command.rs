@@ -5,16 +5,18 @@ mod init;
 use anyhow::Result;
 use clap::Subcommand;
 
-#[derive(PartialEq, Eq, Debug, Subcommand)]
+use crate::path::ProjectPaths;
+
+#[derive(Debug, Subcommand)]
 pub enum Command {
-    /// Initialize the current directory as a zakki project.
+    /// Zakki 向けのディレクトリを作成する
     Init,
-    /// Build the document.
+    /// 文書をビルドする
     Build {
-        #[arg(short = 'd', long)]
+        #[arg(short = 'd', help = "下書きも html に変換する", long)]
         render_draft: bool,
     },
-    /// Clean build directory.
+    /// ビルド結果を削除する
     Clean,
 }
 
@@ -22,8 +24,8 @@ impl Command {
     pub fn exec(&self) -> Result<()> {
         match &self {
             Self::Init => init::init(),
-            Self::Build { render_draft } => build::build(*render_draft),
-            Self::Clean => clean::clean(),
+            Self::Build { render_draft } => build::build(&ProjectPaths::find()?, *render_draft),
+            Self::Clean => clean::clean(&ProjectPaths::find()?),
         }
     }
 }

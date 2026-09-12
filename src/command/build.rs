@@ -1,7 +1,7 @@
 mod renderer;
 
 use crate::config::FileConfig;
-use crate::path::{zakki_dst_dir, zakki_src_dir};
+use crate::path::ProjectPaths;
 use crate::util::PathExt as _;
 use crate::{config::Config, util};
 use anyhow::{Context as _, Result};
@@ -11,18 +11,27 @@ use renderer::context::Metadata;
 use renderer::extract_title_from_path;
 use std::collections::HashMap;
 use std::fmt::Write as _;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-pub fn build(render_draft: bool) -> Result<()> {
-    let file_cfg = FileConfig::load()?;
+pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
+    let file_cfg = FileConfig::load(pj_paths.config_path())?;
     let cfg = Config::new(file_cfg, render_draft);
 
-    super::clean::clean()?;
+    super::clean::clean(pj_paths)?;
 
-    let files = zakki_src_dir()?.descendants_file_paths()?;
+    let files = pj_paths
+        .src_dir()
+        .descendants_file_paths()
+        .with_context(|| {
+            format!(
+                "{} またはその配下のファイルを読めません",
+                pj_paths.src_dir().display()
+            )
+        })?;
+
     // Wikilink のタイトルを書くため、全記事のタイトルを先んじて取得する。
     let title_map = collect_titles(&files)?;
-    let renderer = Renderer::new(&cfg, &title_map);
+    let renderer = Renderer::new(&cfg, &title_map, pj_paths);
 
     renderer.render_assets()?;
 
@@ -41,8 +50,8 @@ pub fn build(render_draft: bool) -> Result<()> {
     metadatas.sort_unstable_by(|a, b| b.update.cmp(&a.update));
 
     renderer.render_index(&metadatas)?;
-    output_sitemap(&cfg, &metadatas)?;
-    output_metadatas(metadatas)?;
+    output_sitemap(&cfg, &metadatas, pj_paths.build_dir())?;
+    output_metadatas(metadatas, pj_paths.build_dir())?;
 
     Ok(())
 }
@@ -61,7 +70,7 @@ fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
     Ok(map)
 }
 
-fn output_sitemap(cfg: &Config, metas: &[Metadata]) -> Result<()> {
+fn output_sitemap(cfg: &Config, metas: &[Metadata], build_dir: &Path) -> Result<()> {
     let pub_url = cfg.publish_url().map(|u| u.trim_end_matches("/"));
     let Some(pub_url) = pub_url else {
         return Ok(());
@@ -87,27 +96,25 @@ fn output_sitemap(cfg: &Config, metas: &[Metadata]) -> Result<()> {
     }
     writeln!(&mut xml, "</urlset>")?;
 
-    let dst = zakki_dst_dir()?.join("sitemap.xml");
-    util::write_file(dst, xml)?;
+    let sitemap_path = build_dir.join("sitemap.xml");
+    util::write_file(sitemap_path, xml)?;
 
     Ok(())
 }
 
-fn output_metadatas(metas: Vec<Metadata>) -> Result<()> {
-    let dst_dir = zakki_dst_dir()?;
-
+fn output_metadatas(metas: Vec<Metadata>, build_dir: &Path) -> Result<()> {
     // メタデータの書き出し
     let json = serde_json::to_string(&metas)?;
     let js = format!("const METADATA={json}");
-    let dst = dst_dir.join("metadata.js");
-    util::write_file(dst, js)?;
+    let metadata_path = build_dir.join("metadata.js");
+    util::write_file(metadata_path, js)?;
 
     // Bloom filter の書き出し
     let blooms: Vec<_> = metas.iter().map(|o| &o.bloom).collect();
     let json = serde_json::to_string(&blooms)?;
     let js = format!("const BLOOM_FILTER={json}");
-    let dst = dst_dir.join("bloom_filter.js");
-    util::write_file(dst, js)?;
+    let bloom_filter_path = build_dir.join("bloom_filter.js");
+    util::write_file(bloom_filter_path, js)?;
 
     Ok(())
 }

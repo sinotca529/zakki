@@ -5,7 +5,7 @@ mod pass;
 
 use crate::command::build::renderer::heading_id::NumberedHeadings;
 use crate::copy_asset;
-use crate::path::{dst_path_of, zakki_dst_dir};
+use crate::path::ProjectPaths;
 use crate::util::{BloomFilter, PathExt as _};
 use crate::{config::Config, util};
 use anyhow::{Context as _, Result, anyhow};
@@ -27,27 +27,36 @@ const FRONT_MATTER_DELIMITER: &str = "---";
 pub struct Renderer<'a> {
     config: &'a Config,
     title_map: &'a HashMap<PathBuf, String>,
+    pj_paths: &'a ProjectPaths,
 }
 
 impl<'a> Renderer<'a> {
-    pub fn new(config: &'a Config, title_map: &'a HashMap<PathBuf, String>) -> Self {
-        Self { config, title_map }
+    pub fn new(
+        config: &'a Config,
+        title_map: &'a HashMap<PathBuf, String>,
+        pj_paths: &'a ProjectPaths,
+    ) -> Self {
+        Self {
+            config,
+            title_map,
+            pj_paths,
+        }
     }
 
-    pub fn render(&self, src_path: impl AsRef<Path>) -> Result<Option<Context>> {
-        let src_path = src_path.as_ref();
+    pub fn render(&self, src_path: &Path) -> Result<Option<Context>> {
+        let build_path = self.pj_paths.build_path_of(src_path);
+
         if !src_path.extension_is("md") {
-            util::copy_file(src_path, dst_path_of(src_path)?)?;
+            util::copy_file(src_path, build_path)?;
             return Ok(None);
         }
 
         let content = std::fs::read_to_string(src_path)?;
-        let dst_path = dst_path_of(src_path)?;
-        let Some((html, meta)) = self.md_to_html(&content, src_path, dst_path.clone())? else {
+        let Some((html, meta)) = self.md_to_html(&content, src_path, &build_path)? else {
             return Ok(None);
         };
 
-        util::write_file(dst_path, html)?;
+        util::write_file(build_path, html)?;
 
         Ok(Some(meta))
     }
@@ -69,7 +78,7 @@ impl<'a> Renderer<'a> {
         };
 
         let path_to_root = ctx
-            .dst_rel_path()?
+            .build_rel_path()?
             .parent()
             .unwrap()
             .dir_path_to_origin_unchecked();
@@ -149,19 +158,20 @@ impl<'a> Renderer<'a> {
         &self,
         content: &str,
         src_path: &Path,
-        dst_path: PathBuf,
+        build_path: &Path,
     ) -> Result<Option<(String, Context)>> {
         let mut ctx = Context::default();
         if let Some(password) = self.config.password() {
             ctx.set_password(password.clone());
         }
 
-        let dst_rel_path = dst_path.strip_prefix(zakki_dst_dir()?).unwrap();
-        ctx.is_draft = dst_rel_path.starts_with("draft/");
-        ctx.to_encrypt = dst_rel_path.starts_with("private/");
-        ctx.is_sub =
-            !dst_rel_path.ends_with("index.html") && dst_rel_path.components().count() >= 3;
-        ctx.set_dst_rel_path(dst_rel_path.to_owned());
+        let build_rel_path = build_path.strip_prefix(self.pj_paths.build_dir()).unwrap();
+
+        ctx.is_draft = self.pj_paths.is_draft(src_path);
+        ctx.to_encrypt = self.pj_paths.is_private(src_path);
+        ctx.is_sub = self.pj_paths.is_subpage(src_path);
+
+        ctx.set_build_rel_path(build_rel_path.to_owned());
         ctx.set_src_path(src_path.to_owned());
 
         // Markdown を AST に変換
@@ -207,22 +217,22 @@ impl<'a> Renderer<'a> {
             &tags,
         );
 
-        let dst = zakki_dst_dir()?.join("index.html");
-        util::write_file(dst, content).map_err(Into::into)
+        let index_path = self.pj_paths.build_dir().join("index.html");
+        util::write_file(index_path, content).map_err(Into::into)
     }
 
     pub fn render_assets(&self) -> Result<()> {
-        let dst_dir = zakki_dst_dir()?;
-        copy_asset!("style.css", dst_dir)?;
-        copy_asset!("script.js", dst_dir)?;
+        let build_dir = self.pj_paths.build_dir();
+        copy_asset!("style.css", build_dir)?;
+        copy_asset!("script.js", build_dir)?;
 
-        copy_asset!("katex/LICENSE", dst_dir)?;
-        copy_asset!("katex/katex.min.css", dst_dir)?;
+        copy_asset!("katex/LICENSE", build_dir)?;
+        copy_asset!("katex/katex.min.css", build_dir)?;
 
         macro_rules! copy_katex_fonts {
             ($($font_name:literal),* $(,)?) => {
                 $(
-                    copy_asset!(concat!("katex/fonts/", $font_name), dst_dir)?;
+                    copy_asset!(concat!("katex/fonts/", $font_name), build_dir)?;
                 )*
             }
         }
@@ -249,10 +259,10 @@ impl<'a> Renderer<'a> {
             "KaTeX_Typewriter-Regular.woff2",
         );
 
-        copy_asset!("font/SourceCodePro/LICENSE.md", dst_dir)?;
+        copy_asset!("font/SourceCodePro/LICENSE.md", build_dir)?;
         copy_asset!(
             "font/SourceCodePro/SourceCodePro-Regular.otf.woff2",
-            dst_dir
+            build_dir
         )?;
 
         Ok(())
