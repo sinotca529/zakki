@@ -43,15 +43,15 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn render(&self, src_path: impl AsRef<Path>) -> Result<Option<Context>> {
-        let src_path = src_path.as_ref();
+    pub fn render(&self, src_path: &Path) -> Result<Option<Context>> {
+        let dst_path = self.pj_paths.build_path_of(src_path);
+
         if !src_path.extension_is("md") {
-            util::copy_file(src_path, self.pj_paths.build_path_of(src_path)?)?;
+            util::copy_file(src_path, dst_path)?;
             return Ok(None);
         }
 
         let content = std::fs::read_to_string(src_path)?;
-        let dst_path = self.pj_paths.build_path_of(src_path)?;
         let Some((html, meta)) = self.md_to_html(&content, src_path, &dst_path)? else {
             return Ok(None);
         };

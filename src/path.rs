@@ -69,14 +69,14 @@ impl ProjectPaths {
         Ok(Self::new(std::env::current_dir()?))
     }
 
-    pub fn build_path_of(&self, src_path: impl AsRef<Path>) -> Result<PathBuf> {
+    pub fn build_path_of(&self, src_path: impl AsRef<Path>) -> PathBuf {
         let src_path = src_path.as_ref();
         let rel = src_path.strip_prefix(self.src_dir()).unwrap();
 
         if rel.extension_is("md") {
-            Ok(self.build_dir.join(rel.with_extension("html")))
+            self.build_dir.join(rel.with_extension("html"))
         } else {
-            Ok(self.build_dir.join(rel))
+            self.build_dir.join(rel)
         }
     }
 
