@@ -1,7 +1,6 @@
 use crate::command::build::renderer::context::Metadata;
 use crate::command::build::renderer::pass::{escape_html_attr, escape_html_text};
 use crate::include_asset;
-use itertools::Itertools as _;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -95,7 +94,7 @@ pub fn all_tags_html(metas: &[Metadata]) -> String {
     tag_set
         .iter()
         .map(|t| tag_link_html(t, "index.html"))
-        .join(" ")
+        .collect()
 }
 
 pub fn index_html<'a>(
