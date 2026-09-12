@@ -2,6 +2,15 @@ use crate::util::PathExt;
 use anyhow::{Result, bail};
 use std::path::{Path, PathBuf};
 
+/// 設定ファイルの名前。
+/// `include_bytes!` の `concat!` がリテラルを要求するため、定数ではなくマクロで定義します。
+#[macro_export]
+macro_rules! config_file_name {
+    () => {
+        "zakki.toml"
+    };
+}
+
 macro_rules! getter {
     ($field:ident, $type:ty) => {
         pub fn $field(&self) -> $type {
@@ -38,7 +47,7 @@ impl ProjectPaths {
             src_draft_dir: src_dir.join("draft"),
             src_dir,
             build_dir: root_dir.join("build"),
-            config_path: root_dir.join("zakki.toml"),
+            config_path: root_dir.join(config_file_name!()),
             root_dir,
         }
     }
@@ -50,7 +59,7 @@ impl ProjectPaths {
         let mut dir: Option<&Path> = Some(pwd.as_ref());
 
         while let Some(d) = dir {
-            let is_zakki_root = d.has_file("zakki.toml")?;
+            let is_zakki_root = d.has_file(config_file_name!())?;
             if is_zakki_root {
                 return Ok(Self::new(d.to_owned()));
             }
