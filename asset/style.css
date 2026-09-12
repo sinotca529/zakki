@@ -312,10 +312,10 @@ table {
   margin: 1rem auto;
 }
 
-
 td, th {
   border: 1px solid var(--border);
   padding: 0.3rem 0.6rem;
+  white-space: nowrap;
 }
 
 th {
