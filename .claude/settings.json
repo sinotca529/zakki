@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-fullwidth.sh\"",
+            "statusMessage": "全角記号を確認しています"
+          }
+        ]
+      }
+    ]
+  }
+}
