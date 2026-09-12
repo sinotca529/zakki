@@ -1,6 +1,5 @@
-use crate::path::zakki_root;
-use anyhow::bail;
 use serde::Deserialize;
+use std::path::Path;
 
 const fn default_search_fp() -> f64 {
     0.0001f64
@@ -40,19 +39,9 @@ pub struct FileConfig {
 }
 
 impl FileConfig {
-    pub fn load() -> anyhow::Result<Self> {
-        let cfg = std::fs::read_dir(zakki_root()?)?
-            .filter_map(|f| f.ok())
-            .map(|f| f.file_name())
-            .find(|f| f == "zakki.toml");
-
-        let Some(cfg) = cfg else {
-            bail!("zakki.toml が見つかりませんでした");
-        };
-
-        let cfg = std::fs::read(cfg)?;
+    pub fn load(config_path: impl AsRef<Path>) -> anyhow::Result<Self> {
+        let cfg = std::fs::read(config_path.as_ref())?;
         let cfg = std::str::from_utf8(&cfg)?;
-
         toml::from_str(cfg).map_err(Into::into)
     }
 }
