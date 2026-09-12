@@ -101,6 +101,12 @@ impl Context {
         self.css_paths.push(path.into());
     }
 
+    /// INFO: 将来の拡張のためにメソッドのみ用意しておく
+    #[allow(dead_code)]
+    pub fn push_js_path(&mut self, path: impl Into<String>) {
+        self.js_paths.push(path.into());
+    }
+
     /// 出力用メタデータに変換します。
     pub fn into_output(self) -> Result<Metadata> {
         Ok(Metadata {
