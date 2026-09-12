@@ -10,7 +10,7 @@ pub fn wrap_table<'a>(arena: &'a Arena<'a>, root: &'a AstNode<'a>) -> anyhow::Re
         .collect();
 
     for table in tables {
-        table.insert_before(html_block(arena, r#"<div class="table-wrapper">"#));
+        table.insert_before(html_block(arena, r#"<div class="x-scroll" tabindex="0">"#));
         table.insert_after(html_block(arena, "</div>"));
     }
 

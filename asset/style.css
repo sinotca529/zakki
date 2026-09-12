@@ -41,6 +41,12 @@ p {
   margin: 0 0 1em;
 }
 
+/* スクロール */
+
+.x-scroll {
+  overflow-x: auto;
+}
+
 /* ヘッダー */
 
 .site-header {
@@ -169,12 +175,15 @@ main {
 .card-tags {
   position: relative;
   z-index: 1;
+}
+
+/* タグ */
+
+.tag-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
 }
-
-/* タグ */
 
 .tag {
   display: inline-block;
@@ -193,13 +202,6 @@ main {
 
 #tag-filter:not(:empty)::before {
   content: "Filtered by: ";
-}
-
-#tag-title {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }
 
 /* ページタイトル */
@@ -292,14 +294,12 @@ figure.code-figure pre {
 table {
   border-collapse: collapse;
   margin: 1rem auto;
-  display: block;
-  max-width: 100%;
-  overflow-x: auto;
 }
 
 td, th {
   border: 1px solid var(--border);
   padding: 0.3rem 0.6rem;
+  white-space: nowrap;
 }
 
 th {
@@ -374,11 +374,6 @@ dd {
 }
 
 /* 画像 */
-
-.zakki-scroll {
-  max-width: 100%;
-  overflow-x: auto;
-}
 
 figure {
   margin: 1rem 0;

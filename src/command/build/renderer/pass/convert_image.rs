@@ -50,5 +50,7 @@ fn make_figure_tag(url: &str, alt: &str, title: &str) -> String {
         .map(|alt| format!(r#"<figcaption>{}</figcaption>"#, escape_html_text(alt)))
         .unwrap_or_default();
 
-    format!(r#"<figure><div class="zakki-scroll">{img_tag}</div>{figcaption_tag}</figure>"#)
+    format!(
+        r#"<figure><div class="x-scroll" tabindex="0">{img_tag}</div>{figcaption_tag}</figure>"#
+    )
 }
