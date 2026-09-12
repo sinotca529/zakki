@@ -39,7 +39,7 @@ pub struct Context {
     title: Option<String>,
 
     /// ルートから記事の出力先への相対パス
-    dst_rel_path: Option<PathBuf>,
+    build_rel_path: Option<PathBuf>,
 
     /// Bloom filter
     bloom_filter: Option<BloomFilter>,
@@ -71,7 +71,7 @@ impl Context {
     try_get!(last_update_date, &String);
     try_get!(tags, &Vec<String>);
     try_get!(title, &String);
-    try_get!(dst_rel_path, &PathBuf);
+    try_get!(build_rel_path, &PathBuf);
     try_get!(src_path, &PathBuf);
     try_get!(highlights, &Vec<HighlightRule>);
     try_get!(password, &String);
@@ -84,7 +84,7 @@ impl Context {
     setter!(last_update_date, String);
     setter!(tags, Vec<String>);
     setter!(title, String);
-    setter!(dst_rel_path, PathBuf);
+    setter!(build_rel_path, PathBuf);
     setter!(src_path, PathBuf);
     setter!(bloom_filter, BloomFilter);
     setter!(password, String);
@@ -103,7 +103,9 @@ impl Context {
                 .context("last_update_date has not been set")?,
             tags: self.tags.context("tags has not been set")?,
             title: self.title.context("title has not been set")?,
-            path: self.dst_rel_path.context("dst_rel_path has not been set")?,
+            path: self
+                .build_rel_path
+                .context("build_rel_path has not been set")?,
             bloom: self.bloom_filter.context("bloom_filter has not been set")?,
             is_sub: self.is_sub,
         })

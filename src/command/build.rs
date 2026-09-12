@@ -89,8 +89,8 @@ fn output_sitemap(cfg: &Config, metas: &[Metadata], build_dir: &Path) -> Result<
     }
     writeln!(&mut xml, "</urlset>")?;
 
-    let dst = build_dir.join("sitemap.xml");
-    util::write_file(dst, xml)?;
+    let sitemap_path = build_dir.join("sitemap.xml");
+    util::write_file(sitemap_path, xml)?;
 
     Ok(())
 }
@@ -99,15 +99,15 @@ fn output_metadatas(metas: Vec<Metadata>, build_dir: &Path) -> Result<()> {
     // メタデータの書き出し
     let json = serde_json::to_string(&metas)?;
     let js = format!("const METADATA={json}");
-    let dst = build_dir.join("metadata.js");
-    util::write_file(dst, js)?;
+    let metadata_path = build_dir.join("metadata.js");
+    util::write_file(metadata_path, js)?;
 
     // Bloom filter の書き出し
     let blooms: Vec<_> = metas.iter().map(|o| &o.bloom).collect();
     let json = serde_json::to_string(&blooms)?;
     let js = format!("const BLOOM_FILTER={json}");
-    let dst = build_dir.join("bloom_filter.js");
-    util::write_file(dst, js)?;
+    let bloom_filter_path = build_dir.join("bloom_filter.js");
+    util::write_file(bloom_filter_path, js)?;
 
     Ok(())
 }
