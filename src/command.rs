@@ -5,7 +5,7 @@ mod init;
 use anyhow::Result;
 use clap::Subcommand;
 
-#[derive(PartialEq, Eq, Debug, Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum Command {
     /// Zakki 向けのディレクトリを作成する
     Init,
