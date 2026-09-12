@@ -13,13 +13,11 @@ use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-pub fn build(render_draft: bool) -> Result<()> {
-    let pj_paths = ProjectPaths::find()?;
-
+pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
     let file_cfg = FileConfig::load(pj_paths.config_path())?;
     let cfg = Config::new(file_cfg, render_draft);
 
-    super::clean::clean()?;
+    super::clean::clean(pj_paths)?;
 
     let files = pj_paths.src_dir().descendants_file_paths()?;
     // Wikilink のタイトルを書くため、全記事のタイトルを先んじて取得する。

@@ -5,6 +5,8 @@ mod init;
 use anyhow::Result;
 use clap::Subcommand;
 
+use crate::path::ProjectPaths;
+
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Zakki 向けのディレクトリを作成する
@@ -22,8 +24,8 @@ impl Command {
     pub fn exec(&self) -> Result<()> {
         match &self {
             Self::Init => init::init(),
-            Self::Build { render_draft } => build::build(*render_draft),
-            Self::Clean => clean::clean(),
+            Self::Build { render_draft } => build::build(&ProjectPaths::find()?, *render_draft),
+            Self::Clean => clean::clean(&ProjectPaths::find()?),
         }
     }
 }
