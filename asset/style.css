@@ -204,13 +204,6 @@ main {
   content: "Filtered by: ";
 }
 
-#tag-title {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
 /* ページタイトル */
 
 #page-title {
