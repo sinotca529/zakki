@@ -50,9 +50,6 @@ pub struct Context {
     /// 暗号化時のパスワード
     password: Option<String>,
 
-    /// 追加で読み込む JS 一覧
-    js_paths: Vec<String>,
-
     /// 追加で読み込む CSS 一覧
     css_paths: Vec<String>,
 
@@ -83,10 +80,6 @@ impl Context {
         &self.css_paths
     }
 
-    pub fn js_list(&self) -> &Vec<String> {
-        &self.js_paths
-    }
-
     setter!(create_date, String);
     setter!(last_update_date, String);
     setter!(tags, Vec<String>);
@@ -99,12 +92,6 @@ impl Context {
 
     pub fn push_css_path(&mut self, path: impl Into<String>) {
         self.css_paths.push(path.into());
-    }
-
-    /// INFO: 将来の拡張のためにメソッドのみ用意しておく
-    #[allow(dead_code)]
-    pub fn push_js_path(&mut self, path: impl Into<String>) {
-        self.js_paths.push(path.into());
     }
 
     /// 出力用メタデータに変換します。

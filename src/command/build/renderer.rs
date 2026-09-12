@@ -85,8 +85,7 @@ impl<'a> Renderer<'a> {
             .config
             .js_list()
             .iter()
-            .map(String::as_str)
-            .chain(ctx.js_list().iter().map(String::as_str));
+            .map(String::as_str);
 
         let toc = extract_toc_html(&body);
         let article = format!("{}<div id=\"main-content\">{}</div>", toc, body);
