@@ -24,8 +24,7 @@ function indexMain() {
 async function decryptPage() {
   try {
     const pwd = document.getElementById("decrypt-key").value;
-    const key = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pwd));
-    const plain = await decrypt(document.body.dataset.cypher, key);
+    const plain = await decrypt(document.body.dataset.cypher, pwd);
     document.getElementById("article").innerHTML = plain;
   } catch (e) {
     const err = document.getElementById("decrypt-error");
@@ -243,25 +242,24 @@ function fxhash32_multi(str, n) {
 //-----------------------------------------------------
 
 // (string, string) -> string
-async function decrypt(ivCypher, key) {
-  ivCypher = b64ToU8Arr(ivCypher);
-  const iv = ivCypher.slice(0, 16);
-  const cypher = ivCypher.slice(16);
+async function decrypt(blobB64, pwd) {
+  const blob = b64ToU8Arr(blobB64);
+  const salt = blob.slice(0, 16);
+  const iterations = new DataView(blob.buffer).getUint32(16, false);
+  const nonce = blob.slice(20, 32);
+  const cypher = blob.slice(32);
 
-  const aesKey = await crypto.subtle.importKey(
-    "raw",
-    key,
-    { name: "AES-CBC" },
+  const material = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(pwd), "PBKDF2", false, ["deriveKey"],
+  );
+  const aesKey = await crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
+    material,
+    { name: "AES-GCM", length: 256 },
     false,
     ["decrypt"],
   );
-
-  const plain = await crypto.subtle.decrypt(
-    { name: "AES-CBC", iv: iv },
-    aesKey,
-    cypher,
-  );
-
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: nonce }, aesKey, cypher);
   return new TextDecoder().decode(plain);
 }
 
