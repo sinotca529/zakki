@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0](https://github.com/sinotca529/zakki/compare/v0.19.0...v0.20.0) - 2026-09-13
+
+### Added
+
+- 暗号を強化
+- 復号失敗時にエラーメッセージを表示
+- エラーメッセージの拡充
+- ヘルプを日本語化
+- 画像に tabindex を設定
+- table を tab で選択可能に
+
+### Fixed
+
+- [**breaking**] front matter と設定の打ち間違いをエラーにする
+- 検索欄を空にしても結果が残る問題を直す
+- 検索結果とタグリンクのエスケープ漏れを直す
+- 非 ascii のパスワードを受け付けるように変更
+- 表の折り返しを無効化
+- 表横スクロール関連の css を修正
+- copy_asset マクロが呼び出し元の処理そのものを return させてしまう問題を修正
+
+### Other
+
+- テストのモジュール名を test_vector にする
+- 表の読み込みを include_testdata にまとめる
+- 例示データのサロゲートペアを中立な語に差し替える
+- 表と重複する名前付きテストを削除する
+- Rust と JS の規則をテストベクタで突き合わせる
+- .hidden をやめて hidden 属性を CSS で守る
+- 保守性を下げるため、コメント中で他ファイル名への言及をやめる
+- コメント追加 + concat 利用
+- 未使用の依存を削除
+- 造語についての規則を書き直す
+- 文体検査に textlint を導入する
+- 見出しは名詞句にするという規則を足す
+- 会話での見出しと分量の規則を足し、検査を GitHub コメントにも広げる
+- 文体と進め方の指摘を反映
+- 文体の規則に指摘のあった5件を反映
+- git の取り決めを一般化
+- AI 向けの指示ファイルを追加
+- 設定ファイル名を定数化
+- clippy
+- find が多重で呼ばれる問題の解消
+- サブページ判定をカプセル化
+- Renderer のフィールド順を new にあわせる
+- dst という用語を排除
+- path.rs
+- 不要な Result を剥がした
+- ProjectPaths::at_current_dir の責務を縮小
+- 不要な derive を削除
+- パスの扱いをカプセル化
+- 未使用 css の削除
+- タグ一覧への css を統一
+- index.html のタグ一覧のスタイルをカードなどと統一
+- fmt
+- 不要な空行を削除
+- js を追加指定する機構 (未使用) を削除
+- push_js_path を復活。ただし、現状は未使用。
+- table と figure でスクロール制御の class を共有
+- インラインスタイルを css ファイルに移動
+- タグ一覧の不要な nbsp を排除し、 css で隙間を確保
+- マジックリテラルの利用を排除
+
 ## [0.19.0](https://github.com/sinotca529/zakki/compare/v0.18.1...v0.19.0) - 2026-09-06
 
 ### Added
