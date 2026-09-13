@@ -41,7 +41,11 @@ pub fn read_header<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Resu
     Ok(())
 }
 
+/// `Option` のフィールドに `#[serde(default)]` は付けません。
+/// serde が省略時に `None` を入れるためです。付けるのは `Vec` のように、
+/// 省略時の値を serde が決められない型だけにします。
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct YamlHeader {
     /// 記事の作成日
     #[serde(rename = "create")]
@@ -56,13 +60,11 @@ struct YamlHeader {
 
     /// 記事につけられたタグ
     #[serde(default)]
-    #[serde(alias = "tag")]
     pub tags: Vec<String>,
 
     /// 暗号化時のパスワード
     pub password: Option<String>,
 
     /// コードハイライトのルール
-    #[serde(alias = "highlight")]
     pub highlights: Option<Vec<HighlightRule>>,
 }

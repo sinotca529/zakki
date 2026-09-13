@@ -6,20 +6,22 @@ const fn default_search_fp() -> f64 {
     0.0001f64
 }
 
+/// `Option` のフィールドに `#[serde(default)]` は付けません。
+/// serde が省略時に `None` を入れるためです。付けるのは `Vec` のように、
+/// 省略時の値を serde が決められない型だけにします。
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FileConfig {
     /// サイトの名前
     site_name: String,
 
-    // サイトの公開先 URL
+    /// サイトの公開先 URL
     publish_url: Option<String>,
 
     /// ページの暗号化に使うパスワード
-    #[serde(default)]
     password: Option<String>,
 
-    /// ページの下部に表示する内容 (HTML形式)
-    #[serde(default)]
+    /// ページの下部に表示する内容 (HTML 形式)
     footer: Option<String>,
 
     /// サイト内検索の偽陽性率
