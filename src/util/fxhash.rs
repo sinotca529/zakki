@@ -29,7 +29,7 @@ mod golden {
 
     #[test]
     fn matches_table() {
-        let src = include_str!("../../testdata/fxhash64.json");
+        let src = crate::include_testdata!("fxhash64.json");
         let cases: Vec<Case> = serde_json::from_str(src).unwrap();
         assert!(!cases.is_empty());
         for c in cases {

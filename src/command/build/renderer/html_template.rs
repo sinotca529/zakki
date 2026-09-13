@@ -209,7 +209,7 @@ mod golden {
 
     #[test]
     fn matches_table() {
-        let src = include_str!("../../../../testdata/encode_query_value.json");
+        let src = crate::include_testdata!("encode_query_value.json");
         let cases: Vec<Case> = serde_json::from_str(src).unwrap();
         assert!(!cases.is_empty());
         for c in cases {

@@ -63,7 +63,7 @@ mod golden {
 
     #[test]
     fn matches_table() {
-        let src = include_str!("../../testdata/tokenize.json");
+        let src = crate::include_testdata!("tokenize.json");
         let cases: Vec<Case> = serde_json::from_str(src).unwrap();
         assert!(!cases.is_empty());
         for c in cases {
