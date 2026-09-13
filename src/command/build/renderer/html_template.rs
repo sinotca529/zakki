@@ -197,3 +197,28 @@ fn encode_query_value(s: &str) -> String {
     }
     out
 }
+
+/// クライアント側の実装と突き合わせるための表です。
+#[cfg(test)]
+mod test_vector {
+    #[derive(serde::Deserialize)]
+    struct Case {
+        r#in: String,
+        out: String,
+    }
+
+    #[test]
+    fn matches_table() {
+        let src = crate::include_testdata!("encode_query_value.json");
+        let cases: Vec<Case> = serde_json::from_str(src).unwrap();
+        assert!(!cases.is_empty());
+        for c in cases {
+            assert_eq!(
+                super::encode_query_value(&c.r#in),
+                c.out,
+                "入力: {:?}",
+                c.r#in
+            );
+        }
+    }
+}

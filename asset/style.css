@@ -37,6 +37,13 @@ a {
   color: var(--link);
 }
 
+/* script.js は要素を隠すのに hidden 属性を使う。ユーザーエージェント
+   スタイルシートの [hidden] { display: none } より作成者スタイルシートが
+   優先されるため、.card などに display を書くと隠れなくなる。それを防ぐ。 */
+[hidden] {
+  display: none !important;
+}
+
 p {
   margin: 0 0 1em;
 }
@@ -115,10 +122,6 @@ p {
 .search-result-meta {
   font-size: 0.85rem;
   color: var(--muted);
-}
-
-.hidden {
-  display: none !important;
 }
 
 /* メインコンテンツ */

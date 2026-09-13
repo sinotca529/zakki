@@ -50,41 +50,38 @@ fn tokens_of(cls: Class, run: &[char]) -> Vec<String> {
     }
 }
 
+/// クライアント側の実装と突き合わせるための表です。
+/// Rust と JS の両方がこれを読み、同じ結果になることを確かめます。
+/// 期待値を直接書かないので、片方の名前や置き場所が変わっても直す必要がありません。
+#[cfg(test)]
+mod test_vector {
+    #[derive(serde::Deserialize)]
+    struct Case {
+        r#in: String,
+        out: Vec<String>,
+    }
+
+    #[test]
+    fn matches_table() {
+        let src = crate::include_testdata!("tokenize.json");
+        let cases: Vec<Case> = serde_json::from_str(src).unwrap();
+        assert!(!cases.is_empty());
+        for c in cases {
+            assert_eq!(super::tokenize(&c.r#in), c.out, "入力: {:?}", c.r#in);
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::tokenize;
 
-    #[test]
-    fn ascii_is_kept_as_a_word() {
-        assert_eq!(tokenize("Rust BM25"), ["rust", "bm25"]);
-    }
-
-    #[test]
-    fn japanese_is_split_into_bigrams() {
-        assert_eq!(tokenize("検索語"), ["検索", "索語"]);
-    }
-
-    #[test]
-    fn scripts_are_split_apart() {
-        assert_eq!(tokenize("Rust製"), ["rust", "製"]);
-    }
-
-    #[test]
-    fn bigrams_do_not_cross_separators() {
-        // 「た。」「。次」のような無意味なトークンを作らない
-        assert_eq!(tokenize("あい。うえ"), ["あい", "うえ"]);
-    }
-
+    /// 入力ごとの出力は test_vector の表で見ます。ここに書くのは、
+    /// 2 つの入力の関係のように、行ごとの比較で表せないものだけです。
     #[test]
     fn substring_of_a_compound_word_is_searchable() {
         // 分かち書きでは取りこぼしていたケース
         let doc = tokenize("ブルームフィルタ");
         assert!(tokenize("フィルタ").iter().all(|t| doc.contains(t)));
-    }
-
-    #[test]
-    fn empty_input() {
-        assert!(tokenize("").is_empty());
-        assert!(tokenize("   、。 ").is_empty());
     }
 }

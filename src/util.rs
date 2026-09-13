@@ -19,6 +19,16 @@ macro_rules! include_asset {
     };
 }
 
+/// 本プロジェクトの testdata ディレクトリ下にあるファイルの内容を読み込みます
+/// Rust 側と JS 側が同じ表を読むため、パスは呼び出し元の位置に依存させません
+#[cfg(test)]
+#[macro_export]
+macro_rules! include_testdata {
+    ($fname:literal) => {
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/", $fname))
+    };
+}
+
 /// 本プロジェクトの asset ディレクトリ下にあるファイルの内容をコピーします
 /// ファイルの内容はコンパイル時にバイナリに埋め込まれます
 #[macro_export]
