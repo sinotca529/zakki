@@ -18,6 +18,10 @@ set -u
 
 PATTERNS='（|）|！|？|：|；|\*\*|効く|効か|効き|効け|効こ|効い|まさに|唯一の|そのものです|生きている'
 
+# 見出しは名詞句にする。文の述語で終わるもの、接続詞で始まるものを検出する。
+# 目次に並べて意味が通らない見出しを弾くのが狙い。
+HEAD_NG='^#{1,6} .*(ます|ました|ません|でした|です|ください|しない|になる|がある|が違う)$|^#{1,6} *(ただし|しかし|そして|それでも|なお|また|つまり|ちなみに|さらに)'
+
 # AGENTS.md は規則そのものを引用するため、CHANGELOG.md は release-plz が
 # 生成するため、どちらも検査しない。
 is_exempt() {
@@ -29,7 +33,7 @@ is_exempt() {
 
 find_hits() {
     is_exempt "$1" && return 1
-    grep -nE "$PATTERNS" "$1" 2>/dev/null
+    grep -nE "$PATTERNS|$HEAD_NG" "$1" 2>/dev/null
 }
 
 # --- 1. 引数モード ---
@@ -53,7 +57,7 @@ if [ "$event" = "PreToolUse" ]; then
     body=$(printf '%s' "$input" | jq -r '.tool_input.body // .tool_input.text // empty')
     [ -n "$body" ] || exit 0
 
-    hits=$(printf '%s\n' "$body" | grep -nE "$PATTERNS") || exit 0
+    hits=$(printf '%s\n' "$body" | grep -nE "$PATTERNS|$HEAD_NG") || exit 0
     reason="AGENTS.md の文体に反する箇所があります。直してから投稿してください。
 $hits"
     jq -n --arg r "$reason" '{
