@@ -1,11 +1,11 @@
 use std::borrow::Cow;
 
-use super::escape_html_text;
-use crate::command::build::renderer::pass::escape_html_attr;
 use anyhow::Result;
 use comrak::nodes::{AstNode, NodeHtmlBlock, NodeValue};
 use regex::Regex;
 use serde::Deserialize;
+
+use crate::command::build::renderer::html_component::{escape_html_attr, escape_html_text};
 
 /// コードブロックの中身に、記事で指定された区切り文字のスタイルを適用します。
 ///

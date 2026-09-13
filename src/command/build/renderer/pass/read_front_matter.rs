@@ -3,7 +3,7 @@ use anyhow::Context as _;
 use comrak::nodes::{AstNode, NodeValue};
 use serde::Deserialize;
 
-/// YAML フロントマターを読み、メタデータを Context に設定します。
+/// YAML フロントマターを読み取ります
 pub fn read_front_matter<'a>(root: &'a AstNode<'a>) -> anyhow::Result<PageFrontMatter> {
     // 区切り ('---') を含むヘッダ文字列
     let front_matter = root

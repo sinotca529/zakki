@@ -1,24 +1,33 @@
 mod heading_id;
-mod html_template;
+mod html_component;
+mod index;
+mod page_meta;
+mod page_paths;
 mod pass;
 
 use crate::command::build::renderer::heading_id::NumberedHeadings;
+use crate::command::build::renderer::html_component::{
+    escape_html_text, footer, head, header, tag_elems,
+};
 use crate::command::build::renderer::pass::{PageFrontMatter, PassAssets};
 use crate::config::ProjectConfig;
-use crate::copy_asset;
+use crate::include_asset;
 use crate::path::ProjectPaths;
 use crate::util::{self, BloomFilter, PathExt as _};
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{Context as _, Result};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use comrak::nodes::AstNode;
 use comrak::options::Plugins;
 use comrak::{Arena, Options, format_html_with_plugins, parse_document};
-use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_html};
 use itertools::Itertools;
 use scraper::{Html, Selector};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+
+pub use index::render_index;
+pub use page_meta::PageMetadata;
+pub use page_paths::PagePaths;
 
 const FRONT_MATTER_DELIMITER: &str = "---";
 
@@ -27,7 +36,6 @@ pub struct Renderer<'a> {
     title_map: &'a HashMap<PathBuf, String>,
     pj_paths: &'a ProjectPaths,
     render_draft: bool,
-    footer: String,
 }
 
 impl<'a> Renderer<'a> {
@@ -37,18 +45,11 @@ impl<'a> Renderer<'a> {
         pj_paths: &'a ProjectPaths,
         render_draft: bool,
     ) -> Self {
-        let footer = config
-            .footer
-            .as_ref()
-            .map(|f| format!("<footer>{f}</footer>"))
-            .unwrap_or_default();
-
         Self {
             config,
             title_map,
             pj_paths,
             render_draft,
-            footer,
         }
     }
 
@@ -114,7 +115,7 @@ impl<'a> Renderer<'a> {
             let encoded = BASE64_STANDARD.encode(cypher);
 
             crypto_html(
-                &page_paths.path_to_root,
+                &page_paths.url_to_root,
                 &self.config.site_name,
                 &front_matter.title,
                 &front_matter.create_date,
@@ -123,11 +124,11 @@ impl<'a> Renderer<'a> {
                 js_list,
                 &front_matter.tags,
                 &encoded,
-                &self.footer,
+                &footer(&self.config.footer),
             )
         } else {
             page_html(
-                &page_paths.path_to_root,
+                &page_paths.url_to_root,
                 &self.config.site_name,
                 &front_matter.title,
                 &front_matter.create_date,
@@ -136,7 +137,7 @@ impl<'a> Renderer<'a> {
                 js_list,
                 &front_matter.tags,
                 &article,
-                &self.footer,
+                &footer(&self.config.footer),
             )
         };
 
@@ -204,76 +205,12 @@ impl<'a> Renderer<'a> {
             update: front_matter.last_update_date,
             tags: front_matter.tags,
             title: front_matter.title,
-            path: page_paths.build_path_rel.clone(),
+            path: page_paths.url_path.clone(),
             is_sub: self.pj_paths.is_subpage(page_paths.src_path),
             bloom: filter,
         };
 
         Ok(Some((html, metadata)))
-    }
-
-    pub fn render_index(&self, metadatas: &[PageMetadata]) -> Result<()> {
-        let cards = cards_html(metadatas);
-        let tags = all_tags_html(metadatas);
-
-        let content = index_html(
-            &self.config.site_name,
-            self.config.css_list.iter().map(|p| p.as_str()),
-            self.config.js_list.iter().map(|p| p.as_str()),
-            &self.footer,
-            &cards,
-            &tags,
-        );
-
-        let index_path = self.pj_paths.build_dir().join("index.html");
-        util::write_file(index_path, content).map_err(Into::into)
-    }
-
-    pub fn render_assets(&self) -> Result<()> {
-        let build_dir = self.pj_paths.build_dir();
-        copy_asset!("style.css", build_dir)?;
-        copy_asset!("script.js", build_dir)?;
-
-        copy_asset!("katex/LICENSE", build_dir)?;
-        copy_asset!("katex/katex.min.css", build_dir)?;
-
-        macro_rules! copy_katex_fonts {
-            ($($font_name:literal),* $(,)?) => {
-                $(
-                    copy_asset!(concat!("katex/fonts/", $font_name), build_dir)?;
-                )*
-            }
-        }
-        copy_katex_fonts!(
-            "KaTeX_AMS-Regular.woff2",
-            "KaTeX_Caligraphic-Bold.woff2",
-            "KaTeX_Caligraphic-Regular.woff2",
-            "KaTeX_Fraktur-Bold.woff2",
-            "KaTeX_Fraktur-Regular.woff2",
-            "KaTeX_Main-BoldItalic.woff2",
-            "KaTeX_Main-Bold.woff2",
-            "KaTeX_Main-Italic.woff2",
-            "KaTeX_Main-Regular.woff2",
-            "KaTeX_Math-BoldItalic.woff2",
-            "KaTeX_Math-Italic.woff2",
-            "KaTeX_SansSerif-Bold.woff2",
-            "KaTeX_SansSerif-Italic.woff2",
-            "KaTeX_SansSerif-Regular.woff2",
-            "KaTeX_Script-Regular.woff2",
-            "KaTeX_Size1-Regular.woff2",
-            "KaTeX_Size2-Regular.woff2",
-            "KaTeX_Size3-Regular.woff2",
-            "KaTeX_Size4-Regular.woff2",
-            "KaTeX_Typewriter-Regular.woff2",
-        );
-
-        copy_asset!("font/SourceCodePro/LICENSE.md", build_dir)?;
-        copy_asset!(
-            "font/SourceCodePro/SourceCodePro-Regular.otf.woff2",
-            build_dir
-        )?;
-
-        Ok(())
     }
 }
 
@@ -383,7 +320,7 @@ fn extract_toc_html(body: &str) -> String {
         html.push(format!(
             "<a href=\"#{}\">{}</a>",
             id,
-            pass::escape_html_text(inner)
+            escape_html_text(inner)
         ));
         prev_level = *level;
     }
@@ -396,49 +333,60 @@ fn extract_toc_html(body: &str) -> String {
     )
 }
 
-struct PagePaths<'a> {
-    /// md ファイルのパス
-    src_path: &'a Path,
-    /// 変換後の html ファイルのパス
-    build_path: PathBuf,
-    /// 変換後の html  ファイルへのパス (ビルドディレクトリからの相対パス)
-    build_path_rel: PathBuf,
-    /// 変換後の html ファイルからビルドディレクトリへの相対パス
-    path_to_root: PathBuf,
+#[allow(clippy::too_many_arguments)]
+pub fn page_html<'a>(
+    path_to_root: &Path,
+    site_name: &str,
+    title: &str,
+    create_date: &str,
+    last_update_date: &str,
+    css_list: impl Iterator<Item = &'a str>,
+    js_list: impl Iterator<Item = &'a str>,
+    tags: &[String],
+    article: &str,
+    footer: &str,
+) -> String {
+    let head = head(path_to_root, css_list, js_list, title);
+    let header = header(path_to_root, site_name);
+    let tag_elems = tag_elems(tags, path_to_root);
+    format!(
+        include_asset!("page.html"),
+        head = head,
+        header = header,
+        title = escape_html_text(title),
+        tag_elems = tag_elems,
+        create_date = create_date,
+        last_update_date = last_update_date,
+        article = article,
+        footer = footer,
+    )
 }
 
-impl<'a> PagePaths<'a> {
-    fn new(src_path: &'a Path, pj_paths: &ProjectPaths) -> Self {
-        let build_path = pj_paths.build_path_of(src_path);
-        let build_path_rel = build_path
-            .strip_prefix(pj_paths.build_dir())
-            .unwrap()
-            .to_path_buf();
-
-        let path_to_root = build_path_rel
-            .parent()
-            .unwrap()
-            .dir_path_to_origin_unchecked();
-
-        Self {
-            src_path,
-            build_path,
-            build_path_rel,
-            path_to_root,
-        }
-    }
-}
-
-/// JSON として出力するメタデータ
-#[derive(Serialize)]
-pub struct PageMetadata {
-    pub create: String,
-    pub update: String,
-    pub tags: Vec<String>,
-    pub title: String,
-    pub path: PathBuf,
-    #[serde(skip)]
-    pub bloom: BloomFilter,
-    #[serde(skip)]
-    pub is_sub: bool,
+#[allow(clippy::too_many_arguments)]
+pub fn crypto_html<'a>(
+    path_to_root: &Path,
+    site_name: &str,
+    title: &str,
+    create_date: &str,
+    last_update_date: &str,
+    css_list: impl Iterator<Item = &'a str>,
+    js_list: impl Iterator<Item = &'a str>,
+    tags: &[String],
+    encoded_body: &str,
+    footer: &str,
+) -> String {
+    let head = head(path_to_root, css_list, js_list, title);
+    let header = header(path_to_root, site_name);
+    let tag_elems = tag_elems(tags, path_to_root);
+    format!(
+        include_asset!("crypto.html"),
+        head = head,
+        header = header,
+        title = title,
+        tag_elems = tag_elems,
+        create_date = create_date,
+        last_update_date = last_update_date,
+        encoded = encoded_body,
+        footer = footer,
+    )
 }

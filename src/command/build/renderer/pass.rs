@@ -46,17 +46,3 @@ fn text_of<'a>(node: &'a AstNode<'a>) -> String {
         })
         .collect()
 }
-
-/// HTML のテキスト内容として使えるようエスケープします。
-pub(super) fn escape_html_text(text: &str) -> String {
-    text.replace('&', "&amp;").replace('<', "&lt;")
-}
-
-/// HTML の属性値として使えるようエスケープします。
-pub(super) fn escape_html_attr(attr: &str) -> String {
-    attr.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('\'', "&apos;")
-        .replace('"', "&quot;")
-}

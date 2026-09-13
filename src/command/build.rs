@@ -1,3 +1,4 @@
+mod assets;
 mod renderer;
 
 use crate::config::ProjectConfig;
@@ -31,7 +32,7 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
     let title_map = collect_titles(&files)?;
     let renderer = Renderer::new(&cfg, &title_map, pj_paths, render_draft);
 
-    renderer.render_assets()?;
+    assets::render_assets(pj_paths.build_dir())?;
 
     let mut metas = files
         .par_iter()
@@ -43,7 +44,8 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
 
     metas.sort_unstable_by(|a, b| b.update.cmp(&a.update));
 
-    renderer.render_index(&metas)?;
+    renderer::render_index(&cfg, pj_paths.build_dir(), &metas)?;
+
     output_sitemap(&cfg, &metas, pj_paths.build_dir())?;
     output_metadatas(metas, pj_paths.build_dir())?;
 
