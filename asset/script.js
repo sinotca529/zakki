@@ -242,6 +242,7 @@ function fxhash32_multi(str, n) {
 //-----------------------------------------------------
 
 // (string, string) -> string
+// 出力の並び: salt(16) || 反復回数 (4, ビッグエンディアン) || nonce(12) || 暗号文 + タグ
 async function decrypt(blobB64, pwd) {
   const blob = b64ToU8Arr(blobB64);
   const salt = blob.slice(0, 16);
