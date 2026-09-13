@@ -31,9 +31,6 @@ fn class(c: char) -> Class {
 /// 文書側とクエリ側で切れ目が食い違って取りこぼすためです。
 /// (例: 文書が `ブルームフィルタ` を 1 語と切ると `フィルタ` で引けない)
 ///
-/// # 注意
-/// クライアント側の `asset/script.js` の `tokenize()` と同じ規則である必要があります。
-/// 片方だけを変更すると検索がヒットしなくなります。
 pub fn tokenize(text: &str) -> Vec<String> {
     text.chars()
         .chunk_by(|c| class(*c))

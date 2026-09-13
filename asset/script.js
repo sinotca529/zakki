@@ -59,8 +59,6 @@ function cryptoMain() {
 // - ASCII 英数字の連続は、そのまま 1 つのトークンにする (例: rust → rust)
 // - それ以外の文字の連続は、文字バイグラムにする (例: 検索語 → 検索, 索語)
 //
-// 注意: src/util/tokenizer.rs の tokenize() と同じ規則である必要がある。
-// 片方だけを変更すると検索がヒットしなくなる。
 function tokenize(text) {
   // 0: 区切り文字, 1: ASCII 英数字, 2: それ以外の文字 (日本語など)
   const classOf = (c) =>
