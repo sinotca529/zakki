@@ -6,9 +6,8 @@ use crate::util;
 use crate::util::PathExt as _;
 use anyhow::{Context as _, Result};
 use rayon::prelude::*;
-use renderer::Renderer;
-use renderer::context::Metadata;
 use renderer::extract_title_from_path;
+use renderer::{PageMetadata, Renderer};
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -34,7 +33,7 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
 
     renderer.render_assets()?;
 
-    let contexts = files
+    let mut metas = files
         .par_iter()
         .map(|p| renderer.render(p).with_context(|| p.display().to_string()))
         .collect::<Result<Vec<_>>>()?
@@ -42,15 +41,11 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
         .flatten()
         .collect::<Vec<_>>();
 
-    let mut metadatas: Vec<Metadata> = contexts
-        .into_iter()
-        .map(|c| c.into_output())
-        .collect::<Result<_>>()?;
-    metadatas.sort_unstable_by(|a, b| b.update.cmp(&a.update));
+    metas.sort_unstable_by(|a, b| b.update.cmp(&a.update));
 
-    renderer.render_index(&metadatas)?;
-    output_sitemap(&cfg, &metadatas, pj_paths.build_dir())?;
-    output_metadatas(metadatas, pj_paths.build_dir())?;
+    renderer.render_index(&metas)?;
+    output_sitemap(&cfg, &metas, pj_paths.build_dir())?;
+    output_metadatas(metas, pj_paths.build_dir())?;
 
     Ok(())
 }
@@ -69,7 +64,7 @@ fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
     Ok(map)
 }
 
-fn output_sitemap(cfg: &ProjectConfig, metas: &[Metadata], build_dir: &Path) -> Result<()> {
+fn output_sitemap(cfg: &ProjectConfig, metas: &[PageMetadata], build_dir: &Path) -> Result<()> {
     let pub_url = cfg.publish_url.as_ref().map(|u| u.trim_end_matches("/"));
     let Some(pub_url) = pub_url else {
         return Ok(());
@@ -103,7 +98,7 @@ fn output_sitemap(cfg: &ProjectConfig, metas: &[Metadata], build_dir: &Path) -> 
 
 // METADATA と BLOOM_FILTER を書き出します。
 // どちらも metas を先頭から順に並べるため、添字が同じ要素が同じ記事を指します。
-fn output_metadatas(metas: Vec<Metadata>, build_dir: &Path) -> Result<()> {
+fn output_metadatas(metas: Vec<PageMetadata>, build_dir: &Path) -> Result<()> {
     // メタデータの書き出し
     let json = serde_json::to_string(&metas)?;
     let js = format!("const METADATA={json}");

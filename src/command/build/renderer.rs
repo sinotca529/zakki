@@ -1,9 +1,9 @@
-pub mod context;
 mod heading_id;
 mod html_template;
 mod pass;
 
 use crate::command::build::renderer::heading_id::NumberedHeadings;
+use crate::command::build::renderer::pass::{PageFrontMatter, PassAssets};
 use crate::config::ProjectConfig;
 use crate::copy_asset;
 use crate::path::ProjectPaths;
@@ -13,12 +13,10 @@ use base64::{Engine, prelude::BASE64_STANDARD};
 use comrak::nodes::AstNode;
 use comrak::options::Plugins;
 use comrak::{Arena, Options, format_html_with_plugins, parse_document};
-use context::Context;
-use context::Metadata;
 use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_html};
 use itertools::Itertools;
 use scraper::{Html, Selector};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
@@ -54,20 +52,20 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn render(&self, src_path: &Path) -> Result<Option<Context>> {
-        let build_path = self.pj_paths.build_path_of(src_path);
+    pub fn render(&self, src_path: &Path) -> Result<Option<PageMetadata>> {
+        let page_paths = PagePaths::new(src_path, self.pj_paths);
 
         if !src_path.extension_is("md") {
-            util::copy_file(src_path, build_path)?;
+            util::copy_file(src_path, &page_paths.build_path)?;
             return Ok(None);
         }
 
         let content = std::fs::read_to_string(src_path)?;
-        let Some((html, meta)) = self.md_to_html(&content, src_path, &build_path)? else {
+        let Some((html, meta)) = self.md_to_html(&content, &page_paths)? else {
             return Ok(None);
         };
 
-        util::write_file(build_path, html)?;
+        util::write_file(page_paths.build_path, html)?;
 
         Ok(Some(meta))
     }
@@ -76,7 +74,9 @@ impl<'a> Renderer<'a> {
         &self,
         root: &'n AstNode<'n>,
         options: &Options,
-        ctx: &Context,
+        front_matter: &PageFrontMatter,
+        page_paths: &PagePaths,
+        pass_assets: &PassAssets,
     ) -> Result<String> {
         let body = {
             let heading_adapter = NumberedHeadings::default();
@@ -88,51 +88,53 @@ impl<'a> Renderer<'a> {
             buf
         };
 
-        let path_to_root = ctx
-            .build_rel_path()?
-            .parent()
-            .unwrap()
-            .dir_path_to_origin_unchecked();
-
         let css_list = self
             .config
             .css_list
             .iter()
             .map(String::as_str)
-            .chain(ctx.css_list().iter().map(String::as_str));
+            .chain(pass_assets.css_paths.iter().map(String::as_str));
 
         let js_list = self.config.js_list.iter().map(String::as_str);
 
         let toc = extract_toc_html(&body);
         let article = format!("{}<div id=\"main-content\">{}</div>", toc, body);
 
-        let html = if ctx.to_encrypt {
-            let password = ctx.password()?;
+        let is_private = self.pj_paths.is_private(page_paths.src_path);
+        let html = if is_private {
+            let password = front_matter
+                .password
+                .as_ref()
+                .or(self.config.password.as_ref())
+                .context(
+                    "private フォルダ内の md ファイルを暗号化するにはパスワード設定が必要です",
+                )?;
+
             let cypher = util::encode_with_password(password, article.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);
 
             crypto_html(
-                &path_to_root,
+                &page_paths.path_to_root,
                 &self.config.site_name,
-                ctx.title()?,
-                ctx.create_date()?,
-                ctx.last_update_date()?,
+                &front_matter.title,
+                &front_matter.create_date,
+                &front_matter.last_update_date,
                 css_list,
                 js_list,
-                ctx.tags()?,
+                &front_matter.tags,
                 &encoded,
                 &self.footer,
             )
         } else {
             page_html(
-                &path_to_root,
+                &page_paths.path_to_root,
                 &self.config.site_name,
-                ctx.title()?,
-                ctx.create_date()?,
-                ctx.last_update_date()?,
+                &front_matter.title,
+                &front_matter.create_date,
+                &front_matter.last_update_date,
                 css_list,
                 js_list,
-                ctx.tags()?,
+                &front_matter.tags,
                 &article,
                 &self.footer,
             )
@@ -168,22 +170,11 @@ impl<'a> Renderer<'a> {
     fn md_to_html(
         &self,
         content: &str,
-        src_path: &Path,
-        build_path: &Path,
-    ) -> Result<Option<(String, Context)>> {
-        let mut ctx = Context::default();
-        if let Some(password) = self.config.password.as_ref() {
-            ctx.set_password(password.clone());
+        page_paths: &PagePaths,
+    ) -> Result<Option<(String, PageMetadata)>> {
+        if !self.render_draft && self.pj_paths.is_draft(page_paths.src_path) {
+            return Ok(None);
         }
-
-        let build_rel_path = build_path.strip_prefix(self.pj_paths.build_dir()).unwrap();
-
-        ctx.is_draft = self.pj_paths.is_draft(src_path);
-        ctx.to_encrypt = self.pj_paths.is_private(src_path);
-        ctx.is_sub = self.pj_paths.is_subpage(src_path);
-
-        ctx.set_build_rel_path(build_rel_path.to_owned());
-        ctx.set_src_path(src_path.to_owned());
 
         // Markdown を AST に変換
         let arena = Arena::new();
@@ -191,31 +182,37 @@ impl<'a> Renderer<'a> {
         let root = parse_document(&arena, content, &options);
 
         // AST に対してパスを適用
-        pass::read_front_matter(root, &mut ctx)?;
+        let front_matter = pass::read_front_matter(root)?;
 
-        if !self.render_draft && ctx.is_draft {
-            return Ok(None);
-        }
-
+        let mut pass_assets = PassAssets::default();
         pass::validate_heading_order(root)?;
-        pass::adjust_link(&arena, root, &mut ctx, self.title_map)?;
+        pass::adjust_link(&arena, root, page_paths.src_path, self.title_map)?;
         pass::convert_image(root)?;
         pass::add_code_caption(&arena, root)?;
-        pass::highlight_code(root, &mut ctx)?;
-        pass::convert_math(root, &mut ctx)?;
+        pass::highlight_code(root, &front_matter.highlights)?;
+        pass::convert_math(root, &mut pass_assets)?;
         pass::wrap_table(&arena, root)?;
 
         // AST を HTML に変換
-        let html = self.render_page(root, &options, &ctx)?;
+        let html = self.render_page(root, &options, &front_matter, page_paths, &pass_assets)?;
 
         // HTML に対してパスを適用
-        let filter = self.make_bloom_filter(ctx.title()?, &html)?;
-        ctx.set_bloom_filter(filter);
+        let filter = self.make_bloom_filter(&front_matter.title, &html)?;
 
-        Ok(Some((html, ctx)))
+        let metadata = PageMetadata {
+            create: front_matter.create_date,
+            update: front_matter.last_update_date,
+            tags: front_matter.tags,
+            title: front_matter.title,
+            path: page_paths.build_path_rel.clone(),
+            is_sub: self.pj_paths.is_subpage(page_paths.src_path),
+            bloom: filter,
+        };
+
+        Ok(Some((html, metadata)))
     }
 
-    pub fn render_index(&self, metadatas: &[Metadata]) -> Result<()> {
+    pub fn render_index(&self, metadatas: &[PageMetadata]) -> Result<()> {
         let cards = cards_html(metadatas);
         let tags = all_tags_html(metadatas);
 
@@ -397,4 +394,51 @@ fn extract_toc_html(body: &str) -> String {
         "<details id=\"toc\"><summary>目次</summary>{}</details>",
         html.join("")
     )
+}
+
+struct PagePaths<'a> {
+    /// md ファイルのパス
+    src_path: &'a Path,
+    /// 変換後の html ファイルのパス
+    build_path: PathBuf,
+    /// 変換後の html  ファイルへのパス (ビルドディレクトリからの相対パス)
+    build_path_rel: PathBuf,
+    /// 変換後の html ファイルからビルドディレクトリへの相対パス
+    path_to_root: PathBuf,
+}
+
+impl<'a> PagePaths<'a> {
+    fn new(src_path: &'a Path, pj_paths: &ProjectPaths) -> Self {
+        let build_path = pj_paths.build_path_of(src_path);
+        let build_path_rel = build_path
+            .strip_prefix(pj_paths.build_dir())
+            .unwrap()
+            .to_path_buf();
+
+        let path_to_root = build_path_rel
+            .parent()
+            .unwrap()
+            .dir_path_to_origin_unchecked();
+
+        Self {
+            src_path,
+            build_path,
+            build_path_rel,
+            path_to_root,
+        }
+    }
+}
+
+/// JSON として出力するメタデータ
+#[derive(Serialize)]
+pub struct PageMetadata {
+    pub create: String,
+    pub update: String,
+    pub tags: Vec<String>,
+    pub title: String,
+    pub path: PathBuf,
+    #[serde(skip)]
+    pub bloom: BloomFilter,
+    #[serde(skip)]
+    pub is_sub: bool,
 }

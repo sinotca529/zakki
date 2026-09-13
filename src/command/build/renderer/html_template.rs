@@ -1,4 +1,4 @@
-use crate::command::build::renderer::context::Metadata;
+use crate::command::build::renderer::PageMetadata;
 use crate::command::build::renderer::pass::{escape_html_attr, escape_html_text};
 use crate::include_asset;
 use std::collections::BTreeSet;
@@ -60,7 +60,7 @@ fn tag_elems(tags: &[String], build_dir: &Path) -> String {
     tags.iter().map(|t| tag_link_html(t, index_url)).collect()
 }
 
-pub fn cards_html(metas: &[Metadata]) -> String {
+pub fn cards_html(metas: &[PageMetadata]) -> String {
     metas
         .iter()
         .filter(|m| !m.is_sub)
@@ -89,7 +89,7 @@ pub fn cards_html(metas: &[Metadata]) -> String {
         .collect()
 }
 
-pub fn all_tags_html(metas: &[Metadata]) -> String {
+pub fn all_tags_html(metas: &[PageMetadata]) -> String {
     let tag_set: BTreeSet<&String> = metas.iter().flat_map(|m| m.tags.iter()).collect();
     tag_set
         .iter()

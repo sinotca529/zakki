@@ -1,12 +1,10 @@
-use crate::command::build::renderer::{
-    FRONT_MATTER_DELIMITER, context::Context, pass::HighlightRule,
-};
+use crate::command::build::renderer::{FRONT_MATTER_DELIMITER, pass::HighlightRule};
 use anyhow::Context as _;
 use comrak::nodes::{AstNode, NodeValue};
 use serde::Deserialize;
 
 /// YAML フロントマターを読み、メタデータを Context に設定します。
-pub fn read_front_matter<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Result<()> {
+pub fn read_front_matter<'a>(root: &'a AstNode<'a>) -> anyhow::Result<PageFrontMatter> {
     // 区切り ('---') を含むヘッダ文字列
     let front_matter = root
         .descendants()
@@ -25,20 +23,8 @@ pub fn read_front_matter<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow
         .and_then(|s| s.strip_suffix(FRONT_MATTER_DELIMITER))
         .context("yaml ヘッダーは --- で開始・終了する必要があります")?;
 
-    let header: PageFrontMatter = serde_yaml::from_str(front_matter_body)?;
-
-    ctx.set_create_date(header.create_date);
-    ctx.set_last_update_date(header.last_update_date);
-    ctx.set_title(header.title);
-    ctx.set_tags(header.tags);
-    if let Some(h) = header.highlights {
-        ctx.set_highlights(h);
-    }
-    if let Some(pwd) = header.password {
-        ctx.set_password(pwd);
-    }
-
-    Ok(())
+    serde_yaml::from_str::<PageFrontMatter>(front_matter_body)
+        .context("yaml ヘッダーのデコードに失敗しました")
 }
 
 /// `Option` のフィールドに `#[serde(default)]` は付けません。

@@ -3,7 +3,7 @@ mod adjust_link;
 mod convert_image;
 mod convert_math;
 mod highlight_code;
-mod read_header;
+mod read_front_matter;
 mod validate_heading_order;
 mod wrap_table;
 
@@ -12,12 +12,20 @@ pub use adjust_link::adjust_link;
 pub use convert_image::convert_image;
 pub use convert_math::convert_math;
 pub use highlight_code::{HighlightRule, highlight_code};
-pub use read_header::read_front_matter;
+pub use read_front_matter::PageFrontMatter;
+pub use read_front_matter::read_front_matter;
 pub use validate_heading_order::validate_heading_order;
 pub use wrap_table::wrap_table;
 
 use comrak::Arena;
 use comrak::nodes::{AstNode, NodeHtmlBlock, NodeValue};
+
+/// パス実行により配置が必要なアセットの一覧
+#[derive(Default)]
+pub struct PassAssets {
+    /// 追加で読み込む CSS 一覧
+    pub css_paths: Vec<String>,
+}
 
 /// 生の HTML を出力するブロックノードを作ります。
 fn html_block<'a>(arena: &'a Arena<'a>, literal: impl Into<String>) -> &'a AstNode<'a> {
