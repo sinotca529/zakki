@@ -29,6 +29,7 @@ pub struct Renderer<'a> {
     title_map: &'a HashMap<PathBuf, String>,
     pj_paths: &'a ProjectPaths,
     render_draft: bool,
+    footer: String,
 }
 
 impl<'a> Renderer<'a> {
@@ -38,11 +39,18 @@ impl<'a> Renderer<'a> {
         pj_paths: &'a ProjectPaths,
         render_draft: bool,
     ) -> Self {
+        let footer = config
+            .footer
+            .as_ref()
+            .map(|f| format!("<footer>{f}</footer>"))
+            .unwrap_or_default();
+
         Self {
             config,
             title_map,
             pj_paths,
             render_draft,
+            footer,
         }
     }
 
@@ -98,11 +106,6 @@ impl<'a> Renderer<'a> {
         let toc = extract_toc_html(&body);
         let article = format!("{}<div id=\"main-content\">{}</div>", toc, body);
 
-        let footer = &self.config.footer.clone().unwrap_or(format!(
-            "&copy; {}. All rights reserved.",
-            self.config.site_name
-        ));
-
         let html = if ctx.to_encrypt {
             let password = ctx.password()?;
             let cypher = util::encode_with_password(password, article.as_bytes());
@@ -118,7 +121,7 @@ impl<'a> Renderer<'a> {
                 js_list,
                 ctx.tags()?,
                 &encoded,
-                footer,
+                &self.footer,
             )
         } else {
             page_html(
@@ -131,7 +134,7 @@ impl<'a> Renderer<'a> {
                 js_list,
                 ctx.tags()?,
                 &article,
-                footer,
+                &self.footer,
             )
         };
 
@@ -216,17 +219,11 @@ impl<'a> Renderer<'a> {
         let cards = cards_html(metadatas);
         let tags = all_tags_html(metadatas);
 
-        // TODO: 処理の切り出し
-        let footer = &self.config.footer.clone().unwrap_or(format!(
-            "&copy; {}. All rights reserved.",
-            self.config.site_name
-        ));
-
         let content = index_html(
             &self.config.site_name,
             self.config.css_list.iter().map(|p| p.as_str()),
             self.config.js_list.iter().map(|p| p.as_str()),
-            footer,
+            &self.footer,
             &cards,
             &tags,
         );

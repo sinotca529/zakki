@@ -143,7 +143,7 @@ pub fn page_html<'a>(
         create_date = create_date,
         last_update_date = last_update_date,
         article = article,
-        footer_text = footer,
+        footer = footer,
     )
 }
 
@@ -172,7 +172,7 @@ pub fn crypto_html<'a>(
         create_date = create_date,
         last_update_date = last_update_date,
         encoded = encoded_body,
-        footer_text = footer,
+        footer = footer,
     )
 }
 
