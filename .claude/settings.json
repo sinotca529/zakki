@@ -6,8 +6,20 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-fullwidth.sh\"",
-            "statusMessage": "全角記号を確認しています"
+            "command": "sh \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-style.sh\"",
+            "statusMessage": "文体を確認しています"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "mcp__github__(add_comment_to_pending_review|add_issue_comment|add_reply_to_pull_request_comment|pull_request_review_write|issue_write)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-style.sh\"",
+            "statusMessage": "文体を確認しています"
           }
         ]
       }

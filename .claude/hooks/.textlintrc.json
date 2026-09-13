@@ -1,0 +1,36 @@
+{
+  "rules": {
+    "preset-ja-technical-writing": {
+      "sentence-length": {
+        "max": 120
+      },
+      "max-kanji-continuous-len": false,
+      "no-exclamation-question-mark": true,
+      "ja-no-mixed-period": {
+        "allowPeriodMarks": [
+          ":"
+        ]
+      },
+      "no-mix-dearu-desumasu": {
+        "preferInHeader": "",
+        "preferInBody": "ですます",
+        "preferInList": "ですます",
+        "strict": false
+      },
+      "ja-no-weak-phrase": false
+    },
+    "preset-jtf-style": {
+      "4.3.1.丸かっこ（）": false,
+      "4.2.5.波線(〜)": false,
+      "3.1.1.全角文字と半角文字の間": false,
+      "2.1.6.カタカナの長音": false,
+      "3.3.かっこ類と隣接する文字の間のスペースの有無": false,
+      "4.3.2.大かっこ［］": false
+    },
+    "prh": {
+      "rulePaths": [
+        "./prh.yml"
+      ]
+    }
+  }
+}
