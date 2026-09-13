@@ -284,9 +284,6 @@ function b64ToU8Arr(b64) {
 //
 // クエリの区切りに使われる文字と制御文字だけを UTF-8 のバイト列にして
 // %XX に直し、それ以外はそのまま残す。日本語が読める形で URL に出る。
-//
-// 注意: Rust 側の encode_query_value() と同じ規則である必要がある。
-// 片方だけを変更するとタグの絞り込みが一致しなくなる。
 function encodeQueryValue(str) {
   const metaChars = '&#+%= "<>`';
   let out = "";

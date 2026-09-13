@@ -50,6 +50,28 @@ fn tokens_of(cls: Class, run: &[char]) -> Vec<String> {
     }
 }
 
+/// クライアント側の実装と突き合わせるための表です。
+/// Rust と JS の両方がこれを読み、同じ結果になることを確かめます。
+/// 期待値を直接書かないので、片方の名前や置き場所が変わっても直す必要がありません。
+#[cfg(test)]
+mod golden {
+    #[derive(serde::Deserialize)]
+    struct Case {
+        r#in: String,
+        out: Vec<String>,
+    }
+
+    #[test]
+    fn matches_table() {
+        let src = include_str!("../../testdata/tokenize.json");
+        let cases: Vec<Case> = serde_json::from_str(src).unwrap();
+        assert!(!cases.is_empty());
+        for c in cases {
+            assert_eq!(super::tokenize(&c.r#in), c.out, "入力: {:?}", c.r#in);
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::tokenize;

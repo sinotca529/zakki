@@ -104,7 +104,6 @@ fn output_sitemap(cfg: &Config, metas: &[Metadata], build_dir: &Path) -> Result<
 
 // METADATA と BLOOM_FILTER を書き出します。
 // どちらも metas を先頭から順に並べるため、添字が同じ要素が同じ記事を指します。
-// クライアント側の検索がこの対応を前提にしているので、片方だけ並べ替えないでください。
 fn output_metadatas(metas: Vec<Metadata>, build_dir: &Path) -> Result<()> {
     // メタデータの書き出し
     let json = serde_json::to_string(&metas)?;
