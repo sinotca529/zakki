@@ -7,7 +7,7 @@ function indexMain() {
   // タグフィルタ表示
   const a = document.createElement("a");
   a.className = "tag";
-  a.href = `index.html?tag=${tag}`;
+  a.href = `index.html?tag=${encodeQueryValue(tag)}`;
   a.textContent = tag;
   document.getElementById("tag-filter").appendChild(a);
 
@@ -110,6 +110,8 @@ function search(query) {
   const terms = [...new Set(tokenize(query))];
   if (terms.length === 0) return [];
 
+  // BLOOM_FILTER と METADATA は同じ順序で並んでおり、添字が同じ要素が
+  // 同じ記事を指す。生成側が 1 つの配列から順に書き出すことが根拠。
   const filters = BLOOM_FILTER.map((bf) => ({
     bits: b64ToU8Arr(bf.filter),
     num_hash: bf.num_hash,
@@ -178,17 +180,25 @@ function searchAndRender() {
     loadScripts([metadata_path, filter_path], () => {
       debounceTimer = null;
 
-      const result = search(query);
-      const html = result
-        .map((r) => {
-          const path = r.path;
-          const rate = r.rate.toFixed(2);
-          return `<div class="search-hit"><a href="${path_to_root}/${path}">${r.title}</a><span class="search-result-meta">Match rate: ${rate}</span></div>`;
-        })
-        .join("");
-      const searchResult = document.getElementById("search-result");
-      searchResult.innerHTML = html;
-      searchResult.classList.toggle("hidden", html === "");
+      // 記事のタイトルとパスは利用者が書いた文字列なので、innerHTML には
+      // 渡さない。textContent と href への代入はブラウザ側が扱う。
+      const hits = search(query).map((r) => {
+        const link = document.createElement("a");
+        link.href = `${path_to_root}/${r.path}`;
+        link.textContent = r.title;
+
+        const meta = document.createElement("span");
+        meta.className = "search-result-meta";
+        meta.textContent = `Match rate: ${r.rate.toFixed(2)}`;
+
+        const hit = document.createElement("div");
+        hit.className = "search-hit";
+        hit.append(link, meta);
+        return hit;
+      });
+
+      // 結果が無いときは中身が空になり、#search-result:empty が隠す。
+      document.getElementById("search-result").replaceChildren(...hits);
     });
   }, 300);
 }
@@ -268,4 +278,28 @@ async function decrypt(blobB64, pwd) {
 
 function b64ToU8Arr(b64) {
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+}
+
+// タグ名をクエリ文字列の値に変換する。
+//
+// クエリの区切りに使われる文字と制御文字だけを UTF-8 のバイト列にして
+// %XX に直し、それ以外はそのまま残す。日本語が読める形で URL に出る。
+//
+// 注意: Rust 側の encode_query_value() と同じ規則である必要がある。
+// 片方だけを変更するとタグの絞り込みが一致しなくなる。
+function encodeQueryValue(str) {
+  const metaChars = '&#+%= "<>`';
+  let out = "";
+  for (const c of str) {
+    const code = c.codePointAt(0);
+    const isControl = code <= 0x1f || (code >= 0x7f && code <= 0x9f);
+    if (metaChars.includes(c) || isControl) {
+      for (const b of new TextEncoder().encode(c)) {
+        out += `%${b.toString(16).toUpperCase().padStart(2, "0")}`;
+      }
+    } else {
+      out += c;
+    }
+  }
+  return out;
 }
