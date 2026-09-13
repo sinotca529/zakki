@@ -1,9 +1,9 @@
 mod renderer;
 
-use crate::config::FileConfig;
+use crate::config::ProjectConfig;
 use crate::path::ProjectPaths;
+use crate::util;
 use crate::util::PathExt as _;
-use crate::{config::Config, util};
 use anyhow::{Context as _, Result};
 use rayon::prelude::*;
 use renderer::Renderer;
@@ -14,8 +14,7 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
-    let file_cfg = FileConfig::load(pj_paths.config_path())?;
-    let cfg = Config::new(file_cfg, render_draft);
+    let cfg = ProjectConfig::load(pj_paths.config_path())?;
 
     super::clean::clean(pj_paths)?;
 
@@ -31,7 +30,7 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
 
     // Wikilink のタイトルを書くため、全記事のタイトルを先んじて取得する。
     let title_map = collect_titles(&files)?;
-    let renderer = Renderer::new(&cfg, &title_map, pj_paths);
+    let renderer = Renderer::new(&cfg, &title_map, pj_paths, render_draft);
 
     renderer.render_assets()?;
 
@@ -70,8 +69,8 @@ fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
     Ok(map)
 }
 
-fn output_sitemap(cfg: &Config, metas: &[Metadata], build_dir: &Path) -> Result<()> {
-    let pub_url = cfg.publish_url().map(|u| u.trim_end_matches("/"));
+fn output_sitemap(cfg: &ProjectConfig, metas: &[Metadata], build_dir: &Path) -> Result<()> {
+    let pub_url = cfg.publish_url.as_ref().map(|u| u.trim_end_matches("/"));
     let Some(pub_url) = pub_url else {
         return Ok(());
     };

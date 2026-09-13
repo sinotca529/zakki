@@ -6,7 +6,7 @@ use comrak::nodes::{AstNode, NodeValue};
 use serde::Deserialize;
 
 /// YAML フロントマターを読み、メタデータを Context に設定します。
-pub fn read_header<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Result<()> {
+pub fn read_front_matter<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Result<()> {
     // 区切り ('---') を含むヘッダ文字列
     let front_matter = root
         .descendants()
@@ -25,7 +25,7 @@ pub fn read_header<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Resu
         .and_then(|s| s.strip_suffix(FRONT_MATTER_DELIMITER))
         .context("yaml ヘッダーは --- で開始・終了する必要があります")?;
 
-    let header: YamlHeader = serde_yaml::from_str(front_matter_body)?;
+    let header: PageFrontMatter = serde_yaml::from_str(front_matter_body)?;
 
     ctx.set_create_date(header.create_date);
     ctx.set_last_update_date(header.last_update_date);
@@ -46,7 +46,7 @@ pub fn read_header<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Resu
 /// 省略時の値を serde が決められない型だけにします。
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
-struct YamlHeader {
+pub struct PageFrontMatter {
     /// 記事の作成日
     #[serde(rename = "create")]
     pub create_date: String,

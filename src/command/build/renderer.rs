@@ -4,10 +4,10 @@ mod html_template;
 mod pass;
 
 use crate::command::build::renderer::heading_id::NumberedHeadings;
+use crate::config::ProjectConfig;
 use crate::copy_asset;
 use crate::path::ProjectPaths;
-use crate::util::{BloomFilter, PathExt as _};
-use crate::{config::Config, util};
+use crate::util::{self, BloomFilter, PathExt as _};
 use anyhow::{Context as _, Result, anyhow};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use comrak::nodes::AstNode;
@@ -25,21 +25,24 @@ use std::path::{Path, PathBuf};
 const FRONT_MATTER_DELIMITER: &str = "---";
 
 pub struct Renderer<'a> {
-    config: &'a Config,
+    config: &'a ProjectConfig,
     title_map: &'a HashMap<PathBuf, String>,
     pj_paths: &'a ProjectPaths,
+    render_draft: bool,
 }
 
 impl<'a> Renderer<'a> {
     pub fn new(
-        config: &'a Config,
+        config: &'a ProjectConfig,
         title_map: &'a HashMap<PathBuf, String>,
         pj_paths: &'a ProjectPaths,
+        render_draft: bool,
     ) -> Self {
         Self {
             config,
             title_map,
             pj_paths,
+            render_draft,
         }
     }
 
@@ -85,15 +88,20 @@ impl<'a> Renderer<'a> {
 
         let css_list = self
             .config
-            .css_list()
+            .css_list
             .iter()
             .map(String::as_str)
             .chain(ctx.css_list().iter().map(String::as_str));
 
-        let js_list = self.config.js_list().iter().map(String::as_str);
+        let js_list = self.config.js_list.iter().map(String::as_str);
 
         let toc = extract_toc_html(&body);
         let article = format!("{}<div id=\"main-content\">{}</div>", toc, body);
+
+        let footer = &self.config.footer.clone().unwrap_or(format!(
+            "&copy; {}. All rights reserved.",
+            self.config.site_name
+        ));
 
         let html = if ctx.to_encrypt {
             let password = ctx.password()?;
@@ -102,7 +110,7 @@ impl<'a> Renderer<'a> {
 
             crypto_html(
                 &path_to_root,
-                self.config.site_name(),
+                &self.config.site_name,
                 ctx.title()?,
                 ctx.create_date()?,
                 ctx.last_update_date()?,
@@ -110,12 +118,12 @@ impl<'a> Renderer<'a> {
                 js_list,
                 ctx.tags()?,
                 &encoded,
-                self.config.footer(),
+                footer,
             )
         } else {
             page_html(
                 &path_to_root,
-                self.config.site_name(),
+                &self.config.site_name,
                 ctx.title()?,
                 ctx.create_date()?,
                 ctx.last_update_date()?,
@@ -123,7 +131,7 @@ impl<'a> Renderer<'a> {
                 js_list,
                 ctx.tags()?,
                 &article,
-                self.config.footer(),
+                footer,
             )
         };
 
@@ -143,7 +151,7 @@ impl<'a> Renderer<'a> {
         let words: HashSet<_> = util::tokenize(&text).into_iter().collect();
 
         // Bloom filter を構築する
-        let fp = self.config.search_fp();
+        let fp = self.config.search_fp;
         let num_words = words.len();
         let mut filter = BloomFilter::new(num_words, fp);
         words.iter().for_each(|w| filter.insert_word(w));
@@ -161,7 +169,7 @@ impl<'a> Renderer<'a> {
         build_path: &Path,
     ) -> Result<Option<(String, Context)>> {
         let mut ctx = Context::default();
-        if let Some(password) = self.config.password() {
+        if let Some(password) = self.config.password.as_ref() {
             ctx.set_password(password.clone());
         }
 
@@ -180,9 +188,9 @@ impl<'a> Renderer<'a> {
         let root = parse_document(&arena, content, &options);
 
         // AST に対してパスを適用
-        pass::read_header(root, &mut ctx)?;
+        pass::read_front_matter(root, &mut ctx)?;
 
-        if !self.config.render_draft() && ctx.is_draft {
+        if !self.render_draft && ctx.is_draft {
             return Ok(None);
         }
 
@@ -208,11 +216,17 @@ impl<'a> Renderer<'a> {
         let cards = cards_html(metadatas);
         let tags = all_tags_html(metadatas);
 
+        // TODO: 処理の切り出し
+        let footer = &self.config.footer.clone().unwrap_or(format!(
+            "&copy; {}. All rights reserved.",
+            self.config.site_name
+        ));
+
         let content = index_html(
-            self.config.site_name(),
-            self.config.css_list().iter().map(|p| p.as_str()),
-            self.config.js_list().iter().map(|p| p.as_str()),
-            self.config.footer(),
+            &self.config.site_name,
+            self.config.css_list.iter().map(|p| p.as_str()),
+            self.config.js_list.iter().map(|p| p.as_str()),
+            footer,
             &cards,
             &tags,
         );
