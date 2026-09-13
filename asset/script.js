@@ -22,15 +22,18 @@ function indexMain() {
 }
 
 async function decryptPage() {
-  const pwd = document.getElementById("decrypt-key").value;
-  const key = await crypto.subtle.digest(
-    "SHA-256",
-    Uint8Array.from(pwd, (c) => c.charCodeAt(0)),
-  );
-
-  const ivCypher = document.body.dataset.cypher;
-  const plain = await decrypt(ivCypher, key);
-  document.getElementById("article").innerHTML = plain;
+  try {
+    const pwd = document.getElementById("decrypt-key").value;
+    const plain = await decrypt(document.body.dataset.cypher, pwd);
+    document.getElementById("article").innerHTML = plain;
+  } catch (e) {
+    const err = document.getElementById("decrypt-error");
+    if (e.name === "OperationError") {
+      err.textContent = "パスワードが違います。";
+    } else {
+      err.textContent = "復号できませんでした。";
+    }
+  }
 }
 
 function cryptoMain() {
@@ -56,8 +59,6 @@ function cryptoMain() {
 // - ASCII 英数字の連続は、そのまま 1 つのトークンにする (例: rust → rust)
 // - それ以外の文字の連続は、文字バイグラムにする (例: 検索語 → 検索, 索語)
 //
-// 注意: src/util/tokenizer.rs の tokenize() と同じ規則である必要がある。
-// 片方だけを変更すると検索がヒットしなくなる。
 function tokenize(text) {
   // 0: 区切り文字, 1: ASCII 英数字, 2: それ以外の文字 (日本語など)
   const classOf = (c) =>
@@ -239,25 +240,25 @@ function fxhash32_multi(str, n) {
 //-----------------------------------------------------
 
 // (string, string) -> string
-async function decrypt(ivCypher, key) {
-  ivCypher = b64ToU8Arr(ivCypher);
-  const iv = ivCypher.slice(0, 16);
-  const cypher = ivCypher.slice(16);
+// 出力の並び: salt(16) || 反復回数 (4, ビッグエンディアン) || nonce(12) || 暗号文 + タグ
+async function decrypt(blobB64, pwd) {
+  const blob = b64ToU8Arr(blobB64);
+  const salt = blob.slice(0, 16);
+  const iterations = new DataView(blob.buffer).getUint32(16, false);
+  const nonce = blob.slice(20, 32);
+  const cypher = blob.slice(32);
 
-  const aesKey = await crypto.subtle.importKey(
-    "raw",
-    key,
-    { name: "AES-CBC" },
+  const material = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(pwd), "PBKDF2", false, ["deriveKey"],
+  );
+  const aesKey = await crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
+    material,
+    { name: "AES-GCM", length: 256 },
     false,
     ["decrypt"],
   );
-
-  const plain = await crypto.subtle.decrypt(
-    { name: "AES-CBC", iv: iv },
-    aesKey,
-    cypher,
-  );
-
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: nonce }, aesKey, cypher);
   return new TextDecoder().decode(plain);
 }
 
