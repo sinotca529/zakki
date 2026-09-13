@@ -58,6 +58,10 @@ rules:
     patterns:
       - /ゴールデンベクタ[ー]?/
 
+  - expected: 関数
+    patterns:
+      - 自由関数
+
   # 量を添えた控えめさ
   - expected: (量を添えずに書く)
     patterns:
