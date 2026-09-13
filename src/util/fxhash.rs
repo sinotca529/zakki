@@ -20,7 +20,7 @@ pub fn fxhash32_multi(s: &str) -> impl Iterator<Item = u32> {
 
 /// クライアント側の実装と突き合わせるための表です。
 #[cfg(test)]
-mod golden {
+mod test_vector {
     #[derive(serde::Deserialize)]
     struct Case {
         r#in: String,

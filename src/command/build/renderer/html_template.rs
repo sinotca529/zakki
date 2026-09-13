@@ -200,7 +200,7 @@ fn encode_query_value(s: &str) -> String {
 
 /// クライアント側の実装と突き合わせるための表です。
 #[cfg(test)]
-mod golden {
+mod test_vector {
     #[derive(serde::Deserialize)]
     struct Case {
         r#in: String,

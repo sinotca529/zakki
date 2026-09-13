@@ -54,7 +54,7 @@ fn tokens_of(cls: Class, run: &[char]) -> Vec<String> {
 /// Rust と JS の両方がこれを読み、同じ結果になることを確かめます。
 /// 期待値を直接書かないので、片方の名前や置き場所が変わっても直す必要がありません。
 #[cfg(test)]
-mod golden {
+mod test_vector {
     #[derive(serde::Deserialize)]
     struct Case {
         r#in: String,
@@ -76,7 +76,7 @@ mod golden {
 mod test {
     use super::tokenize;
 
-    /// 入力ごとの出力は golden の表で見ます。ここに書くのは、
+    /// 入力ごとの出力は test_vector の表で見ます。ここに書くのは、
     /// 2 つの入力の関係のように、行ごとの比較で表せないものだけです。
     #[test]
     fn substring_of_a_compound_word_is_searchable() {
