@@ -50,6 +50,10 @@ rules:
       - 百分率符号化
       - パーセント符号化
 
+  - expected: 作成者スタイルシート
+    patterns:
+      - 作者スタイル
+
   # 量を添えた控えめさ
   - expected: (量を添えずに書く)
     patterns:
