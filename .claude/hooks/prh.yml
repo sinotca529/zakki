@@ -54,6 +54,10 @@ rules:
     patterns:
       - 作者スタイル
 
+  - expected: テストベクタ
+    patterns:
+      - /ゴールデンベクタ[ー]?/
+
   # 量を添えた控えめさ
   - expected: (量を添えずに書く)
     patterns:
