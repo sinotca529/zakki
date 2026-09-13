@@ -1,4 +1,6 @@
-use super::{escape_html_attr, escape_html_text, text_of};
+use crate::command::build::renderer::html_component::{escape_html_attr, escape_html_text};
+
+use super::text_of;
 use comrak::nodes::{AstNode, NodeValue};
 
 /// 画像を `<figure>` で囲み、alt テキストを `<figcaption>` にします。

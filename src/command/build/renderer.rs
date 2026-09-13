@@ -1,62 +1,72 @@
-pub mod context;
 mod heading_id;
-mod html_template;
+mod html_component;
+mod index;
+mod page_meta;
+mod page_paths;
 mod pass;
 
 use crate::command::build::renderer::heading_id::NumberedHeadings;
-use crate::copy_asset;
+use crate::command::build::renderer::html_component::{
+    escape_html_text, footer, head, header, tag_elems,
+};
+use crate::command::build::renderer::pass::{PageFrontMatter, PassAssets};
+use crate::config::ProjectConfig;
+use crate::include_asset;
 use crate::path::ProjectPaths;
-use crate::util::{BloomFilter, PathExt as _};
-use crate::{config::Config, util};
-use anyhow::{Context as _, Result, anyhow};
+use crate::util::{self, BloomFilter, PathExt as _};
+use anyhow::{Context as _, Result};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use comrak::nodes::AstNode;
 use comrak::options::Plugins;
 use comrak::{Arena, Options, format_html_with_plugins, parse_document};
-use context::Context;
-use context::Metadata;
-use html_template::{all_tags_html, cards_html, crypto_html, index_html, page_html};
 use itertools::Itertools;
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+pub use index::render_index;
+pub use page_meta::PageMetadata;
+pub use page_paths::PagePaths;
+
 const FRONT_MATTER_DELIMITER: &str = "---";
 
 pub struct Renderer<'a> {
-    config: &'a Config,
+    config: &'a ProjectConfig,
     title_map: &'a HashMap<PathBuf, String>,
     pj_paths: &'a ProjectPaths,
+    render_draft: bool,
 }
 
 impl<'a> Renderer<'a> {
     pub fn new(
-        config: &'a Config,
+        config: &'a ProjectConfig,
         title_map: &'a HashMap<PathBuf, String>,
         pj_paths: &'a ProjectPaths,
+        render_draft: bool,
     ) -> Self {
         Self {
             config,
             title_map,
             pj_paths,
+            render_draft,
         }
     }
 
-    pub fn render(&self, src_path: &Path) -> Result<Option<Context>> {
-        let build_path = self.pj_paths.build_path_of(src_path);
+    pub fn render(&self, src_path: &Path) -> Result<Option<PageMetadata>> {
+        let page_paths = PagePaths::new(src_path, self.pj_paths);
 
         if !src_path.extension_is("md") {
-            util::copy_file(src_path, build_path)?;
+            util::copy_file(src_path, &page_paths.build_path)?;
             return Ok(None);
         }
 
         let content = std::fs::read_to_string(src_path)?;
-        let Some((html, meta)) = self.md_to_html(&content, src_path, &build_path)? else {
+        let Some((html, meta)) = self.md_to_html(&content, &page_paths)? else {
             return Ok(None);
         };
 
-        util::write_file(build_path, html)?;
+        util::write_file(page_paths.build_path, html)?;
 
         Ok(Some(meta))
     }
@@ -65,7 +75,9 @@ impl<'a> Renderer<'a> {
         &self,
         root: &'n AstNode<'n>,
         options: &Options,
-        ctx: &Context,
+        front_matter: &PageFrontMatter,
+        page_paths: &PagePaths,
+        pass_assets: &PassAssets,
     ) -> Result<String> {
         let body = {
             let heading_adapter = NumberedHeadings::default();
@@ -77,53 +89,55 @@ impl<'a> Renderer<'a> {
             buf
         };
 
-        let path_to_root = ctx
-            .build_rel_path()?
-            .parent()
-            .unwrap()
-            .dir_path_to_origin_unchecked();
-
         let css_list = self
             .config
-            .css_list()
+            .css_list
             .iter()
             .map(String::as_str)
-            .chain(ctx.css_list().iter().map(String::as_str));
+            .chain(pass_assets.css_paths.iter().map(String::as_str));
 
-        let js_list = self.config.js_list().iter().map(String::as_str);
+        let js_list = self.config.js_list.iter().map(String::as_str);
 
         let toc = extract_toc_html(&body);
         let article = format!("{}<div id=\"main-content\">{}</div>", toc, body);
 
-        let html = if ctx.to_encrypt {
-            let password = ctx.password()?;
+        let is_private = self.pj_paths.is_private(page_paths.src_path);
+        let html = if is_private {
+            let password = front_matter
+                .password
+                .as_ref()
+                .or(self.config.password.as_ref())
+                .context(
+                    "private フォルダ内の md ファイルを暗号化するにはパスワード設定が必要です",
+                )?;
+
             let cypher = util::encode_with_password(password, article.as_bytes());
             let encoded = BASE64_STANDARD.encode(cypher);
 
             crypto_html(
-                &path_to_root,
-                self.config.site_name(),
-                ctx.title()?,
-                ctx.create_date()?,
-                ctx.last_update_date()?,
+                &page_paths.url_to_root,
+                &self.config.site_name,
+                &front_matter.title,
+                &front_matter.create_date,
+                &front_matter.last_update_date,
                 css_list,
                 js_list,
-                ctx.tags()?,
+                &front_matter.tags,
                 &encoded,
-                self.config.footer(),
+                &footer(&self.config.footer),
             )
         } else {
             page_html(
-                &path_to_root,
-                self.config.site_name(),
-                ctx.title()?,
-                ctx.create_date()?,
-                ctx.last_update_date()?,
+                &page_paths.url_to_root,
+                &self.config.site_name,
+                &front_matter.title,
+                &front_matter.create_date,
+                &front_matter.last_update_date,
                 css_list,
                 js_list,
-                ctx.tags()?,
+                &front_matter.tags,
                 &article,
-                self.config.footer(),
+                &footer(&self.config.footer),
             )
         };
 
@@ -143,7 +157,7 @@ impl<'a> Renderer<'a> {
         let words: HashSet<_> = util::tokenize(&text).into_iter().collect();
 
         // Bloom filter を構築する
-        let fp = self.config.search_fp();
+        let fp = self.config.search_fp;
         let num_words = words.len();
         let mut filter = BloomFilter::new(num_words, fp);
         words.iter().for_each(|w| filter.insert_word(w));
@@ -157,22 +171,11 @@ impl<'a> Renderer<'a> {
     fn md_to_html(
         &self,
         content: &str,
-        src_path: &Path,
-        build_path: &Path,
-    ) -> Result<Option<(String, Context)>> {
-        let mut ctx = Context::default();
-        if let Some(password) = self.config.password() {
-            ctx.set_password(password.clone());
+        page_paths: &PagePaths,
+    ) -> Result<Option<(String, PageMetadata)>> {
+        if !self.render_draft && self.pj_paths.is_draft(page_paths.src_path) {
+            return Ok(None);
         }
-
-        let build_rel_path = build_path.strip_prefix(self.pj_paths.build_dir()).unwrap();
-
-        ctx.is_draft = self.pj_paths.is_draft(src_path);
-        ctx.to_encrypt = self.pj_paths.is_private(src_path);
-        ctx.is_sub = self.pj_paths.is_subpage(src_path);
-
-        ctx.set_build_rel_path(build_rel_path.to_owned());
-        ctx.set_src_path(src_path.to_owned());
 
         // Markdown を AST に変換
         let arena = Arena::new();
@@ -180,92 +183,34 @@ impl<'a> Renderer<'a> {
         let root = parse_document(&arena, content, &options);
 
         // AST に対してパスを適用
-        pass::read_header(root, &mut ctx)?;
+        let front_matter = pass::read_front_matter(root)?;
 
-        if !self.config.render_draft() && ctx.is_draft {
-            return Ok(None);
-        }
-
+        let mut pass_assets = PassAssets::default();
         pass::validate_heading_order(root)?;
-        pass::adjust_link(&arena, root, &mut ctx, self.title_map)?;
+        pass::adjust_link(&arena, root, page_paths.src_path, self.title_map)?;
         pass::convert_image(root)?;
         pass::add_code_caption(&arena, root)?;
-        pass::highlight_code(root, &mut ctx)?;
-        pass::convert_math(root, &mut ctx)?;
+        pass::highlight_code(root, &front_matter.highlights)?;
+        pass::convert_math(root, &mut pass_assets)?;
         pass::wrap_table(&arena, root)?;
 
         // AST を HTML に変換
-        let html = self.render_page(root, &options, &ctx)?;
+        let html = self.render_page(root, &options, &front_matter, page_paths, &pass_assets)?;
 
         // HTML に対してパスを適用
-        let filter = self.make_bloom_filter(ctx.title()?, &html)?;
-        ctx.set_bloom_filter(filter);
+        let filter = self.make_bloom_filter(&front_matter.title, &html)?;
 
-        Ok(Some((html, ctx)))
-    }
+        let metadata = PageMetadata {
+            create: front_matter.create_date,
+            update: front_matter.last_update_date,
+            tags: front_matter.tags,
+            title: front_matter.title,
+            path: page_paths.url_path.clone(),
+            is_sub: self.pj_paths.is_subpage(page_paths.src_path),
+            bloom: filter,
+        };
 
-    pub fn render_index(&self, metadatas: &[Metadata]) -> Result<()> {
-        let cards = cards_html(metadatas);
-        let tags = all_tags_html(metadatas);
-
-        let content = index_html(
-            self.config.site_name(),
-            self.config.css_list().iter().map(|p| p.as_str()),
-            self.config.js_list().iter().map(|p| p.as_str()),
-            self.config.footer(),
-            &cards,
-            &tags,
-        );
-
-        let index_path = self.pj_paths.build_dir().join("index.html");
-        util::write_file(index_path, content).map_err(Into::into)
-    }
-
-    pub fn render_assets(&self) -> Result<()> {
-        let build_dir = self.pj_paths.build_dir();
-        copy_asset!("style.css", build_dir)?;
-        copy_asset!("script.js", build_dir)?;
-
-        copy_asset!("katex/LICENSE", build_dir)?;
-        copy_asset!("katex/katex.min.css", build_dir)?;
-
-        macro_rules! copy_katex_fonts {
-            ($($font_name:literal),* $(,)?) => {
-                $(
-                    copy_asset!(concat!("katex/fonts/", $font_name), build_dir)?;
-                )*
-            }
-        }
-        copy_katex_fonts!(
-            "KaTeX_AMS-Regular.woff2",
-            "KaTeX_Caligraphic-Bold.woff2",
-            "KaTeX_Caligraphic-Regular.woff2",
-            "KaTeX_Fraktur-Bold.woff2",
-            "KaTeX_Fraktur-Regular.woff2",
-            "KaTeX_Main-BoldItalic.woff2",
-            "KaTeX_Main-Bold.woff2",
-            "KaTeX_Main-Italic.woff2",
-            "KaTeX_Main-Regular.woff2",
-            "KaTeX_Math-BoldItalic.woff2",
-            "KaTeX_Math-Italic.woff2",
-            "KaTeX_SansSerif-Bold.woff2",
-            "KaTeX_SansSerif-Italic.woff2",
-            "KaTeX_SansSerif-Regular.woff2",
-            "KaTeX_Script-Regular.woff2",
-            "KaTeX_Size1-Regular.woff2",
-            "KaTeX_Size2-Regular.woff2",
-            "KaTeX_Size3-Regular.woff2",
-            "KaTeX_Size4-Regular.woff2",
-            "KaTeX_Typewriter-Regular.woff2",
-        );
-
-        copy_asset!("font/SourceCodePro/LICENSE.md", build_dir)?;
-        copy_asset!(
-            "font/SourceCodePro/SourceCodePro-Regular.otf.woff2",
-            build_dir
-        )?;
-
-        Ok(())
+        Ok(Some((html, metadata)))
     }
 }
 
@@ -375,7 +320,7 @@ fn extract_toc_html(body: &str) -> String {
         html.push(format!(
             "<a href=\"#{}\">{}</a>",
             id,
-            pass::escape_html_text(inner)
+            escape_html_text(inner)
         ));
         prev_level = *level;
     }
@@ -385,5 +330,63 @@ fn extract_toc_html(body: &str) -> String {
     format!(
         "<details id=\"toc\"><summary>目次</summary>{}</details>",
         html.join("")
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn page_html<'a>(
+    path_to_root: &Path,
+    site_name: &str,
+    title: &str,
+    create_date: &str,
+    last_update_date: &str,
+    css_list: impl Iterator<Item = &'a str>,
+    js_list: impl Iterator<Item = &'a str>,
+    tags: &[String],
+    article: &str,
+    footer: &str,
+) -> String {
+    let head = head(path_to_root, css_list, js_list, title);
+    let header = header(path_to_root, site_name);
+    let tag_elems = tag_elems(tags, path_to_root);
+    format!(
+        include_asset!("page.html"),
+        head = head,
+        header = header,
+        title = escape_html_text(title),
+        tag_elems = tag_elems,
+        create_date = create_date,
+        last_update_date = last_update_date,
+        article = article,
+        footer = footer,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn crypto_html<'a>(
+    path_to_root: &Path,
+    site_name: &str,
+    title: &str,
+    create_date: &str,
+    last_update_date: &str,
+    css_list: impl Iterator<Item = &'a str>,
+    js_list: impl Iterator<Item = &'a str>,
+    tags: &[String],
+    encoded_body: &str,
+    footer: &str,
+) -> String {
+    let head = head(path_to_root, css_list, js_list, title);
+    let header = header(path_to_root, site_name);
+    let tag_elems = tag_elems(tags, path_to_root);
+    format!(
+        include_asset!("crypto.html"),
+        head = head,
+        header = header,
+        title = title,
+        tag_elems = tag_elems,
+        create_date = create_date,
+        last_update_date = last_update_date,
+        encoded = encoded_body,
+        footer = footer,
     )
 }

@@ -1,4 +1,5 @@
-use super::{escape_html_text, html_block};
+use super::html_block;
+use crate::command::build::renderer::html_component::escape_html_text;
 use comrak::Arena;
 use comrak::nodes::{AstNode, NodeValue};
 
