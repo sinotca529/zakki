@@ -32,7 +32,7 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
     let title_map = collect_titles(&files)?;
     let renderer = Renderer::new(&cfg, &title_map, pj_paths, render_draft);
 
-    assets::render_assets(pj_paths.build_dir())?;
+    assets::copy_assets(pj_paths.build_dir())?;
 
     let mut metas = files
         .par_iter()

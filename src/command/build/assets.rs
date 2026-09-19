@@ -2,7 +2,7 @@ use crate::copy_asset;
 use anyhow::{Context, anyhow};
 use std::path::Path;
 
-pub fn render_assets(build_dir: &Path) -> anyhow::Result<()> {
+pub fn copy_assets(build_dir: &Path) -> anyhow::Result<()> {
     copy_asset!("style.css", build_dir)?;
     copy_asset!("script.js", build_dir)?;
 
