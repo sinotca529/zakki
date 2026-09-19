@@ -206,8 +206,9 @@ impl<'a> Renderer<'a> {
             tags: front_matter.tags,
             title: front_matter.title,
             path: page_paths.url_path.clone(),
-            is_sub: self.pj_paths.is_subpage(page_paths.src_path),
             bloom: filter,
+            is_sub: self.pj_paths.is_subpage(page_paths.src_path),
+            is_privte: self.pj_paths.is_private(page_paths.src_path),
         };
 
         Ok(Some((html, metadata)))

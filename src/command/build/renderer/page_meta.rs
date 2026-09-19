@@ -14,4 +14,6 @@ pub struct PageMetadata {
     pub bloom: BloomFilter,
     #[serde(skip)]
     pub is_sub: bool,
+    #[serde(skip)]
+    pub is_privte: bool,
 }

@@ -38,11 +38,7 @@ fn cards_html(metas: &[PageMetadata]) -> String {
         .filter(|m| !m.is_sub)
         .map(|m| {
             let path = m.path.to_str().unwrap_or_default();
-            let extra_class = if m.path.starts_with("private/") {
-                " crypto"
-            } else {
-                ""
-            };
+            let extra_class = if m.is_privte { " crypto" } else { "" };
             let tag_links: String = m
                 .tags
                 .iter()
