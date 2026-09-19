@@ -1,30 +1,33 @@
+use super::{end_of, text_of};
 use crate::command::build::renderer::html_component::{escape_html_attr, escape_html_text};
-
-use super::text_of;
-use comrak::nodes::{AstNode, NodeValue};
+use pulldown_cmark::{Event, Tag};
 
 /// 画像を `<figure>` で囲み、alt テキストを `<figcaption>` にします。
-pub fn convert_image<'a>(root: &'a AstNode<'a>) -> anyhow::Result<()> {
-    let img_nodes: Vec<_> = root
-        .descendants()
-        .filter_map(|node| match &node.data().value {
-            NodeValue::Image(link) => {
-                Some((node, link.url.clone(), link.title.clone(), text_of(node)))
-            }
-            _ => None,
-        })
-        .collect();
+pub fn convert_image(events: &mut Vec<Event<'_>>) {
+    let mut out = Vec::with_capacity(events.len());
+    let mut i = 0;
 
-    for (node, url, title, alt) in img_nodes {
+    while i < events.len() {
+        let Event::Start(Tag::Image {
+            dest_url, title, ..
+        }) = &events[i]
+        else {
+            out.push(events[i].clone());
+            i += 1;
+            continue;
+        };
+
+        let end = end_of(events, i);
         // 子ノード (alt テキスト) は figure に取り込むので取り除く
-        node.children().for_each(|child| child.detach());
+        let alt = text_of(&events[(i + 1)..end]);
 
-        // figure タグの追加
-        let figure_tag = make_figure_tag(&url, &alt, &title);
-        node.data_mut().value = NodeValue::HtmlInline(figure_tag);
+        out.push(Event::InlineHtml(
+            make_figure_tag(dest_url, &alt, title).into(),
+        ));
+        i = end + 1;
     }
 
-    Ok(())
+    *events = out;
 }
 
 fn make_figure_tag(url: &str, alt: &str, title: &str) -> String {

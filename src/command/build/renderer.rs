@@ -1,4 +1,3 @@
-mod heading_id;
 mod html_component;
 mod index;
 mod page_locs;
@@ -6,7 +5,6 @@ mod page_meta;
 mod pass;
 mod url;
 
-use crate::command::build::renderer::heading_id::NumberedHeadings;
 use crate::command::build::renderer::html_component::{
     escape_html_text, footer, head, header, tag_elems,
 };
@@ -18,10 +16,8 @@ use crate::path::ProjectPaths;
 use crate::util::{self, BloomFilter, PathExt as _};
 use anyhow::{Context as _, Result};
 use base64::{Engine, prelude::BASE64_STANDARD};
-use comrak::nodes::AstNode;
-use comrak::options::Plugins;
-use comrak::{Arena, Options, format_html_with_plugins, parse_document};
 use itertools::Itertools;
+use pulldown_cmark::{Event, Options, Parser};
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
@@ -73,21 +69,16 @@ impl<'a> Renderer<'a> {
         Ok(Some(meta))
     }
 
-    fn render_page<'n>(
+    fn render_page(
         &self,
-        root: &'n AstNode<'n>,
-        options: &Options,
+        events: Vec<Event<'_>>,
         front_matter: &PageFrontMatter,
         page_paths: &PageLocs,
         pass_assets: &PassAssets,
     ) -> Result<String> {
         let body = {
-            let heading_adapter = NumberedHeadings::default();
-            let mut plugins = Plugins::default();
-            plugins.render.heading_adapter = Some(&heading_adapter);
-
             let mut buf = String::new();
-            format_html_with_plugins(root, options, &mut buf, &plugins)?;
+            pulldown_cmark::html::push_html(&mut buf, events.into_iter());
             buf
         };
 
@@ -179,25 +170,26 @@ impl<'a> Renderer<'a> {
             return Ok(None);
         }
 
-        // Markdown を AST に変換
-        let arena = Arena::new();
-        let options = markdown_options();
-        let root = parse_document(&arena, content, &options);
+        // Markdown をイベント列に変換
+        let mut events: Vec<_> = Parser::new_ext(content, markdown_options()).collect();
 
-        // AST に対してパスを適用
-        let front_matter = pass::read_front_matter(root)?;
+        // イベント列に対してパスを適用
+        let front_matter = pass::read_front_matter(&events)?;
 
         let mut pass_assets = PassAssets::default();
-        pass::validate_heading_order(root)?;
-        pass::adjust_link(&arena, root, page_paths.src_path, self.title_map)?;
-        pass::convert_image(root)?;
-        pass::add_code_caption(&arena, root)?;
-        pass::highlight_code(root, &front_matter.highlights)?;
-        pass::convert_math(root, &mut pass_assets)?;
-        pass::wrap_table(&arena, root)?;
+        pass::validate_heading_order(&events)?;
+        pass::assign_header_id(&mut events);
+        pass::adjust_link(&mut events, page_paths.src_path, self.title_map)?;
+        pass::convert_image(&mut events);
+        pass::add_code_caption(&mut events);
+        pass::highlight_code(&mut events, &front_matter.highlights);
+        pass::convert_math(&mut events, &mut pass_assets)?;
+        pass::wrap_table(&mut events);
+        pass::convert_alert(&mut events);
+        pass::collect_footnotes(&mut events);
 
-        // AST を HTML に変換
-        let html = self.render_page(root, &options, &front_matter, page_paths, &pass_assets)?;
+        // イベント列を HTML に変換
+        let html = self.render_page(events, &front_matter, page_paths, &pass_assets)?;
 
         // HTML に対してパスを適用
         let filter = self.make_bloom_filter(&front_matter.title, &html)?;
@@ -218,27 +210,18 @@ impl<'a> Renderer<'a> {
 }
 
 /// Markdown のパース設定です。
-fn markdown_options() -> Options<'static> {
-    let mut options = Options::default();
-
-    let ext = &mut options.extension;
-    ext.front_matter_delimiter = Some(FRONT_MATTER_DELIMITER.to_owned());
-    ext.table = true;
-    ext.strikethrough = true;
-    ext.tasklist = true;
-    ext.autolink = true;
-    ext.footnotes = true;
-    ext.description_lists = true;
-    ext.superscript = true;
-    ext.subscript = true;
-    ext.alerts = true;
-    ext.math_dollars = true;
-    ext.wikilinks_title_after_pipe = true;
-
-    // パスが差し込む HTML を出力するために必要
-    options.render.r#unsafe = true;
-
-    options
+fn markdown_options() -> Options {
+    Options::ENABLE_TABLES
+        | Options::ENABLE_STRIKETHROUGH
+        | Options::ENABLE_TASKLISTS
+        | Options::ENABLE_FOOTNOTES
+        | Options::ENABLE_DEFINITION_LIST
+        | Options::ENABLE_SUPERSCRIPT
+        | Options::ENABLE_SUBSCRIPT
+        | Options::ENABLE_GFM
+        | Options::ENABLE_MATH
+        | Options::ENABLE_WIKILINKS
+        | Options::ENABLE_YAML_STYLE_METADATA_BLOCKS
 }
 
 /// ファイルを BufReader で読み、YAML フロントマター部分だけ取り出して title を返します。

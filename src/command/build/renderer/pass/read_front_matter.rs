@@ -1,15 +1,16 @@
-use crate::command::build::renderer::{FRONT_MATTER_DELIMITER, pass::HighlightRule};
+use crate::command::build::renderer::pass::HighlightRule;
 use anyhow::Context as _;
-use comrak::nodes::{AstNode, NodeValue};
+use pulldown_cmark::{Event, MetadataBlockKind::YamlStyle, Tag, TagEnd};
 use serde::Deserialize;
 
 /// YAML フロントマターを読み取ります
-pub fn read_front_matter<'a>(root: &'a AstNode<'a>) -> anyhow::Result<PageFrontMatter> {
-    // 区切り ('---') を含むヘッダ文字列
-    let front_matter = root
-        .descendants()
-        .find_map(|node| match &node.data().value {
-            NodeValue::FrontMatter(text) => Some(text.clone()),
+pub fn read_front_matter(events: &[Event]) -> anyhow::Result<PageFrontMatter> {
+    let front_matter = events
+        .iter()
+        .skip_while(|e| !matches!(e, Event::Start(Tag::MetadataBlock(YamlStyle))))
+        .take_while(|e| !matches!(e, Event::End(TagEnd::MetadataBlock(YamlStyle))))
+        .find_map(|e| match e {
+            Event::Text(t) => Some(t.as_ref()),
             _ => None,
         });
 
@@ -17,13 +18,7 @@ pub fn read_front_matter<'a>(root: &'a AstNode<'a>) -> anyhow::Result<PageFrontM
         anyhow::bail!("記事は yaml ヘッダーで始めてください")
     };
 
-    let front_matter_body = front_matter
-        .trim_end()
-        .strip_prefix(FRONT_MATTER_DELIMITER)
-        .and_then(|s| s.strip_suffix(FRONT_MATTER_DELIMITER))
-        .context("yaml ヘッダーは --- で開始・終了する必要があります")?;
-
-    serde_yaml::from_str::<PageFrontMatter>(front_matter_body)
+    serde_yaml::from_str::<PageFrontMatter>(front_matter)
         .context("yaml ヘッダーのデコードに失敗しました")
 }
 

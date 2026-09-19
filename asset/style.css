@@ -323,7 +323,7 @@ blockquote > :last-child  { margin-bottom: 0; }
 
 /* 注記 (> [!NOTE] など) */
 
-/* comrak は <div class="markdown-alert markdown-alert-note"> を出力し、
+/* 注記は <aside class="markdown-alert markdown-alert-note"> として出力し、
    その先頭に <p class="markdown-alert-title">Note</p> を置く。
    種別ごとの色は --alert-color に持たせ、枠線と見出しの両方から参照する。 */
 
