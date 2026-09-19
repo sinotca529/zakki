@@ -23,7 +23,9 @@ pub fn make_toc(events: &[Event]) -> String {
         };
 
         // id は assign_header_id が振った階層番号なので、目次の番号にも使う
-        let number = id.as_deref().unwrap_or_default();
+        let number = id
+            .as_deref()
+            .expect("見出しの id は assign_header_id が振る");
         let text = text_of(&events[(i + 1)..end_of(events, i)]);
 
         items.push((depth, number, text));
