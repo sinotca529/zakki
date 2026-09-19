@@ -129,10 +129,9 @@ impl TryFrom<HighlightRuleConfig> for HighlightRule {
     type Error = anyhow::Error;
 
     fn try_from(value: HighlightRuleConfig) -> Result<Self> {
-        // 両方が空だと、正規表現が長さ 0 の一致を返します。
-        // split はその分だけ位置を進めるため、先へ進めなくなります。
-        if value.delim[0].is_empty() && value.delim[1].is_empty() {
-            bail!("highlights の delim は、開始と終了の両方を空にはできません");
+        // 区切り文字は囲む範囲を決めるためのものなので、空では役に立ちません。
+        if value.delim.iter().any(|d| d.is_empty()) {
+            bail!("highlights の delim に空の文字列は書けません");
         }
 
         let open = regex::escape(&value.delim[0]);
@@ -161,12 +160,12 @@ mod test {
         HighlightRule::try_from(config(open, close, style)).unwrap()
     }
 
-    /// 両方が空だと長さ 0 の一致になり、split が先へ進めなくなります。
     #[test]
     fn rejects_empty_delimiters() {
         assert!(HighlightRule::try_from(config("", "", "color: red")).is_err());
-        assert!(HighlightRule::try_from(config("[[", "", "color: red")).is_ok());
-        assert!(HighlightRule::try_from(config("", "]]", "color: red")).is_ok());
+        assert!(HighlightRule::try_from(config("[[", "", "color: red")).is_err());
+        assert!(HighlightRule::try_from(config("", "]]", "color: red")).is_err());
+        assert!(HighlightRule::try_from(config("[[", "]]", "color: red")).is_ok());
     }
 
     #[test]
