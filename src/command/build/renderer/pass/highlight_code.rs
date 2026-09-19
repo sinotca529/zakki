@@ -69,7 +69,6 @@ fn split<'a>(code: &'a str, rules: &'a [HighlightRule]) -> Vec<Piece<'a>> {
             break;
         };
 
-        // 規則の正規表現は、全体と中身の 2 つを必ずキャプチャします。
         let whole = caps.get(0).expect("正規表現全体の一致は必ず取れる");
         let inner = caps
             .get(1)
@@ -129,7 +128,6 @@ impl TryFrom<HighlightRuleConfig> for HighlightRule {
     type Error = anyhow::Error;
 
     fn try_from(value: HighlightRuleConfig) -> Result<Self> {
-        // 区切り文字は囲む範囲を決めるためのものなので、空では役に立ちません。
         if value.delim.iter().any(|d| d.is_empty()) {
             bail!("highlights の delim に空の文字列は書けません");
         }
