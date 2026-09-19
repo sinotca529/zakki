@@ -1,5 +1,4 @@
 use super::text_of;
-use crate::command::build::renderer::context::Context;
 use crate::util::PathExt as _;
 use anyhow::anyhow;
 use comrak::Arena;
@@ -15,10 +14,10 @@ use std::path::{Path, PathBuf};
 pub fn adjust_link<'a>(
     arena: &'a Arena<'a>,
     root: &'a AstNode<'a>,
-    ctx: &mut Context,
+    src_path: &Path,
     title_map: &HashMap<PathBuf, String>,
 ) -> anyhow::Result<()> {
-    let src_dir = ctx.src_path()?.parent().unwrap_or(Path::new("")).to_owned();
+    let src_dir = src_path.parent().unwrap_or(Path::new("")).to_owned();
 
     let md_links: Vec<_> = root
         .descendants()

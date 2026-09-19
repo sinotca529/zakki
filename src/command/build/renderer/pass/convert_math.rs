@@ -1,9 +1,10 @@
-use crate::command::build::renderer::context::Context;
 use anyhow::Context as _;
 use comrak::nodes::{AstNode, NodeValue};
 
+use crate::command::build::renderer::pass::PassAssets;
+
 /// 数式を KaTeX でレンダリング済みの HTML に置き換えます。
-pub fn convert_math<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Result<()> {
+pub fn convert_math<'a>(root: &'a AstNode<'a>, pa: &mut PassAssets) -> anyhow::Result<()> {
     let opts_display = katex::Opts::builder()
         .output_type(katex::opts::OutputType::Html)
         .display_mode(true)
@@ -36,7 +37,7 @@ pub fn convert_math<'a>(root: &'a AstNode<'a>, ctx: &mut Context) -> anyhow::Res
     }
 
     if math_used {
-        ctx.push_css_path("katex/katex.min.css");
+        pa.css_paths.push("katex/katex.min.css".to_string());
     }
 
     Ok(())

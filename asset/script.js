@@ -173,10 +173,10 @@ function searchAndRender() {
   debounceTimer = setTimeout(() => {
     const query = document.getElementById("search-input").value;
 
-    const path_to_root =
-      document.head.querySelector('meta[name="path_to_root"]').content ?? "";
-    const metadata_path = `${path_to_root}/metadata.js`;
-    const filter_path = `${path_to_root}/bloom_filter.js`;
+    const url_to_root =
+      document.head.querySelector('meta[name="url_to_root"]').content ?? "";
+    const metadata_path = `${url_to_root}/metadata.js`;
+    const filter_path = `${url_to_root}/bloom_filter.js`;
     loadScripts([metadata_path, filter_path], () => {
       debounceTimer = null;
 
@@ -184,7 +184,7 @@ function searchAndRender() {
       // 渡さない。textContent と href への代入はブラウザ側が扱う。
       const hits = search(query).map((r) => {
         const link = document.createElement("a");
-        link.href = `${path_to_root}/${r.path}`;
+        link.href = `${url_to_root}/${r.path}`;
         link.textContent = r.title;
 
         const meta = document.createElement("span");
