@@ -68,7 +68,7 @@ impl ProjectPaths {
 
         bail!(
             "ディレクトリ {} は zakki 用のもの、またはその配下ではありません",
-            from.to_string_lossy()
+            from.display()
         );
     }
 
