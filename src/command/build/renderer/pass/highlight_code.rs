@@ -1,15 +1,16 @@
-use super::{end_of, is_end};
-use anyhow::{Result, bail};
-use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
+use super::end_of;
+use pulldown_cmark::{Event, Tag};
 use regex::Regex;
 use serde::Deserialize;
 
-use crate::command::build::renderer::html_component::{escape_html_attr, escape_html_text};
+use crate::command::build::renderer::html_component::escape_html_attr;
+use anyhow::{Result, bail};
 
 /// コードブロックの中身に、記事で指定された区切り文字のスタイルを適用します。
 ///
-/// スタイルは `<span>` として埋め込むため、コードブロックごと
-/// 生の HTML に置き換えます。
+/// スタイルは `<span>` を生の HTML として差し込み、コードの中身は `Text` のまま残します。
+/// こうすると、後続のパスがコードの文字を読めます。区切り文字はここで取り除かれるため、
+/// 検索の索引にも入りません。
 pub fn highlight_code(events: &mut Vec<Event<'_>>, highlights: &Option<Vec<HighlightRule>>) {
     let Some(rules) = highlights.as_ref() else {
         return;
@@ -19,21 +20,15 @@ pub fn highlight_code(events: &mut Vec<Event<'_>>, highlights: &Option<Vec<Highl
     let mut i = 0;
 
     while i < events.len() {
-        let Event::Start(Tag::CodeBlock(kind)) = &events[i] else {
+        let Event::Start(Tag::CodeBlock(_)) = &events[i] else {
             out.push(events[i].clone());
             i += 1;
             continue;
         };
 
-        let info = match kind {
-            CodeBlockKind::Fenced(info) => info.to_string(),
-            CodeBlockKind::Indented => String::new(),
-        };
-
         let end = end_of(events, i);
-        debug_assert!(is_end(&events[end], &TagEnd::CodeBlock));
 
-        let literal: String = events[(i + 1)..end]
+        let code: String = events[(i + 1)..end]
             .iter()
             .filter_map(|e| match e {
                 Event::Text(t) => Some(t.as_ref()),
@@ -41,22 +36,32 @@ pub fn highlight_code(events: &mut Vec<Event<'_>>, highlights: &Option<Vec<Highl
             })
             .collect();
 
-        let code = highlighted_html(&literal, rules);
-
-        let class = info
-            .split_whitespace()
-            .next()
-            .filter(|lang| !lang.is_empty())
-            .map(|lang| format!(r#" class="language-{}""#, escape_html_attr(lang)))
-            .unwrap_or_default();
-
-        out.push(Event::Html(
-            format!("<pre><code{class}>{code}</code></pre>").into(),
-        ));
+        out.push(events[i].clone());
+        out.extend(highlighted_events(&code, rules));
+        out.push(events[end].clone());
         i = end + 1;
     }
 
     *events = out;
+}
+
+/// 分割した結果をイベント列にします。
+fn highlighted_events(code: &str, rules: &[HighlightRule]) -> Vec<Event<'static>> {
+    let mut out = Vec::new();
+
+    for piece in split(code, rules) {
+        match piece {
+            Piece::Plain(text) => out.push(Event::Text(text.to_owned().into())),
+            Piece::Styled { text, style } => {
+                let open = format!(r#"<span style="{}">"#, escape_html_attr(style));
+                out.push(Event::InlineHtml(open.into()));
+                out.push(Event::Text(text.to_owned().into()));
+                out.push(Event::InlineHtml("</span>".into()));
+            }
+        }
+    }
+
+    out
 }
 
 /// コードの一部分。区切り文字で囲まれていたかどうかで分かれます。
@@ -103,27 +108,6 @@ fn split<'a>(code: &'a str, rules: &'a [HighlightRule]) -> Vec<Piece<'a>> {
     pieces
 }
 
-/// 分割した結果を HTML に組み立てます。
-///
-/// エスケープはここでだけ行います。先にコードをエスケープすると、
-/// 埋め込んだ `<span>` まで後続の規則の対象になるためです。
-fn highlighted_html(code: &str, rules: &[HighlightRule]) -> String {
-    let mut out = String::with_capacity(code.len());
-
-    for piece in split(code, rules) {
-        match piece {
-            Piece::Plain(text) => out.push_str(&escape_html_text(text)),
-            Piece::Styled { text, style } => out.push_str(&format!(
-                r#"<span style="{}">{}</span>"#,
-                escape_html_attr(style),
-                escape_html_text(text)
-            )),
-        }
-    }
-
-    out
-}
-
 /// yaml ヘッダに書かれる形。
 /// 実行時の形は `HighlightRule`。
 #[derive(Clone, Deserialize, Debug)]
@@ -160,7 +144,8 @@ impl TryFrom<HighlightRuleConfig> for HighlightRule {
 
 #[cfg(test)]
 mod test {
-    use super::{HighlightRule, HighlightRuleConfig, highlighted_html};
+    use super::{HighlightRule, HighlightRuleConfig, highlighted_events};
+    use pulldown_cmark::Event;
 
     fn config(open: &str, close: &str, style: &str) -> HighlightRuleConfig {
         HighlightRuleConfig {
@@ -173,37 +158,53 @@ mod test {
         HighlightRule::try_from(config(open, close, style)).unwrap()
     }
 
-    #[test]
-    fn rejects_empty_delimiters() {
-        assert!(HighlightRule::try_from(config("", "", "color: red")).is_err());
-        assert!(HighlightRule::try_from(config("[[", "", "color: red")).is_err());
-        assert!(HighlightRule::try_from(config("", "]]", "color: red")).is_err());
-        assert!(HighlightRule::try_from(config("[[", "]]", "color: red")).is_ok());
+    /// 比べやすいよう、イベントの種類と中身を 1 行にまとめる
+    fn dump(code: &str, rules: &[HighlightRule]) -> Vec<String> {
+        highlighted_events(code, rules)
+            .iter()
+            .map(|e| match e {
+                Event::Text(t) => format!("text: {t}"),
+                Event::InlineHtml(h) => format!("html: {h}"),
+                _ => unreachable!("この関数が作るのは Text と InlineHtml だけ"),
+            })
+            .collect()
     }
 
     #[test]
     fn wraps_each_delimited_part() {
         let rules = [
             rule("[[", "]]", "color: red"),
-            rule("<<", ">>", "color: blue"),
+            rule("<<", ">>", "background: yellow"),
         ];
         assert_eq!(
-            highlighted_html("let [[a]] = <<b>>;", &rules),
-            concat!(
-                r#"let <span style="color: red">a</span> = "#,
-                r#"<span style="color: blue">b</span>;"#,
-            )
+            dump("let [[a]] = <<b>>;", &rules),
+            [
+                "text: let ",
+                r#"html: <span style="color: red">"#,
+                "text: a",
+                "html: </span>",
+                "text:  = ",
+                r#"html: <span style="background: yellow">"#,
+                "text: b",
+                "html: </span>",
+                "text: ;",
+            ]
         );
     }
 
-    /// 先にコードをエスケープすると、埋め込んだ `<span>` まで後続の規則の対象になります。
-    /// 組み立てのときだけエスケープするので、コード中の `<` は 1 度しか置き換わりません。
+    /// コードの文字はエスケープせずに `Text` のまま渡します。
+    /// 描画側が escape_html_body_text を通すためです。
     #[test]
-    fn escapes_code_once() {
+    fn leaves_code_unescaped() {
         let rules = [rule("[[", "]]", "color: red")];
         assert_eq!(
-            highlighted_html("a < b && [[c < d]]", &rules),
-            r#"a &lt; b &amp;&amp; <span style="color: red">c &lt; d</span>"#
+            dump("a < b && [[c > d]]", &rules),
+            [
+                "text: a < b && ",
+                r#"html: <span style="color: red">"#,
+                "text: c > d",
+                "html: </span>",
+            ]
         );
     }
 
@@ -212,14 +213,22 @@ mod test {
     fn earlier_rule_wins_at_the_same_position() {
         let rules = [rule("[[", "]]", "first"), rule("[[", "]]", "second")];
         assert_eq!(
-            highlighted_html("[[x]]", &rules),
-            r#"<span style="first">x</span>"#
+            dump("[[x]]", &rules),
+            [r#"html: <span style="first">"#, "text: x", "html: </span>"]
         );
     }
 
     #[test]
     fn keeps_code_as_is_when_no_rule_matches() {
         let rules = [rule("[[", "]]", "color: red")];
-        assert_eq!(highlighted_html("let a = 0;", &rules), "let a = 0;");
+        assert_eq!(dump("let a = 0;", &rules), ["text: let a = 0;"]);
+    }
+
+    #[test]
+    fn rejects_empty_delimiters() {
+        assert!(HighlightRule::try_from(config("", "", "color: red")).is_err());
+        assert!(HighlightRule::try_from(config("[[", "", "color: red")).is_err());
+        assert!(HighlightRule::try_from(config("", "]]", "color: red")).is_err());
+        assert!(HighlightRule::try_from(config("[[", "]]", "color: red")).is_ok());
     }
 }

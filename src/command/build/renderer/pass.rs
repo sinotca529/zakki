@@ -6,6 +6,7 @@ mod convert_alert;
 mod convert_image;
 mod convert_math;
 mod highlight_code;
+mod make_bloom_filter;
 mod read_front_matter;
 mod validate_heading_order;
 mod wrap_table;
@@ -18,12 +19,13 @@ pub use convert_alert::convert_alert;
 pub use convert_image::convert_image;
 pub use convert_math::convert_math;
 pub use highlight_code::{HighlightRule, highlight_code};
+pub use make_bloom_filter::make_bloom_filter;
 pub use read_front_matter::PageFrontMatter;
 pub use read_front_matter::read_front_matter;
 pub use validate_heading_order::validate_heading_order;
 pub use wrap_table::wrap_table;
 
-use pulldown_cmark::{Event, TagEnd};
+use pulldown_cmark::Event;
 
 /// パス実行により配置が必要なアセットの一覧
 #[derive(Default)]
@@ -62,9 +64,4 @@ fn text_of(events: &[Event]) -> String {
             _ => None,
         })
         .collect()
-}
-
-/// 終了イベントが指定の種類かを判定します。
-fn is_end(event: &Event, tag: &TagEnd) -> bool {
-    matches!(event, Event::End(t) if t == tag)
 }
