@@ -382,7 +382,7 @@ pub fn crypto_html<'a>(
         include_asset!("crypto.html"),
         head = head,
         header = header,
-        title = title,
+        title = escape_html_text(title),
         tag_elems = tag_elems,
         create_date = create_date,
         last_update_date = last_update_date,
