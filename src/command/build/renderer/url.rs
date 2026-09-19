@@ -7,7 +7,7 @@ pub struct Url(Vec<String>);
 impl Url {
     pub fn join(&self, seg: &str) -> Self {
         let mut s = self.clone();
-        s.push(&Self::encode_path_segment(seg));
+        s.push(seg);
         s
     }
 
