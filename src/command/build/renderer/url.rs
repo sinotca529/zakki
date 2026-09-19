@@ -60,3 +60,23 @@ impl Serialize for Url {
         serializer.collect_str(self)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::Url;
+    use std::path::Path;
+
+    #[test]
+    fn url_encoding() {
+        let cases = [
+            ("public/a.html", "public/a.html"),
+            ("public/sp ace.html", "public/sp%20ace.html"),
+            ("public/a#b.html", "public/a%23b.html"),
+            ("../..", "../.."),
+        ];
+        for (input, want) in cases {
+            let url = Url::from_relative_path(Path::new(input)).unwrap();
+            assert_eq!(url.to_string(), want, "入力: {input:?}");
+        }
+    }
+}

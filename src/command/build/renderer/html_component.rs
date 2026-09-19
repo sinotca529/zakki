@@ -118,3 +118,20 @@ mod test_vector {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::adjust_path_origin;
+    use crate::command::build::renderer::url::Url;
+    use std::path::Path;
+
+    #[test]
+    fn authored_url_is_kept_as_written() {
+        let root = Url::from_relative_path(Path::new("..")).unwrap();
+        let f = |p| adjust_path_origin(p, &root);
+        assert_eq!(f("katex/katex.min.css"), "../katex/katex.min.css");
+        assert_eq!(f("a%20b.css?v=2"), "../a%20b.css?v=2");
+        assert_eq!(f("https://example.com/x.css"), "https://example.com/x.css");
+        assert_eq!(f("/assets/x.css"), "/assets/x.css");
+    }
+}
