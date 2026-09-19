@@ -66,7 +66,10 @@ impl ProjectPaths {
             dir = d.parent();
         }
 
-        bail!("このディレクトリは zakki 用のものではありません");
+        bail!(
+            "ディレクトリ {} は zakki 用のもの、またはその配下ではありません",
+            from.to_string_lossy()
+        );
     }
 
     pub fn build_path_of(&self, src_path: impl AsRef<Path>) -> PathBuf {
