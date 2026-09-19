@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, bail};
 use comrak::nodes::{AstNode, NodeHtmlBlock, NodeValue};
 use regex::Regex;
 use serde::Deserialize;
@@ -69,9 +69,11 @@ fn split<'a>(code: &'a str, rules: &'a [HighlightRule]) -> Vec<Piece<'a>> {
             break;
         };
 
-        // 規則の正規表現は全体と中身の 2 つを必ず捕獲します。
+        // 規則の正規表現は、全体と中身の 2 つを必ずキャプチャします。
         let whole = caps.get(0).expect("正規表現全体の一致は必ず取れる");
-        let inner = caps.get(1).expect("規則は中身を捕獲する括弧を必ず持つ");
+        let inner = caps
+            .get(1)
+            .expect("規則は中身をキャプチャする括弧を必ず持つ");
 
         if whole.start() > 0 {
             pieces.push(Piece::Plain(&rest[..whole.start()]));
@@ -124,9 +126,15 @@ pub struct HighlightRule {
 }
 
 impl TryFrom<HighlightRuleConfig> for HighlightRule {
-    type Error = regex::Error;
+    type Error = anyhow::Error;
 
-    fn try_from(value: HighlightRuleConfig) -> Result<Self, Self::Error> {
+    fn try_from(value: HighlightRuleConfig) -> Result<Self> {
+        // 両方が空だと、正規表現が長さ 0 の一致を返します。
+        // split はその分だけ位置を進めるため、先へ進めなくなります。
+        if value.delim[0].is_empty() && value.delim[1].is_empty() {
+            bail!("highlights の delim は、開始と終了の両方を空にはできません");
+        }
+
         let open = regex::escape(&value.delim[0]);
         let close = regex::escape(&value.delim[1]);
         let pattern = Regex::new(&format!("{open}(.*?){close}"))?;
@@ -142,12 +150,23 @@ impl TryFrom<HighlightRuleConfig> for HighlightRule {
 mod test {
     use super::{HighlightRule, HighlightRuleConfig, highlighted_html};
 
-    fn rule(open: &str, close: &str, style: &str) -> HighlightRule {
-        HighlightRule::try_from(HighlightRuleConfig {
+    fn config(open: &str, close: &str, style: &str) -> HighlightRuleConfig {
+        HighlightRuleConfig {
             delim: [open.to_owned(), close.to_owned()],
             style: style.to_owned(),
-        })
-        .unwrap()
+        }
+    }
+
+    fn rule(open: &str, close: &str, style: &str) -> HighlightRule {
+        HighlightRule::try_from(config(open, close, style)).unwrap()
+    }
+
+    /// 両方が空だと長さ 0 の一致になり、split が先へ進めなくなります。
+    #[test]
+    fn rejects_empty_delimiters() {
+        assert!(HighlightRule::try_from(config("", "", "color: red")).is_err());
+        assert!(HighlightRule::try_from(config("[[", "", "color: red")).is_ok());
+        assert!(HighlightRule::try_from(config("", "]]", "color: red")).is_ok());
     }
 
     #[test]
