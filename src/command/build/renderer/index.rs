@@ -1,7 +1,7 @@
 use crate::{
     command::build::renderer::{
         PageMetadata,
-        html_component::{escape_html_text, footer, head, header, tag_link_html},
+        html_component::{escape_html_attr, escape_html_text, footer, head, header, tag_link_html},
     },
     config::ProjectConfig,
     include_asset, util,
@@ -52,7 +52,7 @@ fn cards_html(metas: &[PageMetadata]) -> String {
             format!(
                 include_asset!("card.html"),
                 extra_class = extra_class,
-                path = path,
+                path = escape_html_attr(path),
                 title = escape_html_text(&m.title),
                 update = m.update,
                 tag_links = tag_links,
