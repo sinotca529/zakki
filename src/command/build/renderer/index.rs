@@ -31,12 +31,13 @@ pub fn render_index(
 }
 
 fn cards_html(metas: &[PageMetadata]) -> String {
+    let url_to_root = Url::from_relative_path(Path::new(".")).unwrap();
+
     metas
         .iter()
         .filter(|m| !m.is_sub)
         .map(|m| {
             let extra_class = if m.is_private { " crypto" } else { "" };
-            let url_to_root = Url::single_dot();
 
             let tag_links: String = m
                 .tags
@@ -58,7 +59,7 @@ fn cards_html(metas: &[PageMetadata]) -> String {
 
 fn all_tags_html(metas: &[PageMetadata]) -> String {
     let tag_set: BTreeSet<&String> = metas.iter().flat_map(|m| m.tags.iter()).collect();
-    let url_to_root = Url::single_dot();
+    let url_to_root = Url::from_relative_path(Path::new(".")).unwrap();
     tag_set
         .iter()
         .map(|t| tag_link_html(t, &url_to_root))
@@ -73,7 +74,7 @@ fn index_html<'a>(
     cards: &str,
     tags: &str,
 ) -> String {
-    let url_to_root = Url::single_dot();
+    let url_to_root = Url::from_relative_path(Path::new(".")).unwrap();
     let head = head(&url_to_root, css_list, js_list, site_name);
     let header = header(&url_to_root, site_name);
     format!(

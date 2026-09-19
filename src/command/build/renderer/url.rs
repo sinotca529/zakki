@@ -7,11 +7,6 @@ use std::path::{Component::*, Path};
 pub struct Url(String);
 
 impl Url {
-    /// '.' に対応する URL を返します。
-    pub fn single_dot() -> Self {
-        Self(".".to_string())
-    }
-
     /// 相対パスから URL を作成します。
     pub fn from_relative_path(rel: &Path) -> anyhow::Result<Self> {
         let mut segs = vec![];
