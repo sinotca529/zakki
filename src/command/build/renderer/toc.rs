@@ -21,13 +21,13 @@ pub fn toc_html<'a>(root: &'a AstNode<'a>) -> String {
             _ => continue,
         };
 
-        // 目次に載せない見出しでも、描画時と採番をそろえるためカウンタは進めます。
+        // 目次に載せない見出しでも、描画時と採番をそろえるためカウンタは進める
         let id = numbering.next_id(level);
         if level > DEEPEST_LEVEL {
             continue;
         }
 
-        // h2 を第 1 階層とします。h1 はページタイトル用で、本文では使えません。
+        // h2 を第 1 階層とする。h1 はページタイトル用で本文では使えない
         items.push((level - 1, id, heading_text(node)));
     }
 

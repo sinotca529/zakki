@@ -191,7 +191,7 @@ impl<'a> Renderer<'a> {
         let mut pass_assets = PassAssets::default();
         pass::validate_heading_order(root)?;
 
-        // 目次は見出しの文字列を使うため、数式を HTML に置き換える前に作ります。
+        // 目次は見出しの文字列を使うため、数式を HTML に置き換える前に作る
         let toc = toc::toc_html(root);
 
         pass::adjust_link(&arena, root, page_paths.src_path, self.title_map)?;
