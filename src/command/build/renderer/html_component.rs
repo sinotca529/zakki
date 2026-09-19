@@ -58,7 +58,7 @@ fn adjust_path_origin(path: &str, url_to_root: &Url) -> String {
     if path.starts_with("http://") || path.starts_with("https://") || path.starts_with("/") {
         return path.to_string();
     }
-    url_to_root.join(path).to_string()
+    format!("{url_to_root}/{path}")
 }
 
 /// クエリ文字列の値として安全な形にします。
