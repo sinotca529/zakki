@@ -16,11 +16,10 @@ use crate::path::ProjectPaths;
 use crate::util::{self, BloomFilter, PathExt as _};
 use anyhow::{Context as _, Result};
 use base64::{Engine, prelude::BASE64_STANDARD};
-use itertools::Itertools;
 use pulldown_cmark::{Event, Options, Parser};
 use scraper::{Html, Selector};
 use serde::Deserialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 pub use index::render_index;
@@ -137,27 +136,6 @@ impl<'a> Renderer<'a> {
         Ok(html)
     }
 
-    fn make_bloom_filter(&self, title: &str, html: &str) -> Result<BloomFilter> {
-        // HTML からテキストを抜き出す
-        let body = Html::parse_document(html)
-            .select(&Selector::parse("#article").unwrap())
-            .flat_map(|e| e.text())
-            .join(" ");
-
-        let text = format!("{title} {body}");
-
-        // テキストをトークンに分割する
-        let words: HashSet<_> = util::tokenize(&text).into_iter().collect();
-
-        // Bloom filter を構築する
-        let fp = self.config.search_fp;
-        let num_words = words.len();
-        let mut filter = BloomFilter::new(num_words, fp);
-        words.iter().for_each(|w| filter.insert_word(w));
-
-        Ok(filter)
-    }
-
     /// Markdown を HTML に変換します。
     /// 変換後の HTML とメタデータを返します。
     /// ドラフト記事であり、ドラフトを描画しない設定の場合は `None` を返します。
@@ -174,12 +152,20 @@ impl<'a> Renderer<'a> {
         let mut events: Vec<_> = Parser::new_ext(content, markdown_options()).collect();
 
         // イベント列に対してパスを適用
-        let front_matter = pass::read_front_matter(&events)?;
+        let front_matter = pass::read_front_matter(&mut events)?;
 
         let mut pass_assets = PassAssets::default();
         pass::validate_heading_order(&events)?;
         pass::assign_header_id(&mut events);
         pass::adjust_link(&mut events, page_paths.src_path, self.title_map)?;
+
+        // 非公開の記事は索引に載せない。暗号化した本文に語の有無を問い合わせられるため
+        let filter = if self.pj_paths.is_private(page_paths.src_path) {
+            BloomFilter::new(0, self.config.search_fp)
+        } else {
+            pass::make_bloom_filter(&events, &front_matter.title, self.config.search_fp)
+        };
+
         pass::convert_image(&mut events);
         pass::add_code_caption(&mut events);
         pass::highlight_code(&mut events, &front_matter.highlights);
@@ -190,9 +176,6 @@ impl<'a> Renderer<'a> {
 
         // イベント列を HTML に変換
         let html = self.render_page(events, &front_matter, page_paths, &pass_assets)?;
-
-        // HTML に対してパスを適用
-        let filter = self.make_bloom_filter(&front_matter.title, &html)?;
 
         let metadata = PageMetadata {
             create: front_matter.create_date,
