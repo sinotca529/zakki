@@ -1,3 +1,4 @@
+use super::assign_header_id::SECTION_ID_PREFIX;
 use super::{end_of, text_of};
 use crate::command::build::renderer::html_component::escape_html_text;
 use pulldown_cmark::{Event, HeadingLevel, Tag};
@@ -22,13 +23,17 @@ pub fn make_toc(events: &[Event]) -> String {
             _ => continue,
         };
 
-        // id は assign_header_id が振った階層番号なので、目次の番号にも使う
-        let number = id
+        let id = id
             .as_deref()
             .expect("見出しの id は assign_header_id が振る");
+
+        // id は接頭辞と階層番号でできているので、番号の部分を目次の表示にも使う
+        let number = id
+            .strip_prefix(SECTION_ID_PREFIX)
+            .expect("見出しの id には接頭辞が付く");
         let text = text_of(&events[(i + 1)..end_of(events, i)]);
 
-        items.push((depth, number, text));
+        items.push((depth, id, number, text));
     }
 
     if items.is_empty() {
@@ -38,7 +43,7 @@ pub fn make_toc(events: &[Event]) -> String {
     let mut html = Vec::<String>::new();
     let mut prev_depth = 0;
 
-    for (depth, number, text) in &items {
+    for (depth, id, number, text) in &items {
         // 階層を下る
         (prev_depth..*depth).for_each(|_| html.push("<ol><li>".to_string()));
         // 階層を上る
@@ -49,7 +54,7 @@ pub fn make_toc(events: &[Event]) -> String {
         }
         // リンクを追加
         html.push(format!(
-            "<a href=\"#{number}\">{number}. {}</a>",
+            "<a href=\"#{id}\">{number}. {}</a>",
             escape_html_text(text)
         ));
         prev_depth = *depth;
@@ -82,9 +87,9 @@ mod test {
             toc,
             concat!(
                 r#"<details id="toc"><summary>目次</summary>"#,
-                r##"<ol><li><a href="#1">1. あ</a>"##,
-                r##"<ol><li><a href="#1.1">1.1. い</a></li></ol>"##,
-                r##"</li><li><a href="#2">2. う</a></li></ol>"##,
+                r##"<ol><li><a href="#s1">1. あ</a>"##,
+                r##"<ol><li><a href="#s1.1">1.1. い</a></li></ol>"##,
+                r##"</li><li><a href="#s2">2. う</a></li></ol>"##,
                 "</details>",
             )
         );
@@ -100,7 +105,7 @@ mod test {
     fn takes_only_text_from_headings() {
         let toc = toc_of("## `Vec<Event>` を*渡す*\n");
         assert!(
-            toc.contains(r##"<a href="#1">1. Vec&lt;Event> を渡す</a>"##),
+            toc.contains(r##"<a href="#s1">1. Vec&lt;Event> を渡す</a>"##),
             "{toc}"
         );
     }
