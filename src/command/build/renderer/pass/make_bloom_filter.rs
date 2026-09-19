@@ -11,7 +11,6 @@ use std::collections::HashSet;
 /// `convert_image` と `add_code_caption` より前に呼びます。
 /// コードの中身も入れるため、`highlight_code` より前に呼びます。
 pub fn make_bloom_filter(events: &[Event], title: &str, fp: f64) -> BloomFilter {
-    // 断片ごとに切っても結果は変わらない。区切り文字をまたぐトークンは作られないため
     let mut words: HashSet<String> = util::tokenize(title).into_iter().collect();
 
     for e in events {
