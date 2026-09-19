@@ -1,21 +1,20 @@
+mod assets;
 mod renderer;
 
-use crate::config::FileConfig;
+use crate::config::ProjectConfig;
 use crate::path::ProjectPaths;
+use crate::util;
 use crate::util::PathExt as _;
-use crate::{config::Config, util};
 use anyhow::{Context as _, Result};
 use rayon::prelude::*;
-use renderer::Renderer;
-use renderer::context::Metadata;
 use renderer::extract_title_from_path;
+use renderer::{PageMetadata, Renderer};
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
-    let file_cfg = FileConfig::load(pj_paths.config_path())?;
-    let cfg = Config::new(file_cfg, render_draft);
+    let cfg = ProjectConfig::load(pj_paths.config_path())?;
 
     super::clean::clean(pj_paths)?;
 
@@ -31,11 +30,11 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
 
     // Wikilink のタイトルを書くため、全記事のタイトルを先んじて取得する。
     let title_map = collect_titles(&files)?;
-    let renderer = Renderer::new(&cfg, &title_map, pj_paths);
+    let renderer = Renderer::new(&cfg, &title_map, pj_paths, render_draft);
 
-    renderer.render_assets()?;
+    assets::copy_assets(pj_paths.build_dir())?;
 
-    let contexts = files
+    let mut metas = files
         .par_iter()
         .map(|p| renderer.render(p).with_context(|| p.display().to_string()))
         .collect::<Result<Vec<_>>>()?
@@ -43,15 +42,12 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
         .flatten()
         .collect::<Vec<_>>();
 
-    let mut metadatas: Vec<Metadata> = contexts
-        .into_iter()
-        .map(|c| c.into_output())
-        .collect::<Result<_>>()?;
-    metadatas.sort_unstable_by(|a, b| b.update.cmp(&a.update));
+    metas.sort_unstable_by(|a, b| b.update.cmp(&a.update));
 
-    renderer.render_index(&metadatas)?;
-    output_sitemap(&cfg, &metadatas, pj_paths.build_dir())?;
-    output_metadatas(metadatas, pj_paths.build_dir())?;
+    renderer::render_index(&cfg, pj_paths.build_dir(), &metas)?;
+
+    output_sitemap(&cfg, &metas, pj_paths.build_dir())?;
+    output_metadatas(metas, pj_paths.build_dir())?;
 
     Ok(())
 }
@@ -70,8 +66,8 @@ fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
     Ok(map)
 }
 
-fn output_sitemap(cfg: &Config, metas: &[Metadata], build_dir: &Path) -> Result<()> {
-    let pub_url = cfg.publish_url().map(|u| u.trim_end_matches("/"));
+fn output_sitemap(cfg: &ProjectConfig, metas: &[PageMetadata], build_dir: &Path) -> Result<()> {
+    let pub_url = cfg.publish_url.as_ref().map(|u| u.trim_end_matches("/"));
     let Some(pub_url) = pub_url else {
         return Ok(());
     };
@@ -84,14 +80,13 @@ fn output_sitemap(cfg: &Config, metas: &[Metadata], build_dir: &Path) -> Result<
     )?;
 
     for m in metas {
-        if m.path.starts_with("private") {
+        if m.is_private {
             continue;
         }
-        let path = m.path.display().to_string();
         writeln!(
             &mut xml,
             r#"  <url><loc>{}{}</loc><lastmod>{}</lastmod></url>"#,
-            pub_url, path, m.update
+            pub_url, m.path, m.update
         )?;
     }
     writeln!(&mut xml, "</urlset>")?;
@@ -102,7 +97,9 @@ fn output_sitemap(cfg: &Config, metas: &[Metadata], build_dir: &Path) -> Result<
     Ok(())
 }
 
-fn output_metadatas(metas: Vec<Metadata>, build_dir: &Path) -> Result<()> {
+// METADATA と BLOOM_FILTER を書き出します。
+// どちらも metas を先頭から順に並べるため、添字が同じ要素が同じ記事を指します。
+fn output_metadatas(metas: Vec<PageMetadata>, build_dir: &Path) -> Result<()> {
     // メタデータの書き出し
     let json = serde_json::to_string(&metas)?;
     let js = format!("const METADATA={json}");

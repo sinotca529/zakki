@@ -1,12 +1,12 @@
-mod aes_256_cbc;
 mod bloom_filter;
+mod encrypt;
 mod file_io;
 mod fxhash;
 mod path_ext;
 mod tokenizer;
 
-pub use aes_256_cbc::*;
 pub use bloom_filter::*;
+pub use encrypt::*;
 pub use file_io::*;
 pub use path_ext::*;
 pub use tokenizer::*;
@@ -16,6 +16,16 @@ pub use tokenizer::*;
 macro_rules! include_asset {
     ($fname:literal) => {
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/asset/", $fname))
+    };
+}
+
+/// 本プロジェクトの testdata ディレクトリ下にあるファイルの内容を読み込みます
+/// Rust 側と JS 側が同じ表を読むため、パスは呼び出し元の位置に依存させません
+#[cfg(test)]
+#[macro_export]
+macro_rules! include_testdata {
+    ($fname:literal) => {
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/", $fname))
     };
 }
 

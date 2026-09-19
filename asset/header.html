@@ -1,15 +1,15 @@
 <header class="site-header">
   <div class="header-inner">
-    <h1 class="site-title"><a href="{path_to_root}/index.html">{site_name}</a></h1>
+    <h1 class="site-title"><a href="{url_to_root}/index.html">{site_name}</a></h1>
   </div>
   <form id="searchbar" class="site-search" role="search" onsubmit="return false;">
     <input
       type="search"
       id="search-input"
-      onkeyup="searchAndRender()"
+      oninput="searchAndRender()"
       placeholder="Search this site"
       aria-label="Search site"
     >
   </form>
-  <div id="search-result" class="hidden"></div>
+  <div id="search-result"></div>
 </header>
