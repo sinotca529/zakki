@@ -11,26 +11,21 @@ use std::collections::HashSet;
 /// `convert_image` と `add_code_caption` より前に呼びます。
 /// コードの中身も入れるため、`highlight_code` より前に呼びます。
 pub fn make_bloom_filter(events: &[Event], title: &str, fp: f64) -> BloomFilter {
-    let mut text = title.to_owned();
+    // 断片ごとに切っても結果は変わらない。区切り文字をまたぐトークンは作られないため
+    let mut words: HashSet<String> = util::tokenize(title).into_iter().collect();
 
     for e in events {
         match e {
-            Event::Text(t) | Event::Code(t) => {
-                text.push(' ');
-                text.push_str(t);
-            }
+            Event::Text(t) | Event::Code(t) => words.extend(util::tokenize(t)),
             // コードブロックのキャプションは info string に入っている
             Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) => {
                 if let Some((_, caption)) = info.split_once(':') {
-                    text.push(' ');
-                    text.push_str(caption.trim());
+                    words.extend(util::tokenize(caption));
                 }
             }
             _ => {}
         }
     }
-
-    let words: HashSet<_> = util::tokenize(&text).into_iter().collect();
 
     let mut filter = BloomFilter::new(words.len(), fp);
     words.iter().for_each(|w| filter.insert_word(w));
