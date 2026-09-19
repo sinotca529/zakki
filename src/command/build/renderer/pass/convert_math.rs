@@ -1,10 +1,9 @@
+use super::PassAssets;
 use anyhow::Context as _;
-use comrak::nodes::{AstNode, NodeValue};
-
-use crate::command::build::renderer::pass::PassAssets;
+use pulldown_cmark::Event;
 
 /// 数式を KaTeX でレンダリング済みの HTML に置き換えます。
-pub fn convert_math<'a>(root: &'a AstNode<'a>, pa: &mut PassAssets) -> anyhow::Result<()> {
+pub fn convert_math(events: &mut [Event<'_>], pa: &mut PassAssets) -> anyhow::Result<()> {
     let opts_display = katex::Opts::builder()
         .output_type(katex::opts::OutputType::Html)
         .display_mode(true)
@@ -18,21 +17,17 @@ pub fn convert_math<'a>(root: &'a AstNode<'a>, pa: &mut PassAssets) -> anyhow::R
 
     let mut math_used = false;
 
-    for node in root.descendants() {
-        // data_mut() を呼ぶ前に借用を落とすため、必要な値だけ取り出す
-        let math = match &node.data().value {
-            NodeValue::Math(m) => Some((m.display_math, m.literal.clone())),
-            _ => None,
-        };
-        let Some((display, latex)) = math else {
-            continue;
+    for e in events.iter_mut() {
+        let (latex, opts) = match e {
+            Event::InlineMath(latex) => (latex, &opts_inline),
+            Event::DisplayMath(latex) => (latex, &opts_display),
+            _ => continue,
         };
 
-        let opts = if display { &opts_display } else { &opts_inline };
-        let html = katex::render_with_opts(&latex, opts)
+        let html = katex::render_with_opts(latex, opts)
             .with_context(|| format!("Failed to render math: {latex}"))?;
 
-        node.data_mut().value = NodeValue::HtmlInline(html);
+        *e = Event::InlineHtml(html.into());
         math_used = true;
     }
 

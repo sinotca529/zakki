@@ -1,5 +1,6 @@
+use super::{end_of, is_end};
 use anyhow::{Result, bail};
-use comrak::nodes::{AstNode, NodeHtmlBlock, NodeValue};
+use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
 use regex::Regex;
 use serde::Deserialize;
 
@@ -9,23 +10,37 @@ use crate::command::build::renderer::html_component::{escape_html_attr, escape_h
 ///
 /// スタイルは `<span>` として埋め込むため、コードブロックごと
 /// 生の HTML に置き換えます。
-pub fn highlight_code<'a>(
-    root: &'a AstNode<'a>,
-    highlights: &Option<Vec<HighlightRule>>,
-) -> Result<()> {
+pub fn highlight_code(events: &mut Vec<Event<'_>>, highlights: &Option<Vec<HighlightRule>>) {
     let Some(rules) = highlights.as_ref() else {
-        return Ok(());
+        return;
     };
 
-    let targets: Vec<_> = root
-        .descendants()
-        .filter_map(|node| match &node.data().value {
-            NodeValue::CodeBlock(code) => Some((node, code.info.clone(), code.literal.clone())),
-            _ => None,
-        })
-        .collect();
+    let mut out = Vec::with_capacity(events.len());
+    let mut i = 0;
 
-    for (node, info, literal) in targets {
+    while i < events.len() {
+        let Event::Start(Tag::CodeBlock(kind)) = &events[i] else {
+            out.push(events[i].clone());
+            i += 1;
+            continue;
+        };
+
+        let info = match kind {
+            CodeBlockKind::Fenced(info) => info.to_string(),
+            CodeBlockKind::Indented => String::new(),
+        };
+
+        let end = end_of(events, i);
+        debug_assert!(is_end(&events[end], &TagEnd::CodeBlock));
+
+        let literal: String = events[(i + 1)..end]
+            .iter()
+            .filter_map(|e| match e {
+                Event::Text(t) => Some(t.as_ref()),
+                _ => None,
+            })
+            .collect();
+
         let code = highlighted_html(&literal, rules);
 
         let class = info
@@ -35,13 +50,13 @@ pub fn highlight_code<'a>(
             .map(|lang| format!(r#" class="language-{}""#, escape_html_attr(lang)))
             .unwrap_or_default();
 
-        node.data_mut().value = NodeValue::HtmlBlock(NodeHtmlBlock {
-            block_type: 0,
-            literal: format!("<pre><code{class}>{code}</code></pre>"),
-        });
+        out.push(Event::Html(
+            format!("<pre><code{class}>{code}</code></pre>").into(),
+        ));
+        i = end + 1;
     }
 
-    Ok(())
+    *events = out;
 }
 
 /// コードの一部分。区切り文字で囲まれていたかどうかで分かれます。
