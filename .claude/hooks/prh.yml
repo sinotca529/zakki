@@ -19,6 +19,10 @@ rules:
     patterns:
       - /静かに(壊れる|壊れます|失敗)/
 
+  - expected: エラーが出ないまま何が起きるかを書く
+    patterns:
+      - /黙って/
+
   - expected: 何が防げるのかを書く
     patterns:
       - /穴を(塞ぐ|塞ぎ|埋める)/
