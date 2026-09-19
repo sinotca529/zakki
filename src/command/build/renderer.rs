@@ -13,7 +13,7 @@ use crate::command::build::renderer::url::Url;
 use crate::config::ProjectConfig;
 use crate::include_asset;
 use crate::path::ProjectPaths;
-use crate::util::{self, BloomFilter, PathExt as _};
+use crate::util::{self, PathExt as _};
 use anyhow::{Context as _, Result};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use pulldown_cmark::{Event, Options, Parser};
@@ -159,12 +159,15 @@ impl<'a> Renderer<'a> {
         pass::assign_header_id(&mut events);
         pass::adjust_link(&mut events, page_paths.src_path, self.title_map)?;
 
-        // 非公開の記事は索引に載せない。暗号化した本文に語の有無を問い合わせられるため
-        let filter = if self.pj_paths.is_private(page_paths.src_path) {
-            BloomFilter::new(0, self.config.search_fp)
+        // 非公開の記事は本文を索引に載せない。bloom filter は語の有無を問い合わせられるため、
+        // 暗号化した本文に対して総当たりができてしまう。
+        // タイトルは一覧にも metadata.js にも出ているので、索引に入れても変わらない。
+        let body = if self.pj_paths.is_private(page_paths.src_path) {
+            &[][..]
         } else {
-            pass::make_bloom_filter(&events, &front_matter.title, self.config.search_fp)
+            &events[..]
         };
+        let filter = pass::make_bloom_filter(body, &front_matter.title, self.config.search_fp);
 
         pass::convert_image(&mut events);
         pass::add_code_caption(&mut events);
