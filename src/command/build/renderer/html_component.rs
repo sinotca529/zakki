@@ -1,9 +1,9 @@
 use crate::{command::build::renderer::url::Url, include_asset};
 
-pub fn tag_link_html(tag: &str, index_url: &Url) -> String {
+pub fn tag_link_html(tag: &str, url_to_root: &Url) -> String {
     let tag_t = escape_html_text(tag);
     let tag_q = escape_html_attr(&encode_query_value(tag));
-    format!(r#"<a class="tag" href="{index_url}?tag={tag_q}">{tag_t}</a>"#)
+    format!(r#"<a class="tag" href="{url_to_root}/index.html?tag={tag_q}">{tag_t}</a>"#)
 }
 
 pub fn header(url_to_root: &Url, site_name: &str) -> String {
@@ -51,8 +51,7 @@ pub fn head<'a>(
 }
 
 pub fn tag_elems(tags: &[String], url_to_root: &Url) -> String {
-    let index_url = url_to_root.join("index.html");
-    tags.iter().map(|t| tag_link_html(t, &index_url)).collect()
+    tags.iter().map(|t| tag_link_html(t, url_to_root)).collect()
 }
 
 fn adjust_path_origin(path: &str, url_to_root: &Url) -> String {

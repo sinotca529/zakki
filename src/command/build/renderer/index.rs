@@ -1,7 +1,7 @@
 use crate::{
     command::build::renderer::{
         PageMetadata,
-        html_component::{escape_html_text, footer, head, header, tag_link_html},
+        html_component::{escape_html_attr, escape_html_text, footer, head, header, tag_link_html},
         url::Url,
     },
     config::ProjectConfig,
@@ -36,18 +36,18 @@ fn cards_html(metas: &[PageMetadata]) -> String {
         .filter(|m| !m.is_sub)
         .map(|m| {
             let extra_class = if m.is_private { " crypto" } else { "" };
-            let url_index = Url::default().join("index.html");
+            let url_to_root = Url::default();
 
             let tag_links: String = m
                 .tags
                 .iter()
-                .map(|t| tag_link_html(t, &url_index))
+                .map(|t| tag_link_html(t, &url_to_root))
                 .collect();
 
             format!(
                 include_asset!("card.html"),
                 extra_class = extra_class,
-                path = m.path,
+                path = escape_html_attr(&m.path.to_string()),
                 title = escape_html_text(&m.title),
                 update = m.update,
                 tag_links = tag_links,
@@ -58,10 +58,10 @@ fn cards_html(metas: &[PageMetadata]) -> String {
 
 fn all_tags_html(metas: &[PageMetadata]) -> String {
     let tag_set: BTreeSet<&String> = metas.iter().flat_map(|m| m.tags.iter()).collect();
-    let url_index = Url::default().join("index.html");
+    let url_to_root = Url::default();
     tag_set
         .iter()
-        .map(|t| tag_link_html(t, &url_index))
+        .map(|t| tag_link_html(t, &url_to_root))
         .collect()
 }
 
