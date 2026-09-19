@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use anyhow::Result;
 use comrak::nodes::{AstNode, NodeHtmlBlock, NodeValue};
 use regex::Regex;
@@ -15,7 +13,7 @@ pub fn highlight_code<'a>(
     root: &'a AstNode<'a>,
     highlights: &Option<Vec<HighlightRule>>,
 ) -> Result<()> {
-    let Some(macros) = highlights.as_ref() else {
+    let Some(rules) = highlights.as_ref() else {
         return Ok(());
     };
 
@@ -28,10 +26,7 @@ pub fn highlight_code<'a>(
         .collect();
 
     for (node, info, literal) in targets {
-        let mut code = escape_html_text(&literal);
-        for m in macros {
-            code = m.replace_all(&code).to_string();
-        }
+        let code = highlighted_html(&literal, rules);
 
         let class = info
             .split_whitespace()
@@ -47,6 +42,70 @@ pub fn highlight_code<'a>(
     }
 
     Ok(())
+}
+
+/// コードの一部分。区切り文字で囲まれていたかどうかで分かれます。
+enum Piece<'a> {
+    Plain(&'a str),
+    Styled { text: &'a str, style: &'a str },
+}
+
+/// コードを区切り文字で分割します。
+///
+/// 左から順に、いちばん手前で当たる規則を選びます。同じ位置で複数の規則が当たる場合は、
+/// yaml ヘッダに先に書いたものを使います。区切り文字の入れ子は扱いません。
+fn split<'a>(code: &'a str, rules: &'a [HighlightRule]) -> Vec<Piece<'a>> {
+    let mut pieces = Vec::new();
+    let mut rest = code;
+
+    while !rest.is_empty() {
+        let hit = rules
+            .iter()
+            .filter_map(|rule| rule.pattern.captures(rest).map(|caps| (rule, caps)))
+            .min_by_key(|(_, caps)| caps.get(0).map_or(usize::MAX, |m| m.start()));
+
+        let Some((rule, caps)) = hit else {
+            pieces.push(Piece::Plain(rest));
+            break;
+        };
+
+        // 規則の正規表現は全体と中身の 2 つを必ず捕獲します。
+        let whole = caps.get(0).expect("正規表現全体の一致は必ず取れる");
+        let inner = caps.get(1).expect("規則は中身を捕獲する括弧を必ず持つ");
+
+        if whole.start() > 0 {
+            pieces.push(Piece::Plain(&rest[..whole.start()]));
+        }
+        pieces.push(Piece::Styled {
+            text: inner.as_str(),
+            style: &rule.style,
+        });
+
+        rest = &rest[whole.end()..];
+    }
+
+    pieces
+}
+
+/// 分割した結果を HTML に組み立てます。
+///
+/// エスケープはここでだけ行います。先にコードをエスケープすると、
+/// 埋め込んだ `<span>` まで後続の規則の対象になるためです。
+fn highlighted_html(code: &str, rules: &[HighlightRule]) -> String {
+    let mut out = String::with_capacity(code.len());
+
+    for piece in split(code, rules) {
+        match piece {
+            Piece::Plain(text) => out.push_str(&escape_html_text(text)),
+            Piece::Styled { text, style } => out.push_str(&format!(
+                r#"<span style="{}">{}</span>"#,
+                escape_html_attr(style),
+                escape_html_text(text)
+            )),
+        }
+    }
+
+    out
 }
 
 /// yaml ヘッダに書かれる形。
@@ -68,10 +127,8 @@ impl TryFrom<HighlightRuleConfig> for HighlightRule {
     type Error = regex::Error;
 
     fn try_from(value: HighlightRuleConfig) -> Result<Self, Self::Error> {
-        // コード側は escape_html_text を通してから置換される。
-        // そのため、パターンの区切り文字も同様に置換をしておく。
-        let open = regex::escape(&escape_html_text(&value.delim[0]));
-        let close = regex::escape(&escape_html_text(&value.delim[1]));
+        let open = regex::escape(&value.delim[0]);
+        let close = regex::escape(&value.delim[1]);
         let pattern = Regex::new(&format!("{open}(.*?){close}"))?;
 
         Ok(Self {
@@ -81,9 +138,57 @@ impl TryFrom<HighlightRuleConfig> for HighlightRule {
     }
 }
 
-impl HighlightRule {
-    pub fn replace_all<'a>(&self, code: &'a str) -> Cow<'a, str> {
-        self.pattern
-            .replace_all(code, format!("<span style=\"{}\">$1</span>", self.style))
+#[cfg(test)]
+mod test {
+    use super::{HighlightRule, HighlightRuleConfig, highlighted_html};
+
+    fn rule(open: &str, close: &str, style: &str) -> HighlightRule {
+        HighlightRule::try_from(HighlightRuleConfig {
+            delim: [open.to_owned(), close.to_owned()],
+            style: style.to_owned(),
+        })
+        .unwrap()
+    }
+
+    #[test]
+    fn wraps_each_delimited_part() {
+        let rules = [
+            rule("[[", "]]", "color: red"),
+            rule("<<", ">>", "color: blue"),
+        ];
+        assert_eq!(
+            highlighted_html("let [[a]] = <<b>>;", &rules),
+            concat!(
+                r#"let <span style="color: red">a</span> = "#,
+                r#"<span style="color: blue">b</span>;"#,
+            )
+        );
+    }
+
+    /// 先にコードをエスケープすると、埋め込んだ `<span>` まで後続の規則の対象になります。
+    /// 組み立てのときだけエスケープするので、コード中の `<` は 1 度しか置き換わりません。
+    #[test]
+    fn escapes_code_once() {
+        let rules = [rule("[[", "]]", "color: red")];
+        assert_eq!(
+            highlighted_html("a < b && [[c < d]]", &rules),
+            r#"a &lt; b &amp;&amp; <span style="color: red">c &lt; d</span>"#
+        );
+    }
+
+    /// 同じ位置で複数の規則が当たる場合は、yaml ヘッダに先に書いたものを使います。
+    #[test]
+    fn earlier_rule_wins_at_the_same_position() {
+        let rules = [rule("[[", "]]", "first"), rule("[[", "]]", "second")];
+        assert_eq!(
+            highlighted_html("[[x]]", &rules),
+            r#"<span style="first">x</span>"#
+        );
+    }
+
+    #[test]
+    fn keeps_code_as_is_when_no_rule_matches() {
+        let rules = [rule("[[", "]]", "color: red")];
+        assert_eq!(highlighted_html("let a = 0;", &rules), "let a = 0;");
     }
 }
