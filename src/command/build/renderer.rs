@@ -17,7 +17,6 @@ use crate::util::{self, PathExt as _};
 use anyhow::{Context as _, Result};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use pulldown_cmark::{Event, Options, Parser};
-use scraper::{Html, Selector};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -71,6 +70,7 @@ impl<'a> Renderer<'a> {
     fn render_page(
         &self,
         events: Vec<Event<'_>>,
+        toc: &str,
         front_matter: &PageFrontMatter,
         page_paths: &PageLocs,
         pass_assets: &PassAssets,
@@ -90,7 +90,6 @@ impl<'a> Renderer<'a> {
 
         let js_list = self.config.js_list.iter().map(String::as_str);
 
-        let toc = extract_toc_html(&body);
         let article = format!("{}<div id=\"main-content\">{}</div>", toc, body);
 
         let is_private = self.pj_paths.is_private(page_paths.src_path);
@@ -166,7 +165,9 @@ impl<'a> Renderer<'a> {
         pass::convert_alert(&mut events);
         pass::collect_footnotes(&mut events);
 
-        // 索引は本文が確定してから作る。
+        // 目次と索引は本文が確定してから作る。
+        let toc = pass::make_toc(&events);
+
         // 非公開の記事は本文を渡さない。bloom filter は語の有無を問い合わせられるため、
         // 暗号化した本文に対して総当たりができてしまう。
         // タイトルは一覧にも metadata.js にも出ているので、索引に入れても変わらない。
@@ -178,7 +179,7 @@ impl<'a> Renderer<'a> {
         let filter = pass::make_bloom_filter(body, &front_matter.title, self.config.search_fp);
 
         // イベント列を HTML に変換
-        let html = self.render_page(events, &front_matter, page_paths, &pass_assets)?;
+        let html = self.render_page(events, &toc, &front_matter, page_paths, &pass_assets)?;
 
         let metadata = PageMetadata {
             create: front_matter.create_date,
@@ -248,61 +249,6 @@ fn parse_title_from_yaml(yaml: &str) -> Result<Option<String>> {
 
     let parsed: TitleOnly = serde_yaml::from_str(yaml)?;
     Ok(parsed.title)
-}
-
-/// レンダリング済みの body HTML から目次 HTML を生成します。
-/// 見出しがない場合は空文字を返します。
-fn extract_toc_html(body: &str) -> String {
-    let doc = Html::parse_fragment(body);
-    let selector = Selector::parse("h2[id], h3[id], h4[id]").unwrap();
-
-    let items: Vec<(usize, String, String)> = doc
-        .select(&selector)
-        .map(|el| {
-            let level = match el.value().name() {
-                "h2" => 1,
-                "h3" => 2,
-                "h4" => 3,
-                _ => 4,
-            };
-            let id = el.value().attr("id").unwrap_or("").to_string();
-            // 目次はナビゲーションなので、見出しの <code> や <strong> は落としてテキストだけにする。
-            let inner: String = el.text().collect();
-            (level, id, inner)
-        })
-        .collect();
-
-    if items.is_empty() {
-        return String::new();
-    }
-
-    let mut html = Vec::<String>::new();
-    let mut prev_level = 0;
-
-    for (level, id, inner) in &items {
-        // 階層を下る
-        (prev_level..*level).for_each(|_| html.push("<ol><li>".to_string()));
-        // 階層を上る
-        (*level..prev_level).for_each(|_| html.push("</li></ol>".to_string()));
-        // 次の要素へ
-        if *level <= prev_level {
-            html.push("</li><li>".to_string());
-        }
-        // リンクを追加
-        html.push(format!(
-            "<a href=\"#{}\">{}</a>",
-            id,
-            escape_html_text(inner)
-        ));
-        prev_level = *level;
-    }
-    // 閉じる
-    (0..prev_level).for_each(|_| html.push("</li></ol>".to_string()));
-
-    format!(
-        "<details id=\"toc\"><summary>目次</summary>{}</details>",
-        html.join("")
-    )
 }
 
 #[allow(clippy::too_many_arguments)]
