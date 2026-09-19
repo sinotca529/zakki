@@ -1,15 +1,17 @@
 mod heading_id;
 mod html_component;
 mod index;
+mod page_locs;
 mod page_meta;
-mod page_paths;
 mod pass;
+mod url;
 
 use crate::command::build::renderer::heading_id::NumberedHeadings;
 use crate::command::build::renderer::html_component::{
     escape_html_text, footer, head, header, tag_elems,
 };
 use crate::command::build::renderer::pass::{PageFrontMatter, PassAssets};
+use crate::command::build::renderer::url::Url;
 use crate::config::ProjectConfig;
 use crate::include_asset;
 use crate::path::ProjectPaths;
@@ -26,8 +28,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 pub use index::render_index;
+pub use page_locs::PageLocs;
 pub use page_meta::PageMetadata;
-pub use page_paths::PagePaths;
 
 const FRONT_MATTER_DELIMITER: &str = "---";
 
@@ -54,7 +56,7 @@ impl<'a> Renderer<'a> {
     }
 
     pub fn render(&self, src_path: &Path) -> Result<Option<PageMetadata>> {
-        let page_paths = PagePaths::new(src_path, self.pj_paths);
+        let page_paths = PageLocs::new(src_path, self.pj_paths)?;
 
         if !src_path.extension_is("md") {
             util::copy_file(src_path, &page_paths.build_path)?;
@@ -76,7 +78,7 @@ impl<'a> Renderer<'a> {
         root: &'n AstNode<'n>,
         options: &Options,
         front_matter: &PageFrontMatter,
-        page_paths: &PagePaths,
+        page_paths: &PageLocs,
         pass_assets: &PassAssets,
     ) -> Result<String> {
         let body = {
@@ -171,7 +173,7 @@ impl<'a> Renderer<'a> {
     fn md_to_html(
         &self,
         content: &str,
-        page_paths: &PagePaths,
+        page_paths: &PageLocs,
     ) -> Result<Option<(String, PageMetadata)>> {
         if !self.render_draft && self.pj_paths.is_draft(page_paths.src_path) {
             return Ok(None);
@@ -208,7 +210,7 @@ impl<'a> Renderer<'a> {
             path: page_paths.url_path.clone(),
             bloom: filter,
             is_sub: self.pj_paths.is_subpage(page_paths.src_path),
-            is_privte: self.pj_paths.is_private(page_paths.src_path),
+            is_private: self.pj_paths.is_private(page_paths.src_path),
         };
 
         Ok(Some((html, metadata)))
@@ -336,7 +338,7 @@ fn extract_toc_html(body: &str) -> String {
 
 #[allow(clippy::too_many_arguments)]
 pub fn page_html<'a>(
-    path_to_root: &Path,
+    url_to_root: &Url,
     site_name: &str,
     title: &str,
     create_date: &str,
@@ -347,9 +349,9 @@ pub fn page_html<'a>(
     article: &str,
     footer: &str,
 ) -> String {
-    let head = head(path_to_root, css_list, js_list, title);
-    let header = header(path_to_root, site_name);
-    let tag_elems = tag_elems(tags, path_to_root);
+    let head = head(url_to_root, css_list, js_list, title);
+    let header = header(url_to_root, site_name);
+    let tag_elems = tag_elems(tags, url_to_root);
     format!(
         include_asset!("page.html"),
         head = head,
@@ -365,7 +367,7 @@ pub fn page_html<'a>(
 
 #[allow(clippy::too_many_arguments)]
 pub fn crypto_html<'a>(
-    path_to_root: &Path,
+    url_to_root: &Url,
     site_name: &str,
     title: &str,
     create_date: &str,
@@ -376,9 +378,9 @@ pub fn crypto_html<'a>(
     encoded_body: &str,
     footer: &str,
 ) -> String {
-    let head = head(path_to_root, css_list, js_list, title);
-    let header = header(path_to_root, site_name);
-    let tag_elems = tag_elems(tags, path_to_root);
+    let head = head(url_to_root, css_list, js_list, title);
+    let header = header(url_to_root, site_name);
+    let tag_elems = tag_elems(tags, url_to_root);
     format!(
         include_asset!("crypto.html"),
         head = head,

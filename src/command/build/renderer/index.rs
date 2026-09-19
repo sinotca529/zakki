@@ -1,15 +1,13 @@
 use crate::{
     command::build::renderer::{
         PageMetadata,
-        html_component::{escape_html_attr, escape_html_text, footer, head, header, tag_link_html},
+        html_component::{escape_html_text, footer, head, header, tag_link_html},
+        url::Url,
     },
     config::ProjectConfig,
     include_asset, util,
 };
-use std::{
-    collections::BTreeSet,
-    path::{Path, PathBuf},
-};
+use std::{collections::BTreeSet, path::Path};
 
 pub fn render_index(
     cfg: &ProjectConfig,
@@ -37,18 +35,19 @@ fn cards_html(metas: &[PageMetadata]) -> String {
         .iter()
         .filter(|m| !m.is_sub)
         .map(|m| {
-            let path = m.path.to_str().unwrap_or_default();
-            let extra_class = if m.is_privte { " crypto" } else { "" };
+            let extra_class = if m.is_private { " crypto" } else { "" };
+            let url_index = Url::default().join("index.html");
+
             let tag_links: String = m
                 .tags
                 .iter()
-                .map(|t| tag_link_html(t, "index.html"))
+                .map(|t| tag_link_html(t, &url_index))
                 .collect();
 
             format!(
                 include_asset!("card.html"),
                 extra_class = extra_class,
-                path = escape_html_attr(path),
+                path = m.path,
                 title = escape_html_text(&m.title),
                 update = m.update,
                 tag_links = tag_links,
@@ -59,9 +58,10 @@ fn cards_html(metas: &[PageMetadata]) -> String {
 
 fn all_tags_html(metas: &[PageMetadata]) -> String {
     let tag_set: BTreeSet<&String> = metas.iter().flat_map(|m| m.tags.iter()).collect();
+    let url_index = Url::default().join("index.html");
     tag_set
         .iter()
-        .map(|t| tag_link_html(t, "index.html"))
+        .map(|t| tag_link_html(t, &url_index))
         .collect()
 }
 
@@ -73,9 +73,9 @@ fn index_html<'a>(
     cards: &str,
     tags: &str,
 ) -> String {
-    let path_to_root = &PathBuf::from(".");
-    let head = head(path_to_root, css_list, js_list, site_name);
-    let header = header(path_to_root, site_name);
+    let url_to_root = Url::default();
+    let head = head(&url_to_root, css_list, js_list, site_name);
+    let header = header(&url_to_root, site_name);
     format!(
         include_asset!("index.html"),
         head = head,

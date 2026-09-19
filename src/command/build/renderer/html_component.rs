@@ -1,16 +1,15 @@
-use crate::include_asset;
-use std::path::Path;
+use crate::{command::build::renderer::url::Url, include_asset};
 
-pub fn tag_link_html(tag: &str, index_url: &str) -> String {
+pub fn tag_link_html(tag: &str, index_url: &Url) -> String {
     let tag_t = escape_html_text(tag);
     let tag_q = escape_html_attr(&encode_query_value(tag));
     format!(r#"<a class="tag" href="{index_url}?tag={tag_q}">{tag_t}</a>"#)
 }
 
-pub fn header(path_to_root: &Path, site_name: &str) -> String {
+pub fn header(url_to_root: &Url, site_name: &str) -> String {
     format!(
         include_asset!("header.html"),
-        path_to_root = path_to_root.to_str().unwrap(),
+        url_to_root = url_to_root,
         site_name = escape_html_text(site_name),
     )
 }
@@ -23,7 +22,7 @@ pub fn footer(custom_footer: &Option<String>) -> String {
 }
 
 pub fn head<'a>(
-    path_to_root: &Path,
+    url_to_root: &Url,
     css_list: impl Iterator<Item = &'a str>,
     js_list: impl Iterator<Item = &'a str>,
     title: &str,
@@ -31,37 +30,36 @@ pub fn head<'a>(
     let css_list = css_list.map(|p| {
         format!(
             r#"<link rel="stylesheet" href="{}" />"#,
-            adjust_path_origin(p, path_to_root)
+            adjust_path_origin(p, url_to_root)
         )
     });
 
     let js_list = js_list.map(|p| {
         format!(
             r#"<script type="text/javascript" src="{}" defer></script>"#,
-            adjust_path_origin(p, path_to_root)
+            adjust_path_origin(p, url_to_root)
         )
     });
 
     format!(
         include_asset!("head.html"),
-        path_to_root = path_to_root.to_str().unwrap(),
+        url_to_root = url_to_root,
         css_list = css_list.collect::<String>(),
         js_list = js_list.collect::<String>(),
         title = escape_html_text(title),
     )
 }
 
-pub fn tag_elems(tags: &[String], build_dir: &Path) -> String {
-    let index_url = build_dir.join("index.html");
-    let index_url = index_url.to_str().unwrap();
-    tags.iter().map(|t| tag_link_html(t, index_url)).collect()
+pub fn tag_elems(tags: &[String], url_to_root: &Url) -> String {
+    let index_url = url_to_root.join("index.html");
+    tags.iter().map(|t| tag_link_html(t, &index_url)).collect()
 }
 
-fn adjust_path_origin(path: &str, path_to_root: &Path) -> String {
+fn adjust_path_origin(path: &str, url_to_root: &Url) -> String {
     if path.starts_with("http://") || path.starts_with("https://") || path.starts_with("/") {
         return path.to_string();
     }
-    path_to_root.join(path).to_str().unwrap().to_string()
+    url_to_root.join(path).to_string()
 }
 
 /// クエリ文字列の値として安全な形にします。

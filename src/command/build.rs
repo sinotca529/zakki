@@ -80,14 +80,13 @@ fn output_sitemap(cfg: &ProjectConfig, metas: &[PageMetadata], build_dir: &Path)
     )?;
 
     for m in metas {
-        if m.path.starts_with("private") {
+        if m.is_private {
             continue;
         }
-        let path = m.path.display().to_string();
         writeln!(
             &mut xml,
             r#"  <url><loc>{}{}</loc><lastmod>{}</lastmod></url>"#,
-            pub_url, path, m.update
+            pub_url, m.path, m.update
         )?;
     }
     writeln!(&mut xml, "</urlset>")?;
