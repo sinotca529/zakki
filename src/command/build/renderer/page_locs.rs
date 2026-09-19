@@ -1,7 +1,5 @@
-use anyhow::{Context, bail};
-
 use crate::{command::build::renderer::url::Url, path::ProjectPaths, util::PathExt as _};
-use std::path::{Component::*, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 pub struct PageLocs<'a> {
     /// 変換元の md ファイル
@@ -22,9 +20,10 @@ impl<'a> PageLocs<'a> {
             .strip_prefix(pj_paths.build_dir())
             .unwrap()
             .to_path_buf();
-        let url_path = Self::to_url(&out_path)?;
+        let url_path = Url::from_relative_path(&out_path)?;
 
-        let url_to_root = Self::to_url(&out_path.parent().unwrap().dir_path_to_origin_unchecked())?;
+        let url_to_root =
+            Url::from_relative_path(&out_path.parent().unwrap().dir_path_to_origin_unchecked())?;
 
         Ok(Self {
             src_path,
@@ -32,24 +31,5 @@ impl<'a> PageLocs<'a> {
             url_path,
             url_to_root,
         })
-    }
-
-    /// build_dir からの相対パスを、サイトのルートから見た URL にします。
-    fn to_url(rel: &Path) -> anyhow::Result<Url> {
-        let mut url = Url::default();
-        for c in rel.components() {
-            match c {
-                Normal(s) => {
-                    let s = s.to_str().context("ファイル名が UTF-8 ではありません")?;
-                    url.push(s);
-                }
-                CurDir => {}
-                Prefix(_) | RootDir => bail!("絶対パスは URL に変換できません"),
-                ParentDir => {
-                    url.push("..");
-                }
-            }
-        }
-        Ok(url)
     }
 }

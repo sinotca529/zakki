@@ -1,19 +1,35 @@
+use anyhow::{Context, bail};
 use serde::Serialize;
 use std::fmt::Display;
+use std::path::{Component::*, Path};
 
-#[derive(Default, Clone)]
-pub struct Url(Vec<String>);
+#[derive(Clone)]
+pub struct Url(String);
 
 impl Url {
-    pub fn join(&self, seg: &str) -> Self {
-        let mut s = self.clone();
-        s.push(seg);
-        s
+    /// '.' に対応する URL を返します。
+    pub fn single_dot() -> Self {
+        Self(".".to_string())
     }
 
-    pub fn push(&mut self, seg: &str) -> &mut Self {
-        self.0.push(Self::encode_path_segment(seg));
-        self
+    /// 相対パスから URL を作成します。
+    pub fn from_relative_path(rel: &Path) -> anyhow::Result<Self> {
+        let mut segs = vec![];
+
+        for c in rel.components() {
+            match c {
+                Normal(s) => {
+                    let s = s.to_str().context("ファイル名が UTF-8 ではありません")?;
+                    segs.push(Self::encode_path_segment(s));
+                }
+                CurDir => {}
+                Prefix(_) | RootDir => bail!("絶対パスは URL に変換できません"),
+                ParentDir => {
+                    segs.push("..".to_string());
+                }
+            }
+        }
+        Ok(Self(segs.join("/")))
     }
 
     /// URL の 1 区画として安全な形にします。
@@ -40,11 +56,7 @@ impl Url {
 
 impl Display for Url {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.0.is_empty() {
-            f.write_str(".")
-        } else {
-            f.write_str(&self.0.join("/"))
-        }
+        f.write_str(&self.0)
     }
 }
 
