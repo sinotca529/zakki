@@ -35,8 +35,9 @@ impl HeadingAdapter for NumberedHeadings {
 }
 
 /// 各レベルの採番カウンタ。
+/// 目次も同じ採番を使うため、`renderer` の中に公開しています。
 #[derive(Default)]
-struct HeaderIdGenerator {
+pub(super) struct HeaderIdGenerator {
     /// セクション番号を管理するカウンタ。
     /// `counter[1]` は h1 に相当。
     /// `counter[0]` は番兵。
@@ -44,7 +45,7 @@ struct HeaderIdGenerator {
 }
 
 impl HeaderIdGenerator {
-    fn next_id(&mut self, level: u8) -> String {
+    pub(super) fn next_id(&mut self, level: u8) -> String {
         let level = level as usize;
 
         // 下位の階層をリセットしてから、自分の階層を 1 つ進める
