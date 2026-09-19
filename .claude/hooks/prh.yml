@@ -44,6 +44,24 @@ rules:
       - from: 対応してあります
         to: 対応〜しました
 
+  # 英語の技術用語を直訳した語
+  - expected: パーセントエンコーディング
+    patterns:
+      - 百分率符号化
+      - パーセント符号化
+
+  - expected: 作成者スタイルシート
+    patterns:
+      - 作者スタイル
+
+  - expected: テストベクタ
+    patterns:
+      - /ゴールデンベクタ[ー]?/
+
+  - expected: 関数
+    patterns:
+      - 自由関数
+
   # 量を添えた控えめさ
   - expected: (量を添えずに書く)
     patterns:
