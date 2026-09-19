@@ -158,8 +158,16 @@ impl<'a> Renderer<'a> {
         pass::validate_heading_order(&events)?;
         pass::assign_header_id(&mut events);
         pass::adjust_link(&mut events, page_paths.src_path, self.title_map)?;
+        pass::convert_image(&mut events);
+        pass::add_code_caption(&mut events);
+        pass::highlight_code(&mut events, &front_matter.highlights);
+        pass::convert_math(&mut events, &mut pass_assets)?;
+        pass::wrap_table(&mut events);
+        pass::convert_alert(&mut events);
+        pass::collect_footnotes(&mut events);
 
-        // 非公開の記事は本文を索引に載せない。bloom filter は語の有無を問い合わせられるため、
+        // 索引は本文が確定してから作る。
+        // 非公開の記事は本文を渡さない。bloom filter は語の有無を問い合わせられるため、
         // 暗号化した本文に対して総当たりができてしまう。
         // タイトルは一覧にも metadata.js にも出ているので、索引に入れても変わらない。
         let body = if self.pj_paths.is_private(page_paths.src_path) {
@@ -168,14 +176,6 @@ impl<'a> Renderer<'a> {
             &events[..]
         };
         let filter = pass::make_bloom_filter(body, &front_matter.title, self.config.search_fp);
-
-        pass::convert_image(&mut events);
-        pass::add_code_caption(&mut events);
-        pass::highlight_code(&mut events, &front_matter.highlights);
-        pass::convert_math(&mut events, &mut pass_assets)?;
-        pass::wrap_table(&mut events);
-        pass::convert_alert(&mut events);
-        pass::collect_footnotes(&mut events);
 
         // イベント列を HTML に変換
         let html = self.render_page(events, &front_matter, page_paths, &pass_assets)?;

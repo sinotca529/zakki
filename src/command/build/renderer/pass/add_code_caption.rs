@@ -1,4 +1,3 @@
-use crate::command::build::renderer::html_component::escape_html_text;
 use pulldown_cmark::{CodeBlockKind, CowStr, Event, Tag, TagEnd};
 
 /// コードブロックの info string に `:タイトル` が含まれている場合、
@@ -22,13 +21,12 @@ pub fn add_code_caption(events: &mut Vec<Event<'_>>) {
                     continue;
                 };
 
+                // キャプションは Text のまま置く。後続のパスが読めるようにするため
                 out.push(Event::Html(
-                    format!(
-                        r#"<figure class="code-figure"><figcaption>{}</figcaption>"#,
-                        escape_html_text(title)
-                    )
-                    .into(),
+                    r#"<figure class="code-figure"><figcaption>"#.into(),
                 ));
+                out.push(Event::Text(title.to_owned().into()));
+                out.push(Event::Html("</figcaption>".into()));
 
                 // info string からタイトルを取り除き、言語名だけ残す
                 let lang = CowStr::from(lang.to_owned());

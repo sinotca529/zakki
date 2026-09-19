@@ -25,7 +25,7 @@ pub use read_front_matter::read_front_matter;
 pub use validate_heading_order::validate_heading_order;
 pub use wrap_table::wrap_table;
 
-use pulldown_cmark::{Event, TagEnd};
+use pulldown_cmark::Event;
 
 /// パス実行により配置が必要なアセットの一覧
 #[derive(Default)]
@@ -64,9 +64,4 @@ fn text_of(events: &[Event]) -> String {
             _ => None,
         })
         .collect()
-}
-
-/// 終了イベントが指定の種類かを判定します。
-fn is_end(event: &Event, tag: &TagEnd) -> bool {
-    matches!(event, Event::End(t) if t == tag)
 }

@@ -1,27 +1,21 @@
 use crate::util::{self, BloomFilter};
-use pulldown_cmark::{CodeBlockKind, Event, Tag};
+use pulldown_cmark::Event;
 use std::collections::HashSet;
 
 /// 記事から検索用の bloom filter を作ります。
 ///
-/// 数式は入れません。LaTeX を入れると `frac` や `sum` が索引に載り、
-/// 数式を含む記事すべてに当たるためです。描画結果の `x2` も打たれない文字列です。
+/// 本文が確定した後に呼びます。各パスは、人が読む文字を `Text` として残し、
+/// タグだけを生の HTML にします。ですからここでは `Text` と `Code` を拾えば済みます。
 ///
-/// 画像の alt とコードブロックのキャプションを拾うため、
-/// `convert_image` と `add_code_caption` より前に呼びます。
-/// コードの中身も入れるため、`highlight_code` より前に呼びます。
+/// 数式は `convert_math` が KaTeX の HTML に変えた後なので入りません。
+/// LaTeX を入れると `frac` や `sum` が索引に載り、数式を含む記事すべてに当たります。
+/// 描画結果の `x2` も打たれない文字列です。
 pub fn make_bloom_filter(events: &[Event], title: &str, fp: f64) -> BloomFilter {
     let mut words: HashSet<String> = util::tokenize(title).into_iter().collect();
 
     for e in events {
         match e {
             Event::Text(t) | Event::Code(t) => words.extend(util::tokenize(t)),
-            // コードブロックのキャプションは info string に入っている
-            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) => {
-                if let Some((_, caption)) = info.split_once(':') {
-                    words.extend(util::tokenize(caption));
-                }
-            }
             _ => {}
         }
     }
