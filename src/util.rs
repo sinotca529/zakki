@@ -1,4 +1,5 @@
 mod bloom_filter;
+mod date;
 mod encrypt;
 mod file_io;
 mod fxhash;
@@ -6,6 +7,7 @@ mod path_ext;
 mod tokenizer;
 
 pub use bloom_filter::*;
+pub use date::*;
 pub use encrypt::*;
 pub use file_io::*;
 pub use path_ext::*;

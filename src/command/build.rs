@@ -9,6 +9,7 @@ use anyhow::{Context as _, Result};
 use rayon::prelude::*;
 use renderer::extract_title_from_path;
 use renderer::{PageMetadata, Renderer};
+use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -42,7 +43,8 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
         .flatten()
         .collect::<Vec<_>>();
 
-    metas.sort_unstable_by(|a, b| b.update.cmp(&a.update));
+    // 新しい順に並べる
+    metas.sort_unstable_by_key(|m| Reverse(m.update));
 
     renderer::render_index(&cfg, pj_paths.build_dir(), &metas)?;
 

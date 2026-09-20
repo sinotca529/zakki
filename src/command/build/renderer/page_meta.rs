@@ -1,11 +1,14 @@
-use crate::{command::build::renderer::url::Url, util::BloomFilter};
+use crate::{
+    command::build::renderer::url::Url,
+    util::{BloomFilter, Date},
+};
 use serde::Serialize;
 
 /// JSON として出力するメタデータ
 #[derive(Serialize)]
 pub struct PageMetadata {
-    pub create: String,
-    pub update: String,
+    pub create: Date,
+    pub update: Date,
     pub tags: Vec<String>,
     pub title: String,
     pub path: Url,

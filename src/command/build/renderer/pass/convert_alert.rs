@@ -1,3 +1,4 @@
+use crate::command::build::renderer::html_component::P;
 use pulldown_cmark::{BlockQuoteKind, Event, Tag, TagEnd};
 
 /// 注記 (`> [!NOTE]` など) を `<aside>` に変換します。
@@ -40,7 +41,6 @@ fn open_tag(kind: BlockQuoteKind) -> String {
         BlockQuoteKind::Caution => ("caution", "Caution"),
     };
 
-    format!(
-        r#"<aside class="markdown-alert markdown-alert-{name}"><p class="markdown-alert-title">{title}</p>"#
-    )
+    let title = P.attr("class", "markdown-alert-title").text(title);
+    format!(r#"<aside class="markdown-alert markdown-alert-{name}">{title}"#)
 }
