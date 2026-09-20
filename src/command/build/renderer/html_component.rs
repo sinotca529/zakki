@@ -100,12 +100,17 @@ pub struct Void;
 pub struct Normal;
 
 pub const A: Element<Normal> = Element::new("a");
+pub const ASIDE: Element<Normal> = Element::new("aside");
 pub const DETAILS: Element<Normal> = Element::new("details");
 pub const DIV: Element<Normal> = Element::new("div");
+pub const FIGCAPTION: Element<Normal> = Element::new("figcaption");
+pub const FIGURE: Element<Normal> = Element::new("figure");
 pub const FOOTER: Element<Normal> = Element::new("footer");
 pub const IMG: Element<Void> = Element::new("img");
+pub const LI: Element<Normal> = Element::new("li");
 pub const LINK: Element<Void> = Element::new("link");
 pub const OBJECT: Element<Normal> = Element::new("object");
+pub const OL: Element<Normal> = Element::new("ol");
 pub const P: Element<Normal> = Element::new("p");
 pub const SCRIPT: Element<Normal> = Element::new("script");
 pub const SPAN: Element<Normal> = Element::new("span");
@@ -129,6 +134,13 @@ impl<K> Element<K> {
                 .push_str(&format!(r#" {name}="{}""#, escape_html_attr(value)));
         }
         self
+    }
+
+    /// 属性をまとめて足します。数が変わる場合に使います。
+    pub fn attrs(self, attrs: &[(&str, &str)]) -> Self {
+        attrs
+            .iter()
+            .fold(self, |tag, (name, value)| tag.attr(name, value))
     }
 
     /// 値を取らない属性 (真偽値属性) を足します。
@@ -155,6 +167,15 @@ impl Element<Normal> {
     /// 中身をテキストとして入れた要素を作ります。
     pub fn text(self, text: impl AsRef<str>) -> String {
         self.html(escape_html_text(text.as_ref()))
+    }
+
+    /// 開きタグと閉じタグの組を作ります。
+    /// 中身に他のイベントが挟まり、1 回で組み立てられないときに使います。
+    pub fn pair(self) -> (String, String) {
+        (
+            format!("<{}{}>", self.name, self.attrs),
+            format!("</{}>", self.name),
+        )
     }
 
     /// 中身を HTML としてそのまま入れた要素を作ります。

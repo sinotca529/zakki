@@ -3,7 +3,7 @@ use pulldown_cmark::{Event, Tag};
 use regex::Regex;
 use serde::Deserialize;
 
-use crate::command::build::renderer::html_component::escape_html_attr;
+use crate::command::build::renderer::html_component::SPAN;
 use anyhow::{Result, bail};
 
 /// コードブロックの中身に、記事で指定された区切り文字のスタイルを適用します。
@@ -53,10 +53,10 @@ fn highlighted_events(code: &str, rules: &[HighlightRule]) -> Vec<Event<'static>
         match piece {
             Piece::Plain(text) => out.push(Event::Text(text.to_owned().into())),
             Piece::Styled { text, style } => {
-                let open = format!(r#"<span style="{}">"#, escape_html_attr(style));
+                let (open, close) = SPAN.attr("style", style).pair();
                 out.push(Event::InlineHtml(open.into()));
                 out.push(Event::Text(text.to_owned().into()));
-                out.push(Event::InlineHtml("</span>".into()));
+                out.push(Event::InlineHtml(close.into()));
             }
         }
     }
