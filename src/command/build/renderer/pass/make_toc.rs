@@ -64,7 +64,7 @@ pub fn make_toc(events: &[Event]) -> String {
 
     let summary = SUMMARY.text("目次");
     DETAILS
-        .attr("id", "toc")
+        .attr("class", "toc")
         .html(format!("{summary}{}", html.join("")))
 }
 
@@ -86,7 +86,7 @@ mod test {
         assert_eq!(
             toc,
             concat!(
-                r#"<details id="toc"><summary>目次</summary>"#,
+                r#"<details class="toc"><summary>目次</summary>"#,
                 r##"<ol><li><a href="#s1">1. あ</a>"##,
                 r##"<ol><li><a href="#s1.1">1.1. い</a></li></ol>"##,
                 r##"</li><li><a href="#s2">2. う</a></li></ol>"##,
