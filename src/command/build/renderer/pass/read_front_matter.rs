@@ -1,4 +1,5 @@
 use crate::command::build::renderer::pass::HighlightRule;
+use crate::util::Date;
 use anyhow::Context as _;
 use pulldown_cmark::{Event, MetadataBlockKind::YamlStyle, Tag, TagEnd};
 use serde::Deserialize;
@@ -46,11 +47,11 @@ pub fn read_front_matter(events: &mut Vec<Event>) -> anyhow::Result<PageFrontMat
 pub struct PageFrontMatter {
     /// 記事の作成日
     #[serde(rename = "create")]
-    pub create_date: String,
+    pub create_date: Date,
 
     /// 記事の最終更新日
     #[serde(rename = "update")]
-    pub last_update_date: String,
+    pub last_update_date: Date,
 
     /// 記事のタイトル
     pub title: String,
