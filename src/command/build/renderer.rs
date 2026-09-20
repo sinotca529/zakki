@@ -6,7 +6,7 @@ mod pass;
 mod url;
 
 use crate::command::build::renderer::html_component::{
-    escape_html_text, footer, head, header, tag_elems,
+    DIV, escape_html_text, footer, head, header, tag_elems,
 };
 use crate::command::build::renderer::pass::{PageFrontMatter, PassAssets};
 use crate::command::build::renderer::url::Url;
@@ -90,7 +90,8 @@ impl<'a> Renderer<'a> {
 
         let js_list = self.config.js_list.iter().map(String::as_str);
 
-        let article = format!("{}<div id=\"main-content\">{}</div>", toc, body);
+        let main = DIV.attr("id", "main-content").html(&body);
+        let article = format!("{toc}{main}");
 
         let is_private = self.pj_paths.is_private(page_paths.src_path);
         let html = if is_private {
@@ -273,8 +274,8 @@ pub fn page_html<'a>(
         header = header,
         title = escape_html_text(title),
         tag_elems = tag_elems,
-        create_date = create_date,
-        last_update_date = last_update_date,
+        create_date = escape_html_text(create_date),
+        last_update_date = escape_html_text(last_update_date),
         article = article,
         footer = footer,
     )
@@ -302,8 +303,8 @@ pub fn crypto_html<'a>(
         header = header,
         title = escape_html_text(title),
         tag_elems = tag_elems,
-        create_date = create_date,
-        last_update_date = last_update_date,
+        create_date = escape_html_text(create_date),
+        last_update_date = escape_html_text(last_update_date),
         encoded = encoded_body,
         footer = footer,
     )

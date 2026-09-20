@@ -1,3 +1,4 @@
+use crate::command::build::renderer::html_component::SPAN;
 use itertools::Itertools as _;
 use pulldown_cmark::{Event, Tag};
 
@@ -21,7 +22,9 @@ pub fn assign_header_id(events: &mut Vec<Event<'_>>) {
         let number = numbering.next_id(*level as usize);
         *id = Some(format!("{SECTION_ID_PREFIX}{number}").into());
 
-        let span = format!(r#"<span class="section-number">{number}. </span>"#);
+        let span = SPAN
+            .attr("class", "section-number")
+            .text(format!("{number}. "));
         out.push(e);
         out.push(Event::InlineHtml(span.into()));
     }

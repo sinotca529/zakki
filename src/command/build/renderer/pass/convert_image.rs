@@ -1,5 +1,5 @@
 use super::{end_of, text_of};
-use crate::command::build::renderer::html_component::escape_html_attr;
+use crate::command::build::renderer::html_component::{DIV, IMG, OBJECT};
 use pulldown_cmark::{Event, Tag};
 
 /// 画像を `<figure>` で囲み、alt テキストを `<figcaption>` にします。
@@ -37,26 +37,26 @@ pub fn convert_image(events: &mut Vec<Event<'_>>) {
 /// figure の開きから figcaption の開きまでを組み立てます。
 /// 閉じは呼び出し側が書きます。alt は `Text` として間に入れるためです。
 fn open_tag(url: &str, alt: &str, title: &str) -> String {
-    let alt = (!alt.is_empty()).then_some(alt);
-    let title = (!title.is_empty()).then_some(title);
-
-    let title_attr = title
-        .map(|title| format!(r#" title="{}""#, escape_html_attr(title)))
-        .unwrap_or_default();
-
     let img_tag = if url.ends_with(".svg") {
         // 文字列を選択できるようにするため、 SVG は object ノードで囲む
-        format!(r#"<object type="image/svg+xml" data="{url}"{title_attr}></object>"#)
+        OBJECT
+            .attr("type", "image/svg+xml")
+            .attr("data", url)
+            .attr("title", title)
+            .build()
     } else {
-        let alt_attr = alt
-            .as_ref()
-            .map(|t| format!(r#" alt="{}""#, escape_html_attr(t)))
-            .unwrap_or_default();
-
-        format!(r#"<img loading="lazy" src="{url}"{alt_attr}{title_attr}/>"#)
+        IMG.attr("loading", "lazy")
+            .attr("src", url)
+            .attr("alt", alt)
+            .attr("title", title)
+            .build()
     };
 
-    let figcaption_open = alt.map(|_| "<figcaption>").unwrap_or_default();
+    let scroll = DIV
+        .attr("class", "x-scroll")
+        .attr("tabindex", "0")
+        .html(img_tag);
+    let figcaption_open = if alt.is_empty() { "" } else { "<figcaption>" };
 
-    format!(r#"<figure><div class="x-scroll" tabindex="0">{img_tag}</div>{figcaption_open}"#)
+    format!("<figure>{scroll}{figcaption_open}")
 }

@@ -1,6 +1,6 @@
 use super::assign_header_id::SECTION_ID_PREFIX;
 use super::{end_of, text_of};
-use crate::command::build::renderer::html_component::escape_html_text;
+use crate::command::build::renderer::html_component::{A, DETAILS, SUMMARY};
 use pulldown_cmark::{Event, HeadingLevel, Tag};
 
 /// 記事から目次 HTML を作ります。見出しがない場合は空文字を返します。
@@ -53,19 +53,19 @@ pub fn make_toc(events: &[Event]) -> String {
             html.push("</li><li>".to_string());
         }
         // リンクを追加
-        html.push(format!(
-            "<a href=\"#{id}\">{number}. {}</a>",
-            escape_html_text(text)
-        ));
+        html.push(
+            A.attr("href", format!("#{id}"))
+                .text(format!("{number}. {text}")),
+        );
         prev_depth = *depth;
     }
     // 閉じる
     (0..prev_depth).for_each(|_| html.push("</li></ol>".to_string()));
 
-    format!(
-        "<details id=\"toc\"><summary>目次</summary>{}</details>",
-        html.join("")
-    )
+    let summary = SUMMARY.text("目次");
+    DETAILS
+        .attr("id", "toc")
+        .html(format!("{summary}{}", html.join("")))
 }
 
 #[cfg(test)]

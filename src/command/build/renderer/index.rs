@@ -50,7 +50,7 @@ fn cards_html(metas: &[PageMetadata]) -> String {
                 extra_class = extra_class,
                 path = escape_html_attr(&m.path.to_string()),
                 title = escape_html_text(&m.title),
-                update = m.update,
+                update = escape_html_text(&m.update),
                 tag_links = tag_links,
             )
         })
