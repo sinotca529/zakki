@@ -13,7 +13,7 @@ use crate::command::build::renderer::url::Url;
 use crate::config::ProjectConfig;
 use crate::include_asset;
 use crate::path::ProjectPaths;
-use crate::util::{self, PathExt as _};
+use crate::util::{self, Date, PathExt as _};
 use anyhow::{Context as _, Result};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use pulldown_cmark::{Event, Options, Parser};
@@ -110,8 +110,8 @@ impl<'a> Renderer<'a> {
                 &page_paths.url_to_root,
                 &self.config.site_name,
                 &front_matter.title,
-                &front_matter.create_date,
-                &front_matter.last_update_date,
+                front_matter.create_date,
+                front_matter.last_update_date,
                 css_list,
                 js_list,
                 &front_matter.tags,
@@ -123,8 +123,8 @@ impl<'a> Renderer<'a> {
                 &page_paths.url_to_root,
                 &self.config.site_name,
                 &front_matter.title,
-                &front_matter.create_date,
-                &front_matter.last_update_date,
+                front_matter.create_date,
+                front_matter.last_update_date,
                 css_list,
                 js_list,
                 &front_matter.tags,
@@ -257,8 +257,8 @@ pub fn page_html<'a>(
     url_to_root: &Url,
     site_name: &str,
     title: &str,
-    create_date: &str,
-    last_update_date: &str,
+    create_date: Date,
+    last_update_date: Date,
     css_list: impl Iterator<Item = &'a str>,
     js_list: impl Iterator<Item = &'a str>,
     tags: &[String],
@@ -274,8 +274,8 @@ pub fn page_html<'a>(
         header = header,
         title = escape_html_text(title),
         tag_elems = tag_elems,
-        create_date = escape_html_text(create_date),
-        last_update_date = escape_html_text(last_update_date),
+        create_date = create_date,
+        last_update_date = last_update_date,
         article = article,
         footer = footer,
     )
@@ -286,8 +286,8 @@ pub fn crypto_html<'a>(
     url_to_root: &Url,
     site_name: &str,
     title: &str,
-    create_date: &str,
-    last_update_date: &str,
+    create_date: Date,
+    last_update_date: Date,
     css_list: impl Iterator<Item = &'a str>,
     js_list: impl Iterator<Item = &'a str>,
     tags: &[String],
@@ -303,8 +303,8 @@ pub fn crypto_html<'a>(
         header = header,
         title = escape_html_text(title),
         tag_elems = tag_elems,
-        create_date = escape_html_text(create_date),
-        last_update_date = escape_html_text(last_update_date),
+        create_date = create_date,
+        last_update_date = last_update_date,
         encoded = encoded_body,
         footer = footer,
     )
