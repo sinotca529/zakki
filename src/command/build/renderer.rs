@@ -6,7 +6,7 @@ mod pass;
 mod url;
 
 use crate::command::build::renderer::html_component::{
-    DIV, escape_html_text, footer, head, header, tag_elems,
+    escape_html_text, footer, head, header, tag_elems,
 };
 use crate::command::build::renderer::pass::{PageFrontMatter, PassAssets};
 use crate::command::build::renderer::url::Url;
@@ -90,8 +90,7 @@ impl<'a> Renderer<'a> {
 
         let js_list = self.config.js_list.iter().map(String::as_str);
 
-        let main = DIV.attr("id", "main-content").html(&body);
-        let article = format!("{toc}{main}");
+        let article = format!("{toc}{body}");
 
         let is_private = self.pj_paths.is_private(page_paths.src_path);
         let html = if is_private {
