@@ -1,4 +1,4 @@
-use crate::command::build::renderer::html_component::P;
+use crate::command::build::renderer::html_component::{ASIDE, P};
 use pulldown_cmark::{BlockQuoteKind, Event, Tag, TagEnd};
 
 /// 注記 (`> [!NOTE]` など) を `<aside>` に変換します。
@@ -9,21 +9,25 @@ use pulldown_cmark::{BlockQuoteKind, Event, Tag, TagEnd};
 pub fn convert_alert(events: &mut Vec<Event<'_>>) {
     let mut out = Vec::with_capacity(events.len());
 
-    // 引用の入れ子ごとに、注記かどうかを覚えておく
-    let mut is_alert = Vec::new();
+    // 引用の入れ子ごとに、注記なら閉じタグを覚えておく
+    let mut close_tags: Vec<Option<String>> = Vec::new();
 
     for e in events.drain(..) {
         match e {
-            Event::Start(Tag::BlockQuote(kind)) => {
-                is_alert.push(kind.is_some());
-                match kind {
-                    Some(kind) => out.push(Event::Html(open_tag(kind).into())),
-                    None => out.push(Event::Start(Tag::BlockQuote(None))),
+            Event::Start(Tag::BlockQuote(kind)) => match kind {
+                Some(kind) => {
+                    let (open, close) = alert_tag(kind);
+                    close_tags.push(Some(close));
+                    out.push(Event::Html(open.into()));
                 }
-            }
-            Event::End(TagEnd::BlockQuote(_)) => match is_alert.pop() {
-                Some(true) => out.push(Event::Html("</aside>".into())),
-                _ => out.push(e),
+                None => {
+                    close_tags.push(None);
+                    out.push(Event::Start(Tag::BlockQuote(None)));
+                }
+            },
+            Event::End(TagEnd::BlockQuote(_)) => match close_tags.pop().flatten() {
+                Some(close) => out.push(Event::Html(close.into())),
+                None => out.push(e),
             },
             _ => out.push(e),
         }
@@ -32,7 +36,8 @@ pub fn convert_alert(events: &mut Vec<Event<'_>>) {
     *events = out;
 }
 
-fn open_tag(kind: BlockQuoteKind) -> String {
+/// 注記の開きタグと閉じタグを作ります。開きタグには見出しの `<p>` を含みます。
+fn alert_tag(kind: BlockQuoteKind) -> (String, String) {
     let (name, title) = match kind {
         BlockQuoteKind::Note => ("note", "Note"),
         BlockQuoteKind::Tip => ("tip", "Tip"),
@@ -41,6 +46,9 @@ fn open_tag(kind: BlockQuoteKind) -> String {
         BlockQuoteKind::Caution => ("caution", "Caution"),
     };
 
+    let class = format!("markdown-alert markdown-alert-{name}");
+    let (open, close) = ASIDE.attr("class", class).pair();
     let title = P.attr("class", "markdown-alert-title").text(title);
-    format!(r#"<aside class="markdown-alert markdown-alert-{name}">{title}"#)
+
+    (format!("{open}{title}"), close)
 }

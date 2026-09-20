@@ -1,3 +1,4 @@
+use crate::command::build::renderer::html_component::{FIGCAPTION, FIGURE};
 use pulldown_cmark::{CodeBlockKind, CowStr, Event, Tag, TagEnd};
 
 /// コードブロックの info string に `:タイトル` が含まれている場合、
@@ -7,6 +8,9 @@ use pulldown_cmark::{CodeBlockKind, CowStr, Event, Tag, TagEnd};
 pub fn add_code_caption(events: &mut Vec<Event<'_>>) {
     let mut out = Vec::with_capacity(events.len());
     let mut captioned = false;
+
+    let (figure_open, figure_close) = FIGURE.attr("class", "code-figure").pair();
+    let (caption_open, caption_close) = FIGCAPTION.pair();
 
     for e in events.drain(..) {
         match e {
@@ -22,11 +26,10 @@ pub fn add_code_caption(events: &mut Vec<Event<'_>>) {
                 };
 
                 // キャプションは Text のまま置く。後続のパスが読めるようにするため
-                out.push(Event::Html(
-                    r#"<figure class="code-figure"><figcaption>"#.into(),
-                ));
+                out.push(Event::Html(figure_open.clone().into()));
+                out.push(Event::Html(caption_open.clone().into()));
                 out.push(Event::Text(title.to_owned().into()));
-                out.push(Event::Html("</figcaption>".into()));
+                out.push(Event::Html(caption_close.clone().into()));
 
                 // info string からタイトルを取り除き、言語名だけ残す
                 let lang = CowStr::from(lang.to_owned());
@@ -36,7 +39,7 @@ pub fn add_code_caption(events: &mut Vec<Event<'_>>) {
             Event::End(TagEnd::CodeBlock) => {
                 out.push(e);
                 if captioned {
-                    out.push(Event::Html("</figure>".into()));
+                    out.push(Event::Html(figure_close.clone().into()));
                     captioned = false;
                 }
             }
