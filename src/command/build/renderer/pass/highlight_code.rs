@@ -1,6 +1,5 @@
 use super::end_of;
 use pulldown_cmark::{Event, Tag};
-use regex::Regex;
 use serde::Deserialize;
 
 use crate::command::build::renderer::html_component::SPAN;
@@ -81,31 +80,36 @@ fn split<'a>(code: &'a str, rules: &'a [HighlightRule]) -> Vec<Piece<'a>> {
     while !rest.is_empty() {
         let hit = rules
             .iter()
-            .filter_map(|rule| rule.pattern.captures(rest).map(|caps| (rule, caps)))
-            .min_by_key(|(_, caps)| caps.get(0).map_or(usize::MAX, |m| m.start()));
+            .filter_map(|rule| rule.find(rest).map(|found| (rule, found)))
+            .min_by_key(|(_, found)| found.start);
 
-        let Some((rule, caps)) = hit else {
+        let Some((rule, found)) = hit else {
             pieces.push(Piece::Plain(rest));
             break;
         };
 
-        let whole = caps.get(0).expect("正規表現全体の一致は必ず取れる");
-        let inner = caps
-            .get(1)
-            .expect("規則は中身をキャプチャする括弧を必ず持つ");
-
-        if whole.start() > 0 {
-            pieces.push(Piece::Plain(&rest[..whole.start()]));
+        if found.start > 0 {
+            pieces.push(Piece::Plain(&rest[..found.start]));
         }
         pieces.push(Piece::Styled {
-            text: inner.as_str(),
+            text: found.inner,
             style: &rule.style,
         });
 
-        rest = &rest[whole.end()..];
+        rest = &rest[found.end..];
     }
 
     pieces
+}
+
+/// 区切り文字に挟まれた部分の位置です。
+struct Found<'a> {
+    /// 開きの区切り文字が始まる位置
+    start: usize,
+    /// 閉じの区切り文字が終わる位置
+    end: usize,
+    /// 区切り文字の間の文字列
+    inner: &'a str,
 }
 
 /// yaml ヘッダに書かれる形。
@@ -119,8 +123,39 @@ struct HighlightRuleConfig {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(try_from = "HighlightRuleConfig")]
 pub struct HighlightRule {
-    pattern: Regex,
+    open: String,
+    close: String,
     style: String,
+}
+
+impl HighlightRule {
+    /// 区切り文字に挟まれた部分のうち、いちばん手前のものを探します。
+    /// 開きと閉じが別の行にある組は選びません。
+    fn find<'a>(&self, code: &'a str) -> Option<Found<'a>> {
+        let mut from = 0;
+
+        while let Some(open) = code[from..].find(&self.open) {
+            let start = from + open;
+            let inner_start = start + self.open.len();
+
+            let line_end = code[inner_start..]
+                .find('\n')
+                .map_or(code.len(), |i| inner_start + i);
+
+            if let Some(close) = code[inner_start..line_end].find(&self.close) {
+                let inner_end = inner_start + close;
+                return Some(Found {
+                    start,
+                    end: inner_end + self.close.len(),
+                    inner: &code[inner_start..inner_end],
+                });
+            }
+
+            from = inner_start;
+        }
+
+        None
+    }
 }
 
 impl TryFrom<HighlightRuleConfig> for HighlightRule {
@@ -131,12 +166,11 @@ impl TryFrom<HighlightRuleConfig> for HighlightRule {
             bail!("highlights の delim に空の文字列は書けません");
         }
 
-        let open = regex::escape(&value.delim[0]);
-        let close = regex::escape(&value.delim[1]);
-        let pattern = Regex::new(&format!("{open}(.*?){close}"))?;
+        let [open, close] = value.delim;
 
         Ok(Self {
-            pattern,
+            open,
+            close,
             style: value.style,
         })
     }

@@ -1,5 +1,3 @@
-use itertools::Itertools as _;
-
 /// 文字の種別。
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Class {
@@ -32,21 +30,46 @@ fn class(c: char) -> Class {
 /// (例: 文書が `ブルームフィルタ` を 1 語と切ると `フィルタ` で引けない)
 ///
 pub fn tokenize(text: &str) -> Vec<String> {
-    text.chars()
-        .chunk_by(|c| class(*c))
-        .into_iter()
-        .flat_map(|(cls, run)| tokens_of(cls, &run.collect::<Vec<_>>()))
-        .collect()
+    let mut tokens = Vec::new();
+    let mut chars = text.char_indices().peekable();
+
+    while let Some((start, c)) = chars.next() {
+        let cls = class(c);
+        let mut end = start + c.len_utf8();
+
+        // 同じ種別が続く間を 1 つの run にする
+        while let Some(&(i, next)) = chars.peek() {
+            if class(next) != cls {
+                break;
+            }
+            end = i + next.len_utf8();
+            chars.next();
+        }
+
+        push_tokens(&mut tokens, cls, &text[start..end]);
+    }
+
+    tokens
 }
 
-fn tokens_of(cls: Class, run: &[char]) -> Vec<String> {
-    let lower = |cs: &[char]| cs.iter().collect::<String>().to_lowercase();
+fn push_tokens(tokens: &mut Vec<String>, cls: Class, run: &str) {
     match cls {
-        Class::Sep => vec![],
-        Class::Ascii => vec![lower(run)],
-        // 1 文字しかない run はバイグラムを作れないので、その文字自体をトークンにする
-        Class::Wide if run.len() == 1 => vec![lower(run)],
-        Class::Wide => run.windows(2).map(lower).collect(),
+        Class::Sep => {}
+        Class::Ascii => tokens.push(run.to_lowercase()),
+        Class::Wide => {
+            let mut prev = None;
+            for (i, c) in run.char_indices() {
+                if let Some(prev) = prev {
+                    tokens.push(run[prev..i + c.len_utf8()].to_lowercase());
+                }
+                prev = Some(i);
+            }
+
+            // 1 文字しかない run はバイグラムを作れないので、その文字自体をトークンにする
+            if prev == Some(0) {
+                tokens.push(run.to_lowercase());
+            }
+        }
     }
 }
 
