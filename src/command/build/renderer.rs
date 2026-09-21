@@ -1,4 +1,3 @@
-mod heading_id;
 mod html_component;
 mod index;
 mod page_locs;
@@ -6,7 +5,6 @@ mod page_meta;
 mod pass;
 mod url;
 
-use crate::command::build::renderer::heading_id::NumberedHeadings;
 use crate::command::build::renderer::html_component::{
     escape_html_text, footer, head, header, tag_elems,
 };
@@ -15,16 +13,12 @@ use crate::command::build::renderer::url::Url;
 use crate::config::ProjectConfig;
 use crate::include_asset;
 use crate::path::ProjectPaths;
-use crate::util::{self, BloomFilter, PathExt as _};
+use crate::util::{self, Date, PathExt as _};
 use anyhow::{Context as _, Result};
 use base64::{Engine, prelude::BASE64_STANDARD};
-use comrak::nodes::AstNode;
-use comrak::options::Plugins;
-use comrak::{Arena, Options, format_html_with_plugins, parse_document};
-use itertools::Itertools;
-use scraper::{Html, Selector};
+use pulldown_cmark::{Event, Options, Parser};
 use serde::Deserialize;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 pub use index::render_index;
@@ -73,21 +67,17 @@ impl<'a> Renderer<'a> {
         Ok(Some(meta))
     }
 
-    fn render_page<'n>(
+    fn render_page(
         &self,
-        root: &'n AstNode<'n>,
-        options: &Options,
+        events: Vec<Event<'_>>,
+        toc: &str,
         front_matter: &PageFrontMatter,
         page_paths: &PageLocs,
         pass_assets: &PassAssets,
     ) -> Result<String> {
         let body = {
-            let heading_adapter = NumberedHeadings::default();
-            let mut plugins = Plugins::default();
-            plugins.render.heading_adapter = Some(&heading_adapter);
-
             let mut buf = String::new();
-            format_html_with_plugins(root, options, &mut buf, &plugins)?;
+            pulldown_cmark::html::push_html(&mut buf, events.into_iter());
             buf
         };
 
@@ -100,8 +90,7 @@ impl<'a> Renderer<'a> {
 
         let js_list = self.config.js_list.iter().map(String::as_str);
 
-        let toc = extract_toc_html(&body);
-        let article = format!("{}<div id=\"main-content\">{}</div>", toc, body);
+        let article = format!("{toc}{body}");
 
         let is_private = self.pj_paths.is_private(page_paths.src_path);
         let html = if is_private {
@@ -120,8 +109,8 @@ impl<'a> Renderer<'a> {
                 &page_paths.url_to_root,
                 &self.config.site_name,
                 &front_matter.title,
-                &front_matter.create_date,
-                &front_matter.last_update_date,
+                front_matter.create_date,
+                front_matter.last_update_date,
                 css_list,
                 js_list,
                 &front_matter.tags,
@@ -133,8 +122,8 @@ impl<'a> Renderer<'a> {
                 &page_paths.url_to_root,
                 &self.config.site_name,
                 &front_matter.title,
-                &front_matter.create_date,
-                &front_matter.last_update_date,
+                front_matter.create_date,
+                front_matter.last_update_date,
                 css_list,
                 js_list,
                 &front_matter.tags,
@@ -144,27 +133,6 @@ impl<'a> Renderer<'a> {
         };
 
         Ok(html)
-    }
-
-    fn make_bloom_filter(&self, title: &str, html: &str) -> Result<BloomFilter> {
-        // HTML からテキストを抜き出す
-        let body = Html::parse_document(html)
-            .select(&Selector::parse("#article").unwrap())
-            .flat_map(|e| e.text())
-            .join(" ");
-
-        let text = format!("{title} {body}");
-
-        // テキストをトークンに分割する
-        let words: HashSet<_> = util::tokenize(&text).into_iter().collect();
-
-        // Bloom filter を構築する
-        let fp = self.config.search_fp;
-        let num_words = words.len();
-        let mut filter = BloomFilter::new(num_words, fp);
-        words.iter().for_each(|w| filter.insert_word(w));
-
-        Ok(filter)
     }
 
     /// Markdown を HTML に変換します。
@@ -179,28 +147,39 @@ impl<'a> Renderer<'a> {
             return Ok(None);
         }
 
-        // Markdown を AST に変換
-        let arena = Arena::new();
-        let options = markdown_options();
-        let root = parse_document(&arena, content, &options);
+        // Markdown をイベント列に変換
+        let mut events: Vec<_> = Parser::new_ext(content, markdown_options()).collect();
 
-        // AST に対してパスを適用
-        let front_matter = pass::read_front_matter(root)?;
+        // イベント列に対してパスを適用
+        let front_matter = pass::read_front_matter(&mut events)?;
 
         let mut pass_assets = PassAssets::default();
-        pass::validate_heading_order(root)?;
-        pass::adjust_link(&arena, root, page_paths.src_path, self.title_map)?;
-        pass::convert_image(root)?;
-        pass::add_code_caption(&arena, root)?;
-        pass::highlight_code(root, &front_matter.highlights)?;
-        pass::convert_math(root, &mut pass_assets)?;
-        pass::wrap_table(&arena, root)?;
+        pass::validate_heading_order(&events)?;
+        pass::assign_header_id(&mut events);
+        pass::adjust_link(&mut events, page_paths.src_path, self.title_map)?;
+        pass::convert_image(&mut events);
+        pass::add_code_caption(&mut events);
+        pass::highlight_code(&mut events, &front_matter.highlights);
+        pass::convert_math(&mut events, &mut pass_assets)?;
+        pass::wrap_table(&mut events);
+        pass::convert_alert(&mut events);
+        pass::collect_footnotes(&mut events);
 
-        // AST を HTML に変換
-        let html = self.render_page(root, &options, &front_matter, page_paths, &pass_assets)?;
+        // 目次と索引は本文が確定してから作る。
+        let toc = pass::make_toc(&events);
 
-        // HTML に対してパスを適用
-        let filter = self.make_bloom_filter(&front_matter.title, &html)?;
+        // 非公開の記事は本文を渡さない。bloom filter は語の有無を問い合わせられるため、
+        // 暗号化した本文に対して総当たりができてしまう。
+        // タイトルは一覧にも metadata.js にも出ているので、索引に入れても変わらない。
+        let body = if self.pj_paths.is_private(page_paths.src_path) {
+            &[][..]
+        } else {
+            &events[..]
+        };
+        let filter = pass::make_bloom_filter(body, &front_matter.title, self.config.search_fp);
+
+        // イベント列を HTML に変換
+        let html = self.render_page(events, &toc, &front_matter, page_paths, &pass_assets)?;
 
         let metadata = PageMetadata {
             create: front_matter.create_date,
@@ -218,27 +197,18 @@ impl<'a> Renderer<'a> {
 }
 
 /// Markdown のパース設定です。
-fn markdown_options() -> Options<'static> {
-    let mut options = Options::default();
-
-    let ext = &mut options.extension;
-    ext.front_matter_delimiter = Some(FRONT_MATTER_DELIMITER.to_owned());
-    ext.table = true;
-    ext.strikethrough = true;
-    ext.tasklist = true;
-    ext.autolink = true;
-    ext.footnotes = true;
-    ext.description_lists = true;
-    ext.superscript = true;
-    ext.subscript = true;
-    ext.alerts = true;
-    ext.math_dollars = true;
-    ext.wikilinks_title_after_pipe = true;
-
-    // パスが差し込む HTML を出力するために必要
-    options.render.r#unsafe = true;
-
-    options
+fn markdown_options() -> Options {
+    Options::ENABLE_TABLES
+        | Options::ENABLE_STRIKETHROUGH
+        | Options::ENABLE_TASKLISTS
+        | Options::ENABLE_FOOTNOTES
+        | Options::ENABLE_DEFINITION_LIST
+        | Options::ENABLE_SUPERSCRIPT
+        | Options::ENABLE_SUBSCRIPT
+        | Options::ENABLE_GFM
+        | Options::ENABLE_MATH
+        | Options::ENABLE_WIKILINKS
+        | Options::ENABLE_YAML_STYLE_METADATA_BLOCKS
 }
 
 /// ファイルを BufReader で読み、YAML フロントマター部分だけ取り出して title を返します。
@@ -281,68 +251,13 @@ fn parse_title_from_yaml(yaml: &str) -> Result<Option<String>> {
     Ok(parsed.title)
 }
 
-/// レンダリング済みの body HTML から目次 HTML を生成します。
-/// 見出しがない場合は空文字を返します。
-fn extract_toc_html(body: &str) -> String {
-    let doc = Html::parse_fragment(body);
-    let selector = Selector::parse("h2[id], h3[id], h4[id]").unwrap();
-
-    let items: Vec<(usize, String, String)> = doc
-        .select(&selector)
-        .map(|el| {
-            let level = match el.value().name() {
-                "h2" => 1,
-                "h3" => 2,
-                "h4" => 3,
-                _ => 4,
-            };
-            let id = el.value().attr("id").unwrap_or("").to_string();
-            // 目次はナビゲーションなので、見出しの <code> や <strong> は落としてテキストだけにする。
-            let inner: String = el.text().collect();
-            (level, id, inner)
-        })
-        .collect();
-
-    if items.is_empty() {
-        return String::new();
-    }
-
-    let mut html = Vec::<String>::new();
-    let mut prev_level = 0;
-
-    for (level, id, inner) in &items {
-        // 階層を下る
-        (prev_level..*level).for_each(|_| html.push("<ol><li>".to_string()));
-        // 階層を上る
-        (*level..prev_level).for_each(|_| html.push("</li></ol>".to_string()));
-        // 次の要素へ
-        if *level <= prev_level {
-            html.push("</li><li>".to_string());
-        }
-        // リンクを追加
-        html.push(format!(
-            "<a href=\"#{}\">{}</a>",
-            id,
-            escape_html_text(inner)
-        ));
-        prev_level = *level;
-    }
-    // 閉じる
-    (0..prev_level).for_each(|_| html.push("</li></ol>".to_string()));
-
-    format!(
-        "<details id=\"toc\"><summary>目次</summary>{}</details>",
-        html.join("")
-    )
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn page_html<'a>(
     url_to_root: &Url,
     site_name: &str,
     title: &str,
-    create_date: &str,
-    last_update_date: &str,
+    create_date: Date,
+    last_update_date: Date,
     css_list: impl Iterator<Item = &'a str>,
     js_list: impl Iterator<Item = &'a str>,
     tags: &[String],
@@ -370,8 +285,8 @@ pub fn crypto_html<'a>(
     url_to_root: &Url,
     site_name: &str,
     title: &str,
-    create_date: &str,
-    last_update_date: &str,
+    create_date: Date,
+    last_update_date: Date,
     css_list: impl Iterator<Item = &'a str>,
     js_list: impl Iterator<Item = &'a str>,
     tags: &[String],

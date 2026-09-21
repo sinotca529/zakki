@@ -1,7 +1,7 @@
 # zakki
 
 `zakki` は Markdown を HTML に変換する静的サイトジェネレーターです。<br>
-変換には [`comrak`](https://docs.rs/comrak/latest/comrak/) を利用しています。<br>
+変換には [`pulldown-cmark`](https://docs.rs/pulldown-cmark/latest/pulldown_cmark/) を利用しています。<br>
 CommonMark と GitHub Flavored Markdown に加えて、脚注・数式・注記・ウィキリンクなどの拡張を有効にしています。
 
 ## 主な機能

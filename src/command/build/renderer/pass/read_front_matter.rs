@@ -1,30 +1,42 @@
-use crate::command::build::renderer::{FRONT_MATTER_DELIMITER, pass::HighlightRule};
+use crate::command::build::renderer::pass::HighlightRule;
+use crate::util::Date;
 use anyhow::Context as _;
-use comrak::nodes::{AstNode, NodeValue};
+use pulldown_cmark::{Event, MetadataBlockKind::YamlStyle, Tag, TagEnd};
 use serde::Deserialize;
 
-/// YAML フロントマターを読み取ります
-pub fn read_front_matter<'a>(root: &'a AstNode<'a>) -> anyhow::Result<PageFrontMatter> {
-    // 区切り ('---') を含むヘッダ文字列
-    let front_matter = root
-        .descendants()
-        .find_map(|node| match &node.data().value {
-            NodeValue::FrontMatter(text) => Some(text.clone()),
-            _ => None,
-        });
+/// YAML フロントマターを読み取り、イベント列から取り除きます。
+///
+/// 取り除くのは、後続のパスがヘッダの中身を本文として扱わないようにするためです。
+/// パスワードが検索の索引に載るような間違いを、構造として防ぎます。
+pub fn read_front_matter(events: &mut Vec<Event>) -> anyhow::Result<PageFrontMatter> {
+    let start = events
+        .iter()
+        .position(|e| matches!(e, Event::Start(Tag::MetadataBlock(YamlStyle))));
 
-    let Some(front_matter) = front_matter else {
+    let Some(start) = start else {
         anyhow::bail!("記事は yaml ヘッダーで始めてください")
     };
 
-    let front_matter_body = front_matter
-        .trim_end()
-        .strip_prefix(FRONT_MATTER_DELIMITER)
-        .and_then(|s| s.strip_suffix(FRONT_MATTER_DELIMITER))
-        .context("yaml ヘッダーは --- で開始・終了する必要があります")?;
+    let end = events[start..]
+        .iter()
+        .position(|e| matches!(e, Event::End(TagEnd::MetadataBlock(YamlStyle))))
+        .expect("開始イベントには必ず終了イベントが対応する")
+        + start;
 
-    serde_yaml::from_str::<PageFrontMatter>(front_matter_body)
-        .context("yaml ヘッダーのデコードに失敗しました")
+    let body: String = events[start..=end]
+        .iter()
+        .filter_map(|e| match e {
+            Event::Text(t) => Some(t.as_ref()),
+            _ => None,
+        })
+        .collect();
+
+    let front_matter = serde_yaml::from_str::<PageFrontMatter>(&body)
+        .context("yaml ヘッダーのデコードに失敗しました")?;
+
+    events.drain(start..=end);
+
+    Ok(front_matter)
 }
 
 /// `Option` のフィールドに `#[serde(default)]` は付けません。
@@ -35,11 +47,11 @@ pub fn read_front_matter<'a>(root: &'a AstNode<'a>) -> anyhow::Result<PageFrontM
 pub struct PageFrontMatter {
     /// 記事の作成日
     #[serde(rename = "create")]
-    pub create_date: String,
+    pub create_date: Date,
 
     /// 記事の最終更新日
     #[serde(rename = "update")]
-    pub last_update_date: String,
+    pub last_update_date: Date,
 
     /// 記事のタイトル
     pub title: String,
@@ -53,4 +65,32 @@ pub struct PageFrontMatter {
 
     /// コードハイライトのルール
     pub highlights: Option<Vec<HighlightRule>>,
+}
+
+#[cfg(test)]
+mod test {
+    use super::read_front_matter;
+    use pulldown_cmark::{Event, Options, Parser, Tag};
+
+    /// ヘッダを残すと、パスワードが検索の索引に載ります。
+    #[test]
+    fn removes_the_header_from_the_events() {
+        let md = "---\ntitle: 題\ncreate: 2025-01-01\nupdate: 2025-01-01\npassword: ひみつ\n---\n\n本文です。\n";
+        let options = Options::ENABLE_YAML_STYLE_METADATA_BLOCKS;
+        let mut events: Vec<_> = Parser::new_ext(md, options).collect();
+
+        let front_matter = read_front_matter(&mut events).unwrap();
+        assert_eq!(front_matter.title, "題");
+
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, Event::Start(Tag::MetadataBlock(_))))
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, Event::Text(t) if t.contains("ひみつ")))
+        );
+    }
 }

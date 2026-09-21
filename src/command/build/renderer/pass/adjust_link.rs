@@ -1,8 +1,7 @@
-use super::text_of;
+use super::{end_of, text_of};
 use crate::util::PathExt as _;
 use anyhow::anyhow;
-use comrak::Arena;
-use comrak::nodes::{AstNode, NodeLink, NodeValue};
+use pulldown_cmark::{CowStr, Event, LinkType, Tag, TagEnd};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -11,26 +10,40 @@ use std::path::{Path, PathBuf};
 /// - `[[path]]` 形式のウィキリンクを、リンク先の記事のタイトルを表示する通常のリンクにします
 /// - リンク文字列が空のローカルリンクも、同じくタイトルで埋めます
 /// - ローカルリンクの `.md` 拡張子を `.html` に変換します
-pub fn adjust_link<'a>(
-    arena: &'a Arena<'a>,
-    root: &'a AstNode<'a>,
+pub fn adjust_link(
+    events: &mut Vec<Event<'_>>,
     src_path: &Path,
     title_map: &HashMap<PathBuf, String>,
 ) -> anyhow::Result<()> {
     let src_dir = src_path.parent().unwrap_or(Path::new("")).to_owned();
 
-    let md_links: Vec<_> = root
-        .descendants()
-        .filter_map(|node| match &node.data().value {
-            NodeValue::Link(link) if is_local_md_url(&link.url) => {
-                Some((node, link.url.clone(), node.first_child().is_some()))
-            }
-            NodeValue::WikiLink(link) => Some((node, link.url.clone(), text_of(node) != link.url)),
-            _ => None,
-        })
-        .collect();
+    let mut out = Vec::with_capacity(events.len());
+    let mut i = 0;
 
-    for (node, url, title_is_specified) in md_links {
+    while i < events.len() {
+        let Event::Start(Tag::Link {
+            link_type,
+            dest_url,
+            title,
+            id,
+        }) = &events[i]
+        else {
+            out.push(events[i].clone());
+            i += 1;
+            continue;
+        };
+
+        let is_wiki = matches!(link_type, LinkType::WikiLink { .. });
+        if !is_wiki && !is_local_md_url(dest_url) {
+            out.push(events[i].clone());
+            i += 1;
+            continue;
+        }
+
+        let url = dest_url.to_string();
+        let end = end_of(events, i);
+        let inner = &events[(i + 1)..end];
+
         let link_title = title_map
             .get(&src_dir.join(&url).normalized())
             .ok_or_else(|| {
@@ -40,33 +53,34 @@ pub fn adjust_link<'a>(
                 )
             })?;
 
-        // タイトル未指定の場合 (ウィキリンクを含む) は、リンク先の記事のタイトルで埋める
-        if !title_is_specified {
-            node.children().for_each(|child| child.detach());
-            let text = NodeValue::Text(link_title.clone().into());
-            node.append(arena.alloc(AstNode::from(text)));
-        }
+        // ウィキリンクは表示名を書かないと url がそのままテキストになる
+        let shown = text_of(inner);
+        let title_is_specified = !shown.is_empty() && shown != url;
 
         // url の末尾は html に変更する
         let url_stem = url
             .strip_suffix(".md")
             .expect("title_map に対応が存在する url のみが到達するため、末尾は必ず .md である");
-        let html_url = format!("{url_stem}.html");
 
         // ウィキリンクも通常のリンクとして描画する
-        let mut data = node.data_mut();
-        match &mut data.value {
-            NodeValue::Link(link) => link.url = html_url,
-            NodeValue::WikiLink(_) => {
-                data.value = NodeValue::Link(Box::new(NodeLink {
-                    url: html_url,
-                    title: String::new(),
-                }))
-            }
-            _ => unreachable!("filter_map で Link と WikiLink だけを集めている"),
+        out.push(Event::Start(Tag::Link {
+            link_type: LinkType::Inline,
+            dest_url: CowStr::from(format!("{url_stem}.html")),
+            title: title.clone(),
+            id: id.clone(),
+        }));
+
+        if title_is_specified {
+            out.extend(inner.iter().cloned());
+        } else {
+            out.push(Event::Text(link_title.clone().into()));
         }
+
+        out.push(Event::End(TagEnd::Link));
+        i = end + 1;
     }
 
+    *events = out;
     Ok(())
 }
 

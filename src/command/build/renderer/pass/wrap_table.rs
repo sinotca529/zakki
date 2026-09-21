@@ -1,18 +1,24 @@
-use super::html_block;
-use comrak::Arena;
-use comrak::nodes::{AstNode, NodeValue};
+use crate::command::build::renderer::html_component::DIV;
+use pulldown_cmark::{Event, Tag, TagEnd};
 
-/// 表を横スクロールできるよう `<div class="table-wrapper">` で囲みます。
-pub fn wrap_table<'a>(arena: &'a Arena<'a>, root: &'a AstNode<'a>) -> anyhow::Result<()> {
-    let tables: Vec<_> = root
-        .descendants()
-        .filter(|n| matches!(n.data().value, NodeValue::Table(_)))
-        .collect();
+/// 表を横スクロールできるよう `<div class="x-scroll">` で囲みます。
+pub fn wrap_table(events: &mut Vec<Event<'_>>) {
+    let mut out = Vec::with_capacity(events.len());
+    let (open, close) = DIV.attr("class", "x-scroll").attr("tabindex", "0").pair();
 
-    for table in tables {
-        table.insert_before(html_block(arena, r#"<div class="x-scroll" tabindex="0">"#));
-        table.insert_after(html_block(arena, "</div>"));
+    for e in events.drain(..) {
+        match e {
+            Event::Start(Tag::Table(_)) => {
+                out.push(Event::Html(open.clone().into()));
+                out.push(e);
+            }
+            Event::End(TagEnd::Table) => {
+                out.push(e);
+                out.push(Event::Html(close.clone().into()));
+            }
+            _ => out.push(e),
+        }
     }
 
-    Ok(())
+    *events = out;
 }

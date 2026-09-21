@@ -1,38 +1,51 @@
-use super::html_block;
-use crate::command::build::renderer::html_component::escape_html_text;
-use comrak::Arena;
-use comrak::nodes::{AstNode, NodeValue};
+use crate::command::build::renderer::html_component::{FIGCAPTION, FIGURE};
+use pulldown_cmark::{CodeBlockKind, CowStr, Event, Tag, TagEnd};
 
 /// コードブロックの info string に `:タイトル` が含まれている場合、
 /// `<figure class="code-figure">` と `<figcaption>` で囲みます。
 ///
 /// 例: ` ```python:ソートアルゴリズム ` → figcaption 付きの figure に変換
-pub fn add_code_caption<'a>(arena: &'a Arena<'a>, root: &'a AstNode<'a>) -> anyhow::Result<()> {
-    let targets: Vec<_> = root
-        .descendants()
-        .filter_map(|node| {
-            let NodeValue::CodeBlock(code) = &node.data().value else {
-                return None;
-            };
-            let (lang, title) = code.info.split_once(':')?;
-            let title = title.trim();
-            (!title.is_empty()).then(|| (node, lang.to_owned(), title.to_owned()))
-        })
-        .collect();
+pub fn add_code_caption(events: &mut Vec<Event<'_>>) {
+    let mut out = Vec::with_capacity(events.len());
+    let mut captioned = false;
 
-    for (node, lang, title) in targets {
-        // info string からタイトルを取り除き、言語名だけ残す
-        if let NodeValue::CodeBlock(code) = &mut node.data_mut().value {
-            code.info = lang;
+    let (figure_open, figure_close) = FIGURE.attr("class", "code-figure").pair();
+    let (caption_open, caption_close) = FIGCAPTION.pair();
+
+    for e in events.drain(..) {
+        match e {
+            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(ref info))) => {
+                let caption = info
+                    .split_once(':')
+                    .map(|(lang, title)| (lang, title.trim()))
+                    .filter(|(_, title)| !title.is_empty());
+
+                let Some((lang, title)) = caption else {
+                    out.push(e);
+                    continue;
+                };
+
+                // キャプションは Text のまま置く。後続のパスが読めるようにするため
+                out.push(Event::Html(figure_open.clone().into()));
+                out.push(Event::Html(caption_open.clone().into()));
+                out.push(Event::Text(title.to_owned().into()));
+                out.push(Event::Html(caption_close.clone().into()));
+
+                // info string からタイトルを取り除き、言語名だけ残す
+                let lang = CowStr::from(lang.to_owned());
+                out.push(Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang))));
+                captioned = true;
+            }
+            Event::End(TagEnd::CodeBlock) => {
+                out.push(e);
+                if captioned {
+                    out.push(Event::Html(figure_close.clone().into()));
+                    captioned = false;
+                }
+            }
+            _ => out.push(e),
         }
-
-        let caption = escape_html_text(&title);
-        node.insert_before(html_block(
-            arena,
-            format!(r#"<figure class="code-figure"><figcaption>{caption}</figcaption>"#),
-        ));
-        node.insert_after(html_block(arena, "</figure>"));
     }
 
-    Ok(())
+    *events = out;
 }

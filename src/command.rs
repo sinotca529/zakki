@@ -22,10 +22,11 @@ pub enum Command {
 
 impl Command {
     pub fn exec(&self) -> Result<()> {
+        let pwd = std::env::current_dir()?;
         match &self {
-            Self::Init => init::init(),
-            Self::Build { render_draft } => build::build(&ProjectPaths::find()?, *render_draft),
-            Self::Clean => clean::clean(&ProjectPaths::find()?),
+            Self::Init => init::init(pwd),
+            Self::Build { render_draft } => build::build(&ProjectPaths::find(&pwd)?, *render_draft),
+            Self::Clean => clean::clean(&ProjectPaths::find(&pwd)?),
         }
     }
 }

@@ -5,12 +5,13 @@ use crate::config::ProjectConfig;
 use crate::path::ProjectPaths;
 use crate::util;
 use crate::util::PathExt as _;
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, bail};
+use itertools::{Either, Itertools as _};
 use rayon::prelude::*;
 use renderer::extract_title_from_path;
 use renderer::{PageMetadata, Renderer};
+use std::cmp::Reverse;
 use std::collections::HashMap;
-use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
@@ -34,15 +35,26 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
 
     assets::copy_assets(pj_paths.build_dir())?;
 
-    let mut metas = files
+    // Result のまま集める。1 件目のエラーで打ち切ると、残りの記事の問題が分からない。
+    let (metas, errors): (Vec<_>, Vec<_>) = files
         .par_iter()
         .map(|p| renderer.render(p).with_context(|| p.display().to_string()))
-        .collect::<Result<Vec<_>>>()?
+        .collect::<Vec<_>>()
         .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
+        .partition_map(|r| match r {
+            Ok(meta) => Either::Left(meta),
+            Err(e) => Either::Right(e),
+        });
 
-    metas.sort_unstable_by(|a, b| b.update.cmp(&a.update));
+    if !errors.is_empty() {
+        let list = errors.iter().map(|e| format!("{e:#}")).join("\n");
+        bail!("記事を変換できませんでした\n{list}");
+    }
+
+    let mut metas: Vec<_> = metas.into_iter().flatten().collect();
+
+    // 新しい順に並べる
+    metas.sort_unstable_by_key(|m| Reverse(m.update));
 
     renderer::render_index(&cfg, pj_paths.build_dir(), &metas)?;
 
@@ -66,35 +78,50 @@ fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
     Ok(map)
 }
 
+/// XML の要素内容として使えるようエスケープします。
+///
+/// ファイル名に `&` が入ると実体参照の開始として読まれ、文書全体が整形式でなくなります。
+/// `Url` は `&` をパーセントエンコードしないため、ここで実体参照に置き換えます。
+fn escape_xml_text(text: &str) -> String {
+    text.replace('&', "&amp;").replace('<', "&lt;")
+}
+
 fn output_sitemap(cfg: &ProjectConfig, metas: &[PageMetadata], build_dir: &Path) -> Result<()> {
-    let pub_url = cfg.publish_url.as_ref().map(|u| u.trim_end_matches("/"));
-    let Some(pub_url) = pub_url else {
+    let Some(pub_url) = cfg.publish_url.as_ref() else {
         return Ok(());
     };
 
-    let mut xml = String::new();
-    writeln!(&mut xml, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
-    writeln!(
-        &mut xml,
-        r#"<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">"#
-    )?;
-
-    for m in metas {
-        if m.is_private {
-            continue;
-        }
-        writeln!(
-            &mut xml,
-            r#"  <url><loc>{}{}</loc><lastmod>{}</lastmod></url>"#,
-            pub_url, m.path, m.update
-        )?;
-    }
-    writeln!(&mut xml, "</urlset>")?;
-
     let sitemap_path = build_dir.join("sitemap.xml");
-    util::write_file(sitemap_path, xml)?;
+    util::write_file(sitemap_path, sitemap_xml(pub_url, metas))?;
 
     Ok(())
+}
+
+/// 公開する記事から sitemap.xml の中身を作ります。
+fn sitemap_xml(publish_url: &str, metas: &[PageMetadata]) -> String {
+    let publish_url = publish_url.trim_end_matches('/');
+
+    let urls: String = metas
+        .iter()
+        .filter(|m| !m.is_private)
+        .map(|m| {
+            let loc = escape_xml_text(&format!("{publish_url}/{}", m.path));
+            format!(
+                "  <url><loc>{loc}</loc><lastmod>{}</lastmod></url>\n",
+                m.update
+            )
+        })
+        .collect();
+
+    format!(
+        concat!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
+            "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n",
+            "{}",
+            "</urlset>\n",
+        ),
+        urls
+    )
 }
 
 // METADATA と BLOOM_FILTER を書き出します。
@@ -114,4 +141,16 @@ fn output_metadatas(metas: Vec<PageMetadata>, build_dir: &Path) -> Result<()> {
     util::write_file(bloom_filter_path, js)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::escape_xml_text;
+
+    /// `&` をそのまま置くと、XML のパーサが実体参照の開始として読みます。
+    #[test]
+    fn escapes_ampersand() {
+        assert_eq!(escape_xml_text("a&copy.html"), "a&amp;copy.html");
+        assert_eq!(escape_xml_text("a<b"), "a&lt;b");
+    }
 }

@@ -38,7 +38,8 @@ impl ProjectPaths {
     getter!(build_dir, &Path);
     getter!(config_path, &Path);
 
-    fn new(root_dir: PathBuf) -> Self {
+    /// root_dir を起点としたパス情報を返します (設定ファイルの探索・作成は実施しません)
+    pub fn new(root_dir: PathBuf) -> Self {
         let src_dir = root_dir.join("src");
 
         Self {
@@ -54,9 +55,8 @@ impl ProjectPaths {
 
     /// 設定ファイルのあるディレクトリをルートとしたパス情報を返します。
     /// 祖先方向に設定ファイルを探索します。
-    pub fn find() -> Result<Self> {
-        let pwd = std::env::current_dir()?;
-        let mut dir: Option<&Path> = Some(pwd.as_ref());
+    pub fn find(from: &Path) -> Result<Self> {
+        let mut dir: Option<&Path> = Some(from);
 
         while let Some(d) = dir {
             let is_zakki_root = d.has_file(config_file_name!())?;
@@ -66,12 +66,10 @@ impl ProjectPaths {
             dir = d.parent();
         }
 
-        bail!("このディレクトリは zakki 用のものではありません");
-    }
-
-    /// CWD を root としたパス情報を返します (設定ファイルの探索・作成は実施しません)
-    pub fn at_current_dir() -> anyhow::Result<Self> {
-        Ok(Self::new(std::env::current_dir()?))
+        bail!(
+            "ディレクトリ {} は zakki 用のもの、またはその配下ではありません",
+            from.display()
+        );
     }
 
     pub fn build_path_of(&self, src_path: impl AsRef<Path>) -> PathBuf {
