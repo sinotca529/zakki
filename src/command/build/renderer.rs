@@ -121,7 +121,7 @@ impl<'a> Renderer<'a> {
                 &self.config.site_name,
                 &front_matter.title,
                 front_matter.create_date,
-                front_matter.last_update_date,
+                front_matter.last_update_date(),
                 css_list,
                 js_list,
                 &front_matter.tags,
@@ -134,7 +134,7 @@ impl<'a> Renderer<'a> {
                 &self.config.site_name,
                 &front_matter.title,
                 front_matter.create_date,
-                front_matter.last_update_date,
+                front_matter.last_update_date(),
                 css_list,
                 js_list,
                 &front_matter.tags,
@@ -201,7 +201,7 @@ impl<'a> Renderer<'a> {
 
         let metadata = PageMetadata {
             create: front_matter.create_date,
-            update: front_matter.last_update_date,
+            update: front_matter.last_update_date(),
             tags: front_matter.tags,
             title: front_matter.title,
             path: page_paths.url_path.clone(),
