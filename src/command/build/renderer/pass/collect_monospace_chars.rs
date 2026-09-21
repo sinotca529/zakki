@@ -2,11 +2,10 @@ use super::add_code_caption::split_caption;
 use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
 use std::collections::BTreeSet;
 
-/// コード用フォント (`--code-font`) で描かれる文字を集めます。
+/// 等幅フォント (`--code-font`) で描かれる文字を集めます。
 ///
 /// ここで集めた文字だけをフォントのサブセットに残します。対象は、コードブロック、
 /// インラインコード、コードブロックのキャプション、タグの名前です。
-/// 検索窓も同じフォントで描かれますが、閲覧する人が打つ文字なので集められません。
 ///
 /// 記事に何のパスも当てる前に呼びます。キャプションはまだ info string の中にあり、
 /// ハイライトの区切り文字もまだ残っていますが、区切り文字は ASCII なので
@@ -16,7 +15,7 @@ use std::collections::BTreeSet;
 /// 本文を渡していませんが、こちらは全記事を混ぜた文字の集合しか残らず、
 /// どの記事に出たかは分かりません。外したほうが漏れる量は減るものの、
 /// そうすると非公開の記事だけ桁が揃わなくなります。
-pub fn collect_font_chars(events: &[Event], tags: &[String]) -> BTreeSet<char> {
+pub fn collect_monospace_chars(events: &[Event], tags: &[String]) -> BTreeSet<char> {
     let mut chars: BTreeSet<char> = tags.iter().flat_map(|t| t.chars()).collect();
     let mut in_code_block = false;
 
@@ -42,13 +41,13 @@ pub fn collect_font_chars(events: &[Event], tags: &[String]) -> BTreeSet<char> {
 
 #[cfg(test)]
 mod test {
-    use super::collect_font_chars;
+    use super::collect_monospace_chars;
     use pulldown_cmark::{Options, Parser};
     use std::collections::BTreeSet;
 
     fn chars_of(md: &str) -> BTreeSet<char> {
         let events: Vec<_> = Parser::new_ext(md, Options::empty()).collect();
-        collect_font_chars(&events, &[])
+        collect_monospace_chars(&events, &[])
     }
 
     fn set(s: &str) -> BTreeSet<char> {
@@ -72,7 +71,7 @@ mod test {
     fn collects_tag_names() {
         let tags = ["日記".to_owned()];
         let events: Vec<_> = Parser::new_ext("", Options::empty()).collect();
-        assert_eq!(collect_font_chars(&events, &tags), set("日記"));
+        assert_eq!(collect_monospace_chars(&events, &tags), set("日記"));
     }
 
     /// 本文の文字まで入れると、日本語を書くだけでサブセットが膨らみます。

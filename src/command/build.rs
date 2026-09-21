@@ -56,7 +56,7 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
         warn_private_code(&outputs);
     }
 
-    let (mut metas, font_chars) = split_outputs(outputs);
+    let (mut metas, monospace_chars) = split_outputs(outputs);
 
     // 新しい順に並べる
     metas.sort_unstable_by_key(|m| Reverse(m.update));
@@ -64,7 +64,7 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
     renderer::render_index(&cfg, pj_paths.build_dir(), &metas)?;
 
     if let Some(font) = &cfg.code_font {
-        code_font::output(font, &font_chars, pj_paths.build_dir())?;
+        code_font::output(font, &monospace_chars, pj_paths.build_dir())?;
     }
 
     output_sitemap(&cfg, &metas, pj_paths.build_dir())?;
@@ -76,14 +76,14 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
 /// 記事ごとの変換結果を、メタデータの一覧と、全記事を合わせた文字の集合に分けます。
 fn split_outputs(outputs: Vec<Option<PageOutput>>) -> (Vec<PageMetadata>, BTreeSet<char>) {
     let mut metas = Vec::with_capacity(outputs.len());
-    let mut font_chars = BTreeSet::new();
+    let mut monospace_chars = BTreeSet::new();
 
     for output in outputs.into_iter().flatten() {
         metas.push(output.meta);
-        font_chars.extend(output.font_chars);
+        monospace_chars.extend(output.monospace_chars);
     }
 
-    (metas, font_chars)
+    (metas, monospace_chars)
 }
 
 /// 非公開の記事のコードで使われた文字も、フォントのサブセットに残ることを伝えます。
@@ -94,7 +94,7 @@ fn warn_private_code(outputs: &[Option<PageOutput>]) {
     let count = outputs
         .iter()
         .flatten()
-        .filter(|o| o.meta.is_private && !o.font_chars.is_empty())
+        .filter(|o| o.meta.is_private && !o.monospace_chars.is_empty())
         .count();
 
     if count == 0 {

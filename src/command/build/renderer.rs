@@ -32,9 +32,9 @@ const FRONT_MATTER_DELIMITER: &str = "---";
 pub struct PageOutput {
     pub meta: PageMetadata,
 
-    /// コード用フォントで描かれる文字
+    /// 等幅フォントで描かれる文字
     /// 全記事ぶんを集めてからサブセットを作るため、ここでは記事ごとに返します。
-    pub font_chars: BTreeSet<char>,
+    pub monospace_chars: BTreeSet<char>,
 }
 
 pub struct Renderer<'a> {
@@ -166,8 +166,8 @@ impl<'a> Renderer<'a> {
 
         // フォントの指定がなければサブセットを作らないので、文字も集めない。
         // キャプションが info string に残っているうちに数える。
-        let font_chars = match self.config.code_font {
-            Some(_) => pass::collect_font_chars(&events, &front_matter.tags),
+        let monospace_chars = match self.config.code_font {
+            Some(_) => pass::collect_monospace_chars(&events, &front_matter.tags),
             None => BTreeSet::new(),
         };
 
@@ -214,7 +214,7 @@ impl<'a> Renderer<'a> {
             html,
             PageOutput {
                 meta: metadata,
-                font_chars,
+                monospace_chars,
             },
         )))
     }
