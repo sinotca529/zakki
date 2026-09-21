@@ -5,7 +5,7 @@ use fontcull_klippa::{Plan, SubsetFlags, subset_font};
 use fontcull_skrifa::raw::TableProvider as _;
 use fontcull_skrifa::raw::collections::IntSet;
 use fontcull_skrifa::raw::types::NameId;
-use fontcull_skrifa::{FontRef, GlyphId, Tag};
+use fontcull_skrifa::{FontRef, GlyphId, MetadataProvider as _, Tag};
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -27,12 +27,6 @@ const WOFF2_NAME: &str = "zakki-code.woff2";
 /// その差でサイズは 3% しか変わらないため、9 を選んでいます。
 const BROTLI_QUALITY: u8 = 9;
 
-/// サブセットに必ず含める文字。
-///
-/// 等幅で描く場所は集めていますが、見落としがあると、その文字だけ別のフォントで
-/// 描かれます。コードは ASCII が中心なので、保険として常に入れます。5 KB ほどです。
-const ALWAYS_INCLUDED: std::ops::RangeInclusive<char> = ' '..='~';
-
 /// `OS/2` の `fsType` のうち、許可なく埋め込めないことを表すビット。
 const FS_TYPE_RESTRICTED: u16 = 0x0002;
 
@@ -42,6 +36,12 @@ const FS_TYPE_NO_SUBSETTING: u16 = 0x0100;
 /// サブセットしたフォントと、それを読み込む CSS を出力します。
 /// ライセンス文書の指定があれば、あわせてコピーします。
 pub fn output(cfg: &CodeFontConfig, chars: &BTreeSet<char>, build_dir: &Path) -> Result<()> {
+    // 残す文字がなければ、フォントを読む必要もありません。CSS だけは出します。
+    // 記事の HTML には参照が入っているため、置かないとブラウザが 404 を引きます。
+    if chars.is_empty() {
+        return util::write_file(build_dir.join(CSS_PATH), NO_FONT_CSS).map_err(Into::into);
+    }
+
     let bytes =
         std::fs::read(&cfg.path).with_context(|| format!("{} を読めません", cfg.path.display()))?;
 
@@ -50,6 +50,7 @@ pub fn output(cfg: &CodeFontConfig, chars: &BTreeSet<char>, build_dir: &Path) ->
 
     check_permissions(&font, cfg)?;
     check_outlines(&font, cfg)?;
+    check_coverage(&font, cfg, chars)?;
 
     let sfnt = subset(&font, chars)
         .with_context(|| format!("{} のサブセットに失敗しました", cfg.path.display()))?;
@@ -107,10 +108,27 @@ fn check_outlines(font: &FontRef, cfg: &CodeFontConfig) -> Result<()> {
     Ok(())
 }
 
+/// 記事で使われた文字をフォントが持っているかを確かめます。
+///
+/// 1 つも持っていないと、字形が 1 つも残らないサブセットができます。
+/// その woff2 はブラウザの検査 (OTS) で `glyf: zero-length table` として弾かれます。
+fn check_coverage(font: &FontRef, cfg: &CodeFontConfig, chars: &BTreeSet<char>) -> Result<()> {
+    let charmap = font.charmap();
+
+    if !chars.iter().any(|c| charmap.map(*c).is_some()) {
+        bail!(
+            "{} は、記事で等幅に使われた文字を 1 つも持っていません",
+            cfg.path.display()
+        );
+    }
+
+    Ok(())
+}
+
 fn subset(font: &FontRef, chars: &BTreeSet<char>) -> Result<Vec<u8>> {
     let mut unicodes = IntSet::empty();
-    for c in chars.iter().copied().chain(ALWAYS_INCLUDED) {
-        unicodes.insert(c as u32);
+    for c in chars {
+        unicodes.insert(*c as u32);
     }
 
     // 縦組みの表は横組みでは使いません。加えて、klippa は `vmtx` を縮めず
@@ -140,6 +158,14 @@ fn subset(font: &FontRef, chars: &BTreeSet<char>) -> Result<Vec<u8>> {
 
     subset_font(font, &plan).map_err(Into::into)
 }
+
+/// 等幅で描く文字が記事に 1 つもないときに出す CSS。
+///
+/// 参照だけ残して woff2 を置かないと、ブラウザが 404 を引きます。
+const NO_FONT_CSS: &str = concat!(
+    "/* zakki が生成したファイルです。編集しても次のビルドで上書きされます。 */\n",
+    "/* 等幅で描く文字が記事になかったため、フォントは作っていません。 */\n",
+);
 
 /// 生成したフォントを読み込む CSS を作ります。
 ///
