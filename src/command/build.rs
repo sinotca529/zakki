@@ -5,7 +5,8 @@ use crate::config::ProjectConfig;
 use crate::path::ProjectPaths;
 use crate::util;
 use crate::util::PathExt as _;
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, bail};
+use itertools::{Either, Itertools as _};
 use rayon::prelude::*;
 use renderer::extract_title_from_path;
 use renderer::{PageMetadata, Renderer};
@@ -34,13 +35,23 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
 
     assets::copy_assets(pj_paths.build_dir())?;
 
-    let mut metas = files
+    // Result のまま集める。1 件目のエラーで打ち切ると、残りの記事の問題が分からない。
+    let (metas, errors): (Vec<_>, Vec<_>) = files
         .par_iter()
         .map(|p| renderer.render(p).with_context(|| p.display().to_string()))
-        .collect::<Result<Vec<_>>>()?
+        .collect::<Vec<_>>()
         .into_iter()
-        .flatten()
-        .collect::<Vec<_>>();
+        .partition_map(|r| match r {
+            Ok(meta) => Either::Left(meta),
+            Err(e) => Either::Right(e),
+        });
+
+    if !errors.is_empty() {
+        let list = errors.iter().map(|e| format!("{e:#}")).join("\n");
+        bail!("記事を変換できませんでした\n{list}");
+    }
+
+    let mut metas: Vec<_> = metas.into_iter().flatten().collect();
 
     // 新しい順に並べる
     metas.sort_unstable_by_key(|m| Reverse(m.update));
