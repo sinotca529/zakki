@@ -167,7 +167,7 @@ impl<'a> Renderer<'a> {
         // フォントの指定がなければサブセットを作らないので、文字も集めない。
         // キャプションが info string に残っているうちに数える。
         let monospace_chars = match self.config.code_font {
-            Some(_) => pass::collect_monospace_chars(&events, &front_matter.tags),
+            Some(_) => pass::collect_monospace_chars(&events),
             None => BTreeSet::new(),
         };
 

@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 /// 等幅フォント (`--code-font`) で描かれる文字を集めます。
 ///
 /// ここで集めた文字だけをフォントのサブセットに残します。対象は、コードブロック、
-/// インラインコード、コードブロックのキャプション、タグの名前です。
+/// インラインコード、コードブロックのキャプションです。
 ///
 /// 記事に何のパスも当てる前に呼びます。キャプションはまだ info string の中にあり、
 /// ハイライトの区切り文字もまだ残っていますが、区切り文字は ASCII なので
@@ -15,8 +15,8 @@ use std::collections::BTreeSet;
 /// 本文を渡していませんが、こちらは全記事を混ぜた文字の集合しか残らず、
 /// どの記事に出たかは分かりません。外したほうが漏れる量は減るものの、
 /// そうすると非公開の記事だけ桁が揃わなくなります。
-pub fn collect_monospace_chars(events: &[Event], tags: &[String]) -> BTreeSet<char> {
-    let mut chars: BTreeSet<char> = tags.iter().flat_map(|t| t.chars()).collect();
+pub fn collect_monospace_chars(events: &[Event]) -> BTreeSet<char> {
+    let mut chars = BTreeSet::new();
     let mut in_code_block = false;
 
     for e in events {
@@ -47,7 +47,7 @@ mod test {
 
     fn chars_of(md: &str) -> BTreeSet<char> {
         let events: Vec<_> = Parser::new_ext(md, Options::empty()).collect();
-        collect_monospace_chars(&events, &[])
+        collect_monospace_chars(&events)
     }
 
     fn set(s: &str) -> BTreeSet<char> {
@@ -64,14 +64,6 @@ mod test {
     #[test]
     fn collects_the_caption_of_a_code_block() {
         assert_eq!(chars_of("```rust:見出し\nx\n```\n"), set("見出しx\n"));
-    }
-
-    /// タグも同じフォントで描かれます。
-    #[test]
-    fn collects_tag_names() {
-        let tags = ["日記".to_owned()];
-        let events: Vec<_> = Parser::new_ext("", Options::empty()).collect();
-        assert_eq!(collect_monospace_chars(&events, &tags), set("日記"));
     }
 
     /// 本文の文字まで入れると、日本語を書くだけでサブセットが膨らみます。

@@ -189,7 +189,6 @@ main {
   display: inline-block;
   border: 1px solid var(--border);
   padding: 0.1rem 0.35rem;
-  font-family: var(--code-font);
   font-size: 0.8rem;
   text-decoration: none;
   color: inherit;
