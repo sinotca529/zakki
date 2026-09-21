@@ -1,0 +1,11 @@
+/* zakki が生成したファイルです。編集しても次のビルドで上書きされます。 */
+@font-face {
+  font-family: "zakki-code";
+  font-style: normal;
+  font-weight: normal;
+  src: url(zakki-code.woff2) format("woff2");
+}
+
+:root {
+  --code-font: "zakki-code", var(--code-font-fallback);
+}
