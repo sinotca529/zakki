@@ -3,9 +3,10 @@ use crate::include_asset;
 use crate::util;
 use anyhow::{Context as _, Result, bail};
 use fontcull_klippa::{Plan, SubsetFlags, subset_font};
-use fontcull_skrifa::raw::TableProvider as _;
 use fontcull_skrifa::raw::collections::IntSet;
 use fontcull_skrifa::raw::types::NameId;
+use fontcull_skrifa::raw::{FileRef, TableProvider as _};
+use fontcull_skrifa::string::StringId;
 use fontcull_skrifa::{FontRef, GlyphId, MetadataProvider as _, Tag};
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -53,7 +54,8 @@ pub fn output(cfg: &CodeFontConfig, chars: &BTreeSet<char>, build_dir: &Path) ->
     let bytes =
         std::fs::read(&cfg.path).with_context(|| format!("{} を読めません", cfg.path.display()))?;
 
-    let font = FontRef::from_index(&bytes, cfg.index)
+    let index = select_index(&bytes, cfg)?;
+    let font = FontRef::from_index(&bytes, index)
         .with_context(|| format!("{} をフォントとして読めません", cfg.path.display()))?;
 
     check_permissions(&font, cfg)?;
@@ -80,6 +82,65 @@ pub fn output(cfg: &CodeFontConfig, chars: &BTreeSet<char>, build_dir: &Path) ->
     }
 
     Ok(())
+}
+
+/// 使うフォントがファイルの何番目かを決めます。
+///
+/// 1 つのファイルに複数のフォントが入っていることがあります (`.ttc`)。
+/// 番号を人が知る手立てはないので、フォントが名乗っている名前で選びます。
+fn select_index(bytes: &[u8], cfg: &CodeFontConfig) -> Result<u32> {
+    let count = match FileRef::new(bytes) {
+        Ok(FileRef::Collection(collection)) => collection.len(),
+        _ => 1,
+    };
+
+    let Some(name) = cfg.name.as_deref() else {
+        if count > 1 {
+            bail!(
+                "{} には {count} 個のフォントが入っています。name でどれを使うか指定してください\n{}",
+                cfg.path.display(),
+                font_name_list(bytes, count)
+            );
+        }
+        return Ok(0);
+    };
+
+    (0..count)
+        .find(|i| font_names(bytes, *i).iter().any(|n| n == name))
+        .with_context(|| {
+            format!(
+                "{} に {name} は入っていません\n{}",
+                cfg.path.display(),
+                font_name_list(bytes, count)
+            )
+        })
+}
+
+/// 1 つのフォントが名乗っている名前を集めます。
+///
+/// `fc-list` はファミリ名を、フォントを選ぶ画面はフルネームを見せます。
+/// 利用者がどちらを書き写しても通るよう、両方と突き合わせます。
+fn font_names(bytes: &[u8], index: u32) -> Vec<String> {
+    let Ok(font) = FontRef::from_index(bytes, index) else {
+        return Vec::new();
+    };
+
+    [StringId::FAMILY_NAME, StringId::FULL_NAME]
+        .into_iter()
+        .flat_map(|id| font.localized_strings(id).map(|s| s.to_string()))
+        .collect()
+}
+
+/// エラーに添える、ファイルに入っているフォント名の一覧を作ります。
+fn font_name_list(bytes: &[u8], count: u32) -> String {
+    (0..count)
+        .filter_map(|i| FontRef::from_index(bytes, i).ok())
+        .filter_map(|font| {
+            font.localized_strings(StringId::FAMILY_NAME)
+                .english_or_first()
+        })
+        .map(|name| format!("  {name}\n"))
+        .collect()
 }
 
 /// フォントが埋め込みとサブセットを許しているかを確かめます。
