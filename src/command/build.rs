@@ -11,7 +11,7 @@ use renderer::extract_title_from_path;
 use renderer::{PageMetadata, Renderer};
 use std::cmp::Reverse;
 use std::collections::HashMap;
-use std::fmt::{Display, Write as _};
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
@@ -71,7 +71,7 @@ fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
 /// 記事の URL を sitemap の `<loc>` に入れる形にします。
 ///
 /// `publish_url` の末尾の `/` と、記事のパスの先頭の区切りを 1 つに揃えます。
-fn page_url(publish_url: &str, path: impl Display) -> String {
+fn page_url(publish_url: &str, path: &str) -> String {
     let publish_url = publish_url.trim_end_matches('/');
     escape_xml_text(&format!("{publish_url}/{path}"))
 }
@@ -103,7 +103,7 @@ fn output_sitemap(cfg: &ProjectConfig, metas: &[PageMetadata], build_dir: &Path)
         writeln!(
             &mut xml,
             r#"  <url><loc>{}</loc><lastmod>{}</lastmod></url>"#,
-            page_url(pub_url, &m.path),
+            page_url(pub_url, &m.path.to_string()),
             m.update
         )?;
     }
