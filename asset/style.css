@@ -1,14 +1,7 @@
-@font-face {
-  font-family: "Source Code Pro";
-  font-style: normal;
-  font-weight: normal;
-  src: url(font/SourceCodePro/SourceCodePro-Regular.otf.woff2) format("woff2");
-}
-
 :root {
   /* コード用フォントの取りこぼしを受ける指定。
      zakki.toml でフォントを指定すると、生成した CSS がこの前にもう 1 つ名前を足します。 */
-  --code-font-fallback: "Source Code Pro", Consolas, monospace;
+  --code-font-fallback: Consolas, monospace;
   --code-font: var(--code-font-fallback);
   --bg: #c0c0c0;
   --fg: #000;
