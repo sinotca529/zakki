@@ -11,7 +11,6 @@ use renderer::extract_title_from_path;
 use renderer::{PageMetadata, Renderer};
 use std::cmp::Reverse;
 use std::collections::HashMap;
-use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
@@ -80,32 +79,38 @@ fn output_sitemap(cfg: &ProjectConfig, metas: &[PageMetadata], build_dir: &Path)
     let Some(pub_url) = cfg.publish_url.as_ref() else {
         return Ok(());
     };
-    let pub_url = pub_url.trim_end_matches('/');
-
-    let mut xml = String::new();
-    writeln!(&mut xml, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
-    writeln!(
-        &mut xml,
-        r#"<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">"#
-    )?;
-
-    for m in metas {
-        if m.is_private {
-            continue;
-        }
-        let loc = escape_xml_text(&format!("{pub_url}/{}", m.path));
-        writeln!(
-            &mut xml,
-            r#"  <url><loc>{loc}</loc><lastmod>{}</lastmod></url>"#,
-            m.update
-        )?;
-    }
-    writeln!(&mut xml, "</urlset>")?;
 
     let sitemap_path = build_dir.join("sitemap.xml");
-    util::write_file(sitemap_path, xml)?;
+    util::write_file(sitemap_path, sitemap_xml(pub_url, metas))?;
 
     Ok(())
+}
+
+/// 公開する記事から sitemap.xml の中身を作ります。
+fn sitemap_xml(publish_url: &str, metas: &[PageMetadata]) -> String {
+    let publish_url = publish_url.trim_end_matches('/');
+
+    let urls: String = metas
+        .iter()
+        .filter(|m| !m.is_private)
+        .map(|m| {
+            let loc = escape_xml_text(&format!("{publish_url}/{}", m.path));
+            format!(
+                "  <url><loc>{loc}</loc><lastmod>{}</lastmod></url>\n",
+                m.update
+            )
+        })
+        .collect();
+
+    format!(
+        concat!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
+            "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n",
+            "{}",
+            "</urlset>\n",
+        ),
+        urls
+    )
 }
 
 // METADATA と BLOOM_FILTER を書き出します。
