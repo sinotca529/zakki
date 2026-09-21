@@ -1,4 +1,5 @@
 use crate::config::CodeFontConfig;
+use crate::include_asset;
 use crate::util;
 use anyhow::{Context as _, Result, bail};
 use fontcull_klippa::{Plan, SubsetFlags, subset_font};
@@ -9,17 +10,24 @@ use fontcull_skrifa::{FontRef, GlyphId, MetadataProvider as _, Tag};
 use std::collections::BTreeSet;
 use std::path::Path;
 
-/// 出力するフォントに付ける名前。
-///
-/// 元フォントの名前は残しません。改変したものに元の名前を使わせない条件
-/// (SIL Open Font License でいう Reserved Font Name) が多くのフォントに付いているためです。
-const FAMILY: &str = "zakki-code";
-
 /// 生成した CSS の位置。サイト全体に読み込みます。
 pub const CSS_PATH: &str = "font/zakki-code.css";
 
 /// 生成したフォントの位置。CSS と同じディレクトリに置き、相対で参照します。
 const WOFF2_NAME: &str = "zakki-code.woff2";
+
+/// 生成したフォントを読み込む CSS。
+///
+/// `--code-font` は style.css が定義しています。この CSS は後から読み込まれるので、
+/// 同じ名前を書き直せば先頭に差し込めます。
+/// フォントに付ける名前を元フォントから取らないのは、改変したものに元の名前を
+/// 使わせない条件 (SIL Open Font License でいう Reserved Font Name) を踏まないためです。
+const CSS: &str = include_asset!("code-font.css");
+
+/// 等幅で描く文字が記事に 1 つもないときに出す CSS。
+///
+/// 参照だけ残して woff2 を置かないと、ブラウザが 404 を引きます。
+const NO_FONT_CSS: &str = include_asset!("code-font-none.css");
 
 /// brotli の圧縮の強さ。
 ///
@@ -61,7 +69,7 @@ pub fn output(cfg: &CodeFontConfig, chars: &BTreeSet<char>, build_dir: &Path) ->
 
     let font_dir = build_dir.join("font");
     util::write_file(font_dir.join(WOFF2_NAME), woff2)?;
-    util::write_file(build_dir.join(CSS_PATH), css())?;
+    util::write_file(build_dir.join(CSS_PATH), CSS)?;
 
     if let Some(license) = &cfg.license {
         let name = license
@@ -159,47 +167,21 @@ fn subset(font: &FontRef, chars: &BTreeSet<char>) -> Result<Vec<u8>> {
     subset_font(font, &plan).map_err(Into::into)
 }
 
-/// 等幅で描く文字が記事に 1 つもないときに出す CSS。
-///
-/// 参照だけ残して woff2 を置かないと、ブラウザが 404 を引きます。
-const NO_FONT_CSS: &str = concat!(
-    "/* zakki が生成したファイルです。編集しても次のビルドで上書きされます。 */\n",
-    "/* 等幅で描く文字が記事になかったため、フォントは作っていません。 */\n",
-);
-
-/// 生成したフォントを読み込む CSS を作ります。
-///
-/// `--code-font` は style.css が定義しています。この CSS は後から読み込まれるので、
-/// 同じ名前を書き直せば先頭に差し込めます。
-fn css() -> String {
-    format!(
-        "\
-/* zakki が生成したファイルです。編集しても次のビルドで上書きされます。 */
-@font-face {{
-  font-family: \"{FAMILY}\";
-  font-style: normal;
-  font-weight: normal;
-  src: url({WOFF2_NAME}) format(\"woff2\");
-}}
-
-:root {{
-  --code-font: \"{FAMILY}\", var(--code-font-fallback);
-}}
-"
-    )
-}
-
 #[cfg(test)]
 mod test {
-    use super::css;
+    use super::{CSS, WOFF2_NAME};
+
+    /// CSS が読むファイル名と、実際に書き出すファイル名は同じである必要があります。
+    #[test]
+    fn css_points_at_the_generated_font() {
+        assert!(CSS.contains(WOFF2_NAME));
+    }
 
     /// CSS は @font-face の名前と `--code-font` の先頭を揃えている必要があります。
     /// 片方だけ変えると、指定しただけで使われないフォントができます。
     #[test]
     fn css_uses_the_same_family_name() {
-        let css = css();
-        assert!(css.contains("font-family: \"zakki-code\";"));
-        assert!(css.contains("--code-font: \"zakki-code\", var(--code-font-fallback);"));
-        assert!(css.contains("src: url(zakki-code.woff2) format(\"woff2\");"));
+        assert!(CSS.contains("font-family: \"zakki-code\";"));
+        assert!(CSS.contains("--code-font: \"zakki-code\","));
     }
 }
