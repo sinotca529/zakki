@@ -11,7 +11,7 @@ use renderer::extract_title_from_path;
 use renderer::{PageMetadata, Renderer};
 use std::cmp::Reverse;
 use std::collections::HashMap;
-use std::fmt::Write as _;
+use std::fmt::{Display, Write as _};
 use std::path::{Path, PathBuf};
 
 pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
@@ -68,9 +68,24 @@ fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
     Ok(map)
 }
 
+/// 記事の URL を sitemap の `<loc>` に入れる形にします。
+///
+/// `publish_url` の末尾の `/` と、記事のパスの先頭の区切りを 1 つに揃えます。
+fn page_url(publish_url: &str, path: impl Display) -> String {
+    let publish_url = publish_url.trim_end_matches('/');
+    escape_xml_text(&format!("{publish_url}/{path}"))
+}
+
+/// XML の要素内容として使えるようエスケープします。
+///
+/// ファイル名に `&` が入ると実体参照の開始として読まれ、文書全体が整形式でなくなります。
+/// `Url` は `&` をパーセントエンコードしないため、ここで実体参照に置き換えます。
+fn escape_xml_text(text: &str) -> String {
+    text.replace('&', "&amp;").replace('<', "&lt;")
+}
+
 fn output_sitemap(cfg: &ProjectConfig, metas: &[PageMetadata], build_dir: &Path) -> Result<()> {
-    let pub_url = cfg.publish_url.as_ref().map(|u| u.trim_end_matches("/"));
-    let Some(pub_url) = pub_url else {
+    let Some(pub_url) = cfg.publish_url.as_ref() else {
         return Ok(());
     };
 
@@ -87,8 +102,9 @@ fn output_sitemap(cfg: &ProjectConfig, metas: &[PageMetadata], build_dir: &Path)
         }
         writeln!(
             &mut xml,
-            r#"  <url><loc>{}{}</loc><lastmod>{}</lastmod></url>"#,
-            pub_url, m.path, m.update
+            r#"  <url><loc>{}</loc><lastmod>{}</lastmod></url>"#,
+            page_url(pub_url, &m.path),
+            m.update
         )?;
     }
     writeln!(&mut xml, "</urlset>")?;
@@ -116,4 +132,30 @@ fn output_metadatas(metas: Vec<PageMetadata>, build_dir: &Path) -> Result<()> {
     util::write_file(bloom_filter_path, js)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::page_url;
+
+    #[test]
+    fn puts_one_separator_between_url_and_path() {
+        assert_eq!(
+            page_url("https://example.com/", "public/a.html"),
+            "https://example.com/public/a.html"
+        );
+        assert_eq!(
+            page_url("https://example.com", "public/a.html"),
+            "https://example.com/public/a.html"
+        );
+    }
+
+    /// `&` をそのまま置くと、XML のパーサが実体参照の開始として読みます。
+    #[test]
+    fn escapes_ampersand_in_the_path() {
+        assert_eq!(
+            page_url("https://example.com", "public/a&copy.html"),
+            "https://example.com/public/a&amp;copy.html"
+        );
+    }
 }
