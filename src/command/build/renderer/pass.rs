@@ -1,6 +1,7 @@
 mod add_code_caption;
 mod adjust_link;
 mod assign_header_id;
+mod collect_code_chars;
 mod collect_footnotes;
 mod convert_alert;
 mod convert_image;
@@ -15,6 +16,7 @@ mod wrap_table;
 pub use add_code_caption::add_code_caption;
 pub use adjust_link::adjust_link;
 pub use assign_header_id::assign_header_id;
+pub use collect_code_chars::collect_code_chars;
 pub use collect_footnotes::collect_footnotes;
 pub use convert_alert::convert_alert;
 pub use convert_image::convert_image;

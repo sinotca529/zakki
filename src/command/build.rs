@@ -1,4 +1,5 @@
 mod assets;
+mod code_font;
 mod renderer;
 
 use crate::config::ProjectConfig;
@@ -9,9 +10,9 @@ use anyhow::{Context as _, Result, bail};
 use itertools::{Either, Itertools as _};
 use rayon::prelude::*;
 use renderer::extract_title_from_path;
-use renderer::{PageMetadata, Renderer};
+use renderer::{PageMetadata, PageOutput, Renderer};
 use std::cmp::Reverse;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
 pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
@@ -36,13 +37,13 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
     assets::copy_assets(pj_paths.build_dir())?;
 
     // Result のまま集める。1 件目のエラーで打ち切ると、残りの記事の問題が分からない。
-    let (metas, errors): (Vec<_>, Vec<_>) = files
+    let (outputs, errors): (Vec<_>, Vec<_>) = files
         .par_iter()
         .map(|p| renderer.render(p).with_context(|| p.display().to_string()))
         .collect::<Vec<_>>()
         .into_iter()
         .partition_map(|r| match r {
-            Ok(meta) => Either::Left(meta),
+            Ok(output) => Either::Left(output),
             Err(e) => Either::Right(e),
         });
 
@@ -51,17 +52,34 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
         bail!("記事を変換できませんでした\n{list}");
     }
 
-    let mut metas: Vec<_> = metas.into_iter().flatten().collect();
+    let (mut metas, code_chars) = split_outputs(outputs);
 
     // 新しい順に並べる
     metas.sort_unstable_by_key(|m| Reverse(m.update));
 
     renderer::render_index(&cfg, pj_paths.build_dir(), &metas)?;
 
+    if let Some(font) = &cfg.code_font {
+        code_font::output(font, &code_chars, pj_paths.build_dir())?;
+    }
+
     output_sitemap(&cfg, &metas, pj_paths.build_dir())?;
     output_metadatas(metas, pj_paths.build_dir())?;
 
     Ok(())
+}
+
+/// 記事ごとの変換結果を、メタデータの一覧と、全記事を合わせた文字の集合に分けます。
+fn split_outputs(outputs: Vec<Option<PageOutput>>) -> (Vec<PageMetadata>, BTreeSet<char>) {
+    let mut metas = Vec::with_capacity(outputs.len());
+    let mut code_chars = BTreeSet::new();
+
+    for output in outputs.into_iter().flatten() {
+        metas.push(output.meta);
+        code_chars.extend(output.code_chars);
+    }
+
+    (metas, code_chars)
 }
 
 fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {

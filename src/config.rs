@@ -1,6 +1,6 @@
 use anyhow::Context;
 use serde::Deserialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const fn default_search_fp() -> f64 {
     0.0001f64
@@ -36,6 +36,30 @@ pub struct ProjectConfig {
     /// インターネット上へのリンクも扱えるよう、 PathBuf ではなく String で扱う
     #[serde(default)]
     pub css_list: Vec<String>,
+
+    /// コードブロックに使うフォント
+    /// 指定がなければ、同梱のフォントだけを使う
+    pub code_font: Option<CodeFontConfig>,
+}
+
+/// コードブロックに使うフォントの設定
+///
+/// フォント自体は zakki に同梱しません。日本語フォントはサブセット前の全字形が要るため、
+/// 実行ファイルが十数 MB ふくらむためです。利用者が手元のフォントを指す形にしています。
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CodeFontConfig {
+    /// フォントファイルのパス
+    /// TrueType アウトライン (`glyf`) を持つものに限る
+    pub path: PathBuf,
+
+    /// 1 つのファイルに複数のフォントが入っている場合 (`.ttc`) に、何番目を使うか
+    #[serde(default)]
+    pub index: u32,
+
+    /// 出力に添えるライセンス文書のパス
+    /// ライセンスはフォントごとに違うため、置き場所を zakki からは決められない
+    pub license: Option<PathBuf>,
 }
 
 impl ProjectConfig {

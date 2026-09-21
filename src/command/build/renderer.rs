@@ -5,6 +5,7 @@ mod page_meta;
 mod pass;
 mod url;
 
+use crate::command::build::code_font;
 use crate::command::build::renderer::html_component::{
     escape_html_text, footer, head, header, tag_elems,
 };
@@ -18,7 +19,7 @@ use anyhow::{Context as _, Result};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use pulldown_cmark::{Event, Options, Parser};
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
 pub use index::render_index;
@@ -26,6 +27,15 @@ pub use page_locs::PageLocs;
 pub use page_meta::PageMetadata;
 
 const FRONT_MATTER_DELIMITER: &str = "---";
+
+/// 1 つの記事を変換した結果です。
+pub struct PageOutput {
+    pub meta: PageMetadata,
+
+    /// コードブロックとインラインコードで使われた文字
+    /// 全記事ぶんを集めてからフォントのサブセットを作るため、ここでは記事ごとに返します。
+    pub code_chars: BTreeSet<char>,
+}
 
 pub struct Renderer<'a> {
     config: &'a ProjectConfig,
@@ -49,7 +59,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn render(&self, src_path: &Path) -> Result<Option<PageMetadata>> {
+    pub fn render(&self, src_path: &Path) -> Result<Option<PageOutput>> {
         let page_paths = PageLocs::new(src_path, self.pj_paths)?;
 
         if !src_path.extension_is("md") {
@@ -58,13 +68,13 @@ impl<'a> Renderer<'a> {
         }
 
         let content = std::fs::read_to_string(src_path)?;
-        let Some((html, meta)) = self.md_to_html(&content, &page_paths)? else {
+        let Some((html, output)) = self.md_to_html(&content, &page_paths)? else {
             return Ok(None);
         };
 
         util::write_file(page_paths.build_path, html)?;
 
-        Ok(Some(meta))
+        Ok(Some(output))
     }
 
     fn render_page(
@@ -83,9 +93,10 @@ impl<'a> Renderer<'a> {
 
         let css_list = self
             .config
-            .css_list
+            .code_font
             .iter()
-            .map(String::as_str)
+            .map(|_| code_font::CSS_PATH)
+            .chain(self.config.css_list.iter().map(String::as_str))
             .chain(pass_assets.css_paths.iter().map(String::as_str));
 
         let js_list = self.config.js_list.iter().map(String::as_str);
@@ -142,7 +153,7 @@ impl<'a> Renderer<'a> {
         &self,
         content: &str,
         page_paths: &PageLocs,
-    ) -> Result<Option<(String, PageMetadata)>> {
+    ) -> Result<Option<(String, PageOutput)>> {
         if !self.render_draft && self.pj_paths.is_draft(page_paths.src_path) {
             return Ok(None);
         }
@@ -168,6 +179,12 @@ impl<'a> Renderer<'a> {
         // 目次と索引は本文が確定してから作る。
         let toc = pass::make_toc(&events);
 
+        // フォントの指定がなければサブセットを作らないので、文字も集めない。
+        let code_chars = match self.config.code_font {
+            Some(_) => pass::collect_code_chars(&events),
+            None => BTreeSet::new(),
+        };
+
         // 非公開の記事は本文を渡さない。bloom filter は語の有無を問い合わせられるため、
         // 暗号化した本文に対して総当たりができてしまう。
         // タイトルは一覧にも metadata.js にも出ているので、索引に入れても変わらない。
@@ -192,7 +209,13 @@ impl<'a> Renderer<'a> {
             is_private: self.pj_paths.is_private(page_paths.src_path),
         };
 
-        Ok(Some((html, metadata)))
+        Ok(Some((
+            html,
+            PageOutput {
+                meta: metadata,
+                code_chars,
+            },
+        )))
     }
 }
 
