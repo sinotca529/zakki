@@ -49,44 +49,24 @@ pub fn convert_image(events: &mut Vec<Event<'_>>) {
 
 /// 画像そのものを組み立てます。SVG かどうかで要素が変わります。
 fn img_tag(url: &str, alt: &str, title: &str) -> String {
-    match url.ends_with(".svg") {
-        true => object_tag(url, alt, title),
-        false => {
-            let mut attrs = vec![("loading", "lazy"), ("src", url)];
-            if !alt.is_empty() {
-                attrs.push(("alt", alt));
-            }
-            if !title.is_empty() {
-                attrs.push(("title", title));
-            }
-            IMG.attrs(&attrs).build()
+    if url.ends_with(".svg") {
+        // SVG は object で埋め込む。img で読むと制限モードで描画され、中の文字を
+        // 選択できず、Ctrl+F でも引っかからず、支援技術からも alt しか見えない。
+        // object なら独立した文書として読まれるので、いずれも働く。
+        // なお loading="lazy" は object には効かない (img と iframe だけ)。
+        let mut attrs = vec![("type", "image/svg+xml"), ("data", url)];
+        if !title.is_empty() {
+            attrs.push(("title", title));
         }
+        return OBJECT.attrs(&attrs).build();
     }
-}
 
-/// SVG を `<object>` で埋め込みます。
-///
-/// `<img>` で読むと SVG は制限モードで描画され、中の文字を選択できず、
-/// Ctrl+F でも引っかからず、支援技術からも alt しか見えません。
-/// `<object>` なら独立した文書として読まれるので、いずれも働きます。
-///
-/// 中の `<img>` は、読み込みに失敗したときに代わりに表示されるものです。
-/// `aria-label` は、埋め込んだ文書に名前を与えます。
-///
-/// `loading="lazy"` は `<object>` には効きません (img と iframe だけです)。
-fn object_tag(url: &str, alt: &str, title: &str) -> String {
-    let mut attrs = vec![("type", "image/svg+xml"), ("data", url)];
+    let mut attrs = vec![("loading", "lazy"), ("src", url)];
     if !alt.is_empty() {
-        attrs.push(("aria-label", alt));
+        attrs.push(("alt", alt));
     }
     if !title.is_empty() {
         attrs.push(("title", title));
     }
-
-    let mut fallback = vec![("src", url)];
-    if !alt.is_empty() {
-        fallback.push(("alt", alt));
-    }
-
-    OBJECT.attrs(&attrs).html(IMG.attrs(&fallback).build())
+    IMG.attrs(&attrs).build()
 }
