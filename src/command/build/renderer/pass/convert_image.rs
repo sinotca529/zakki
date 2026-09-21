@@ -50,7 +50,10 @@ pub fn convert_image(events: &mut Vec<Event<'_>>) {
 /// 画像そのものを組み立てます。SVG かどうかで要素が変わります。
 fn img_tag(url: &str, alt: &str, title: &str) -> String {
     if url.ends_with(".svg") {
-        // 文字列を選択できるようにするため、 SVG は object ノードで囲む
+        // SVG は object で埋め込む。img で読むと制限モードで描画され、中の文字を
+        // 選択できず、Ctrl+F でも引っかからず、支援技術からも alt しか見えない。
+        // object なら独立した文書として読まれるので、いずれも働く。
+        // なお loading="lazy" は object には効かない (img と iframe だけ)。
         let mut attrs = vec![("type", "image/svg+xml"), ("data", url)];
         if !title.is_empty() {
             attrs.push(("title", title));
