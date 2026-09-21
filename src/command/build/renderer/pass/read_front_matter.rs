@@ -50,8 +50,9 @@ pub struct PageFrontMatter {
     pub create_date: Date,
 
     /// 記事の最終更新日
+    /// 省略できる。読むときは `last_update_date` を使う
     #[serde(rename = "update")]
-    pub last_update_date: Date,
+    update_date: Option<Date>,
 
     /// 記事のタイトル
     pub title: String,
@@ -65,6 +66,16 @@ pub struct PageFrontMatter {
 
     /// コードハイライトのルール
     pub highlights: Option<Vec<HighlightRule>>,
+}
+
+impl PageFrontMatter {
+    /// 記事の最終更新日です。
+    ///
+    /// `update` を省略した記事では作成日を返します。書いたその日に出す記事では
+    /// 2 つが同じ日付になるため、改訂したときだけ書けば済むようにしています。
+    pub fn last_update_date(&self) -> Date {
+        self.update_date.unwrap_or(self.create_date)
+    }
 }
 
 #[cfg(test)]
@@ -92,5 +103,27 @@ mod test {
                 .iter()
                 .any(|e| matches!(e, Event::Text(t) if t.contains("ひみつ")))
         );
+    }
+
+    fn front_matter_of(md: &str) -> super::PageFrontMatter {
+        let options = Options::ENABLE_YAML_STYLE_METADATA_BLOCKS;
+        let mut events: Vec<_> = Parser::new_ext(md, options).collect();
+        read_front_matter(&mut events).unwrap()
+    }
+
+    /// 書いたその日に出す記事で、同じ日付を 2 回書かずに済むようにしています。
+    #[test]
+    fn update_falls_back_to_create() {
+        let md = "---\ntitle: 題\ncreate: 2025-01-01\n---\n\n本文です。\n";
+        let front_matter = front_matter_of(md);
+        assert_eq!(front_matter.last_update_date(), front_matter.create_date);
+    }
+
+    /// 書いてあれば、そちらを使います。
+    #[test]
+    fn update_wins_when_written() {
+        let md = "---\ntitle: 題\ncreate: 2025-01-01\nupdate: 2025-03-04\n---\n\n本文です。\n";
+        let front_matter = front_matter_of(md);
+        assert_eq!(front_matter.last_update_date().to_string(), "2025-03-04");
     }
 }
