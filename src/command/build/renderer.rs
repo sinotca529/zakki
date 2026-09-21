@@ -32,9 +32,9 @@ const FRONT_MATTER_DELIMITER: &str = "---";
 pub struct PageOutput {
     pub meta: PageMetadata,
 
-    /// コードブロックとインラインコードで使われた文字
-    /// 全記事ぶんを集めてからフォントのサブセットを作るため、ここでは記事ごとに返します。
-    pub code_chars: BTreeSet<char>,
+    /// コード用フォントで描かれる文字
+    /// 全記事ぶんを集めてからサブセットを作るため、ここでは記事ごとに返します。
+    pub font_chars: BTreeSet<char>,
 }
 
 pub struct Renderer<'a> {
@@ -164,6 +164,13 @@ impl<'a> Renderer<'a> {
         // イベント列に対してパスを適用
         let front_matter = pass::read_front_matter(&mut events)?;
 
+        // フォントの指定がなければサブセットを作らないので、文字も集めない。
+        // キャプションが info string に残っているうちに数える。
+        let font_chars = match self.config.code_font {
+            Some(_) => pass::collect_font_chars(&events, &front_matter.tags),
+            None => BTreeSet::new(),
+        };
+
         let mut pass_assets = PassAssets::default();
         pass::validate_heading_order(&events)?;
         pass::assign_header_id(&mut events);
@@ -178,12 +185,6 @@ impl<'a> Renderer<'a> {
 
         // 目次と索引は本文が確定してから作る。
         let toc = pass::make_toc(&events);
-
-        // フォントの指定がなければサブセットを作らないので、文字も集めない。
-        let code_chars = match self.config.code_font {
-            Some(_) => pass::collect_code_chars(&events),
-            None => BTreeSet::new(),
-        };
 
         // 非公開の記事は本文を渡さない。bloom filter は語の有無を問い合わせられるため、
         // 暗号化した本文に対して総当たりができてしまう。
@@ -213,7 +214,7 @@ impl<'a> Renderer<'a> {
             html,
             PageOutput {
                 meta: metadata,
-                code_chars,
+                font_chars,
             },
         )))
     }

@@ -1,6 +1,17 @@
 use crate::command::build::renderer::html_component::{FIGCAPTION, FIGURE};
 use pulldown_cmark::{CodeBlockKind, CowStr, Event, Tag, TagEnd};
 
+/// コードブロックの info string を、言語名とキャプションに分けます。
+/// キャプションがなければ `None` を返します。
+///
+/// コードブロックのキャプションも `--code-font` で描かれるため、
+/// サブセットに残す文字を集めるパスが同じ規則を使います。
+pub(super) fn split_caption(info: &str) -> Option<(&str, &str)> {
+    info.split_once(':')
+        .map(|(lang, title)| (lang, title.trim()))
+        .filter(|(_, title)| !title.is_empty())
+}
+
 /// コードブロックの info string に `:タイトル` が含まれている場合、
 /// `<figure class="code-figure">` と `<figcaption>` で囲みます。
 ///
@@ -15,12 +26,7 @@ pub fn add_code_caption(events: &mut Vec<Event<'_>>) {
     for e in events.drain(..) {
         match e {
             Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(ref info))) => {
-                let caption = info
-                    .split_once(':')
-                    .map(|(lang, title)| (lang, title.trim()))
-                    .filter(|(_, title)| !title.is_empty());
-
-                let Some((lang, title)) = caption else {
+                let Some((lang, title)) = split_caption(info) else {
                     out.push(e);
                     continue;
                 };

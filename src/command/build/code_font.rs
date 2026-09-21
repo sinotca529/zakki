@@ -29,8 +29,8 @@ const BROTLI_QUALITY: u8 = 9;
 
 /// サブセットに必ず含める文字。
 ///
-/// タグやキャプションも `--code-font` で描かれます。ここに出る文字まで拾い切るのは
-/// 難しいので、少なくとも ASCII は揃えておきます。
+/// 検索窓も `--code-font` で描かれますが、閲覧する人が打つ文字は集められません。
+/// せめて ASCII は揃えておきます。
 const ALWAYS_INCLUDED: std::ops::RangeInclusive<char> = ' '..='~';
 
 /// `OS/2` の `fsType` のうち、許可なく埋め込めないことを表すビット。

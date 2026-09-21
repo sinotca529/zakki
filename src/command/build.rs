@@ -52,7 +52,7 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
         bail!("記事を変換できませんでした\n{list}");
     }
 
-    let (mut metas, code_chars) = split_outputs(outputs);
+    let (mut metas, font_chars) = split_outputs(outputs);
 
     // 新しい順に並べる
     metas.sort_unstable_by_key(|m| Reverse(m.update));
@@ -60,7 +60,7 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
     renderer::render_index(&cfg, pj_paths.build_dir(), &metas)?;
 
     if let Some(font) = &cfg.code_font {
-        code_font::output(font, &code_chars, pj_paths.build_dir())?;
+        code_font::output(font, &font_chars, pj_paths.build_dir())?;
     }
 
     output_sitemap(&cfg, &metas, pj_paths.build_dir())?;
@@ -72,14 +72,14 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
 /// 記事ごとの変換結果を、メタデータの一覧と、全記事を合わせた文字の集合に分けます。
 fn split_outputs(outputs: Vec<Option<PageOutput>>) -> (Vec<PageMetadata>, BTreeSet<char>) {
     let mut metas = Vec::with_capacity(outputs.len());
-    let mut code_chars = BTreeSet::new();
+    let mut font_chars = BTreeSet::new();
 
     for output in outputs.into_iter().flatten() {
         metas.push(output.meta);
-        code_chars.extend(output.code_chars);
+        font_chars.extend(output.font_chars);
     }
 
-    (metas, code_chars)
+    (metas, font_chars)
 }
 
 fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
