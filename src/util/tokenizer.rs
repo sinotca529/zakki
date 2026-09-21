@@ -33,23 +33,24 @@ fn class(c: char) -> Class {
 ///
 pub fn tokenize(text: &str) -> Vec<Cow<'_, str>> {
     let mut tokens = Vec::new();
-    let mut chars = text.char_indices().peekable();
+    let mut chars = text.char_indices();
 
-    while let Some((start, c)) = chars.next() {
-        let cls = class(c);
-        let mut end = start + c.len_utf8();
+    let Some((_, first)) = chars.next() else {
+        return tokens;
+    };
+    let mut start = 0;
+    let mut cls = class(first);
 
-        // 同じ種別が続く間を 1 つの run にする
-        while let Some(&(i, next)) = chars.peek() {
-            if class(next) != cls {
-                break;
-            }
-            end = i + next.len_utf8();
-            chars.next();
+    // 同じ種別が続く間を 1 つの run にする。種別は 1 文字につき 1 度だけ調べる
+    for (i, c) in chars {
+        let next = class(c);
+        if next != cls {
+            push_tokens(&mut tokens, cls, &text[start..i]);
+            start = i;
+            cls = next;
         }
-
-        push_tokens(&mut tokens, cls, &text[start..end]);
     }
+    push_tokens(&mut tokens, cls, &text[start..]);
 
     tokens
 }
@@ -58,20 +59,34 @@ fn push_tokens<'a>(tokens: &mut Vec<Cow<'a, str>>, cls: Class, run: &'a str) {
     match cls {
         Class::Sep => {}
         Class::Ascii => tokens.push(lower(run)),
-        Class::Wide => {
-            let mut prev = None;
-            for (i, c) in run.char_indices() {
-                if let Some(prev) = prev {
-                    tokens.push(lower(&run[prev..i + c.len_utf8()]));
-                }
-                prev = Some(i);
-            }
+        Class::Wide => push_bigrams(tokens, run),
+    }
+}
 
-            // 1 文字しかない run はバイグラムを作れないので、その文字自体をトークンにする
-            if prev == Some(0) {
-                tokens.push(lower(run));
-            }
+/// 文字バイグラムを積みます。
+///
+/// 小文字にする必要があるかは run 単位で調べます。日本語のように変わらない場合は、
+/// 部分文字列を借りたまま積めます。
+fn push_bigrams<'a>(tokens: &mut Vec<Cow<'a, str>>, run: &'a str) {
+    match lower(run) {
+        Cow::Borrowed(run) => each_bigram(run, |b| tokens.push(Cow::Borrowed(b))),
+        Cow::Owned(lowered) => each_bigram(&lowered, |b| tokens.push(Cow::Owned(b.to_owned()))),
+    }
+}
+
+/// 連続する 2 文字を順に渡します。1 文字しかない場合はその文字を渡します。
+fn each_bigram<'a>(run: &'a str, mut f: impl FnMut(&'a str)) {
+    let mut prev = None;
+
+    for (i, c) in run.char_indices() {
+        if let Some(prev) = prev {
+            f(&run[prev..i + c.len_utf8()]);
         }
+        prev = Some(i);
+    }
+
+    if prev == Some(0) {
+        f(run);
     }
 }
 
