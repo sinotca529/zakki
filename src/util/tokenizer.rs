@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 /// 文字の種別。
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Class {
@@ -29,7 +31,7 @@ fn class(c: char) -> Class {
 /// 文書側とクエリ側で切れ目が食い違って取りこぼすためです。
 /// (例: 文書が `ブルームフィルタ` を 1 語と切ると `フィルタ` で引けない)
 ///
-pub fn tokenize(text: &str) -> Vec<String> {
+pub fn tokenize(text: &str) -> Vec<Cow<'_, str>> {
     let mut tokens = Vec::new();
     let mut chars = text.char_indices().peekable();
 
@@ -52,24 +54,32 @@ pub fn tokenize(text: &str) -> Vec<String> {
     tokens
 }
 
-fn push_tokens(tokens: &mut Vec<String>, cls: Class, run: &str) {
+fn push_tokens<'a>(tokens: &mut Vec<Cow<'a, str>>, cls: Class, run: &'a str) {
     match cls {
         Class::Sep => {}
-        Class::Ascii => tokens.push(run.to_lowercase()),
+        Class::Ascii => tokens.push(lower(run)),
         Class::Wide => {
             let mut prev = None;
             for (i, c) in run.char_indices() {
                 if let Some(prev) = prev {
-                    tokens.push(run[prev..i + c.len_utf8()].to_lowercase());
+                    tokens.push(lower(&run[prev..i + c.len_utf8()]));
                 }
                 prev = Some(i);
             }
 
             // 1 文字しかない run はバイグラムを作れないので、その文字自体をトークンにする
             if prev == Some(0) {
-                tokens.push(run.to_lowercase());
+                tokens.push(lower(run));
             }
         }
+    }
+}
+
+/// 小文字にします。変える文字がなければ、借りたまま返します。
+fn lower(s: &str) -> Cow<'_, str> {
+    match s.chars().any(|c| c.to_lowercase().next() != Some(c)) {
+        true => Cow::Owned(s.to_lowercase()),
+        false => Cow::Borrowed(s),
     }
 }
 
