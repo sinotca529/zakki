@@ -52,6 +52,10 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
         bail!("記事を変換できませんでした\n{list}");
     }
 
+    if cfg.code_font.is_some() {
+        warn_private_code(&outputs);
+    }
+
     let (mut metas, font_chars) = split_outputs(outputs);
 
     // 新しい順に並べる
@@ -80,6 +84,24 @@ fn split_outputs(outputs: Vec<Option<PageOutput>>) -> (Vec<PageMetadata>, BTreeS
     }
 
     (metas, font_chars)
+}
+
+/// 非公開の記事のコードで使われた文字も、フォントのサブセットに残ることを伝えます。
+///
+/// 全記事を混ぜた集合なので、どの記事に出たかは分かりません。それでも、
+/// 公開した記事に出てこない文字が残れば、非公開の記事で使ったことは読み取れます。
+fn warn_private_code(outputs: &[Option<PageOutput>]) {
+    let count = outputs
+        .iter()
+        .flatten()
+        .filter(|o| o.meta.is_private && !o.font_chars.is_empty())
+        .count();
+
+    if count == 0 {
+        return;
+    }
+
+    eprintln!("警告: private の記事 {count} 件で使われた文字が、コード用フォントに含まれます");
 }
 
 fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
