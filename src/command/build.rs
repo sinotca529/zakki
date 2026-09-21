@@ -68,14 +68,6 @@ fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
     Ok(map)
 }
 
-/// 記事の URL を sitemap の `<loc>` に入れる形にします。
-///
-/// `publish_url` の末尾の `/` と、記事のパスの先頭の区切りを 1 つに揃えます。
-fn page_url(publish_url: &str, path: &str) -> String {
-    let publish_url = publish_url.trim_end_matches('/');
-    escape_xml_text(&format!("{publish_url}/{path}"))
-}
-
 /// XML の要素内容として使えるようエスケープします。
 ///
 /// ファイル名に `&` が入ると実体参照の開始として読まれ、文書全体が整形式でなくなります。
@@ -88,6 +80,7 @@ fn output_sitemap(cfg: &ProjectConfig, metas: &[PageMetadata], build_dir: &Path)
     let Some(pub_url) = cfg.publish_url.as_ref() else {
         return Ok(());
     };
+    let pub_url = pub_url.trim_end_matches('/');
 
     let mut xml = String::new();
     writeln!(&mut xml, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
@@ -100,10 +93,10 @@ fn output_sitemap(cfg: &ProjectConfig, metas: &[PageMetadata], build_dir: &Path)
         if m.is_private {
             continue;
         }
+        let loc = escape_xml_text(&format!("{pub_url}/{}", m.path));
         writeln!(
             &mut xml,
-            r#"  <url><loc>{}</loc><lastmod>{}</lastmod></url>"#,
-            page_url(pub_url, &m.path.to_string()),
+            r#"  <url><loc>{loc}</loc><lastmod>{}</lastmod></url>"#,
             m.update
         )?;
     }
@@ -136,26 +129,12 @@ fn output_metadatas(metas: Vec<PageMetadata>, build_dir: &Path) -> Result<()> {
 
 #[cfg(test)]
 mod test {
-    use super::page_url;
-
-    #[test]
-    fn puts_one_separator_between_url_and_path() {
-        assert_eq!(
-            page_url("https://example.com/", "public/a.html"),
-            "https://example.com/public/a.html"
-        );
-        assert_eq!(
-            page_url("https://example.com", "public/a.html"),
-            "https://example.com/public/a.html"
-        );
-    }
+    use super::escape_xml_text;
 
     /// `&` をそのまま置くと、XML のパーサが実体参照の開始として読みます。
     #[test]
-    fn escapes_ampersand_in_the_path() {
-        assert_eq!(
-            page_url("https://example.com", "public/a&copy.html"),
-            "https://example.com/public/a&amp;copy.html"
-        );
+    fn escapes_ampersand() {
+        assert_eq!(escape_xml_text("a&copy.html"), "a&amp;copy.html");
+        assert_eq!(escape_xml_text("a<b"), "a&lt;b");
     }
 }
