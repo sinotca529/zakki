@@ -173,6 +173,7 @@ impl<'a> Renderer<'a> {
 
         let mut pass_assets = PassAssets::default();
         pass::validate_heading_order(&events)?;
+        pass::insert_child_list(&mut events, page_paths.src_path, self.title_map);
         pass::assign_header_id(&mut events);
         pass::adjust_link(&mut events, page_paths.src_path, self.title_map)?;
         pass::convert_image(&mut events);
@@ -207,6 +208,7 @@ impl<'a> Renderer<'a> {
             path: page_paths.url_path.clone(),
             bloom: filter,
             is_sub: self.pj_paths.is_subpage(page_paths.src_path),
+            is_group: !pass::children_of(page_paths.src_path, self.title_map).is_empty(),
             is_private: self.pj_paths.is_private(page_paths.src_path),
         };
 

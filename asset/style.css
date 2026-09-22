@@ -163,6 +163,22 @@ main {
   content: " [private]";
 }
 
+.card.group .card-header::after {
+  content: " [group]";
+}
+
+/* まとめページに出す子の一覧 */
+
+.child-list {
+  list-style: none;
+  padding: 0;
+}
+
+.child-list li {
+  border-bottom: 1px solid var(--border);
+  padding: 0.35rem 0;
+}
+
 .card-meta {
   font-size: 0.9rem;
   color: var(--muted);

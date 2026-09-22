@@ -115,6 +115,7 @@ pub const P: Element<Normal> = Element::new("p");
 pub const SCRIPT: Element<Normal> = Element::new("script");
 pub const SPAN: Element<Normal> = Element::new("span");
 pub const SUMMARY: Element<Normal> = Element::new("summary");
+pub const UL: Element<Normal> = Element::new("ul");
 
 impl<K> Element<K> {
     const fn new(name: &'static str) -> Self {

@@ -16,6 +16,11 @@ pub struct PageMetadata {
     pub bloom: BloomFilter,
     #[serde(skip)]
     pub is_sub: bool,
+
+    /// 子を持つディレクトリの `index.md` かどうか
+    /// 一覧のカードの見た目を変えるために使います
+    #[serde(skip)]
+    pub is_group: bool,
     #[serde(skip)]
     pub is_private: bool,
 }
