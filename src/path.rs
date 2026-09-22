@@ -95,8 +95,52 @@ impl ProjectPaths {
     /// サブページとは、 public, private, draft 直下になく、かつ、名前が index ではないファイルである。
     /// サブページはトップページの記事一覧に表示されない。
     pub fn is_subpage(&self, src_path: &Path) -> bool {
-        let is_index = src_path.file_stem().map(|s| s == "index").unwrap_or(false);
+        !Self::is_index(src_path) && self.is_in_sub_dir(src_path)
+    }
+
+    /// 記事をまとめるディレクトリの `index.md` か否かを返す。
+    /// サブページと同じ位置にある index である。トップページの記事一覧には表示され、
+    /// カードに group クラスが付く。
+    pub fn is_group(&self, src_path: &Path) -> bool {
+        Self::is_index(src_path) && self.is_in_sub_dir(src_path)
+    }
+
+    fn is_index(src_path: &Path) -> bool {
+        src_path.file_stem().map(|s| s == "index").unwrap_or(false)
+    }
+
+    /// public, private, draft 直下より深い位置にあるか否かを返す。
+    fn is_in_sub_dir(&self, src_path: &Path) -> bool {
         let src_rel_path = src_path.strip_prefix(self.src_dir()).unwrap();
-        !is_index && src_rel_path.components().count() >= 3
+        src_rel_path.components().count() >= 3
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::ProjectPaths;
+    use std::path::PathBuf;
+
+    /// サブページと、記事をまとめる index は同じ位置にあります。
+    /// 分けるのは名前だけなので、両方を並べて確かめます。
+    #[test]
+    fn classifies_pages_by_place_and_name() {
+        let paths = ProjectPaths::new(PathBuf::from("site"));
+        let src = |rel: &str| PathBuf::from("site/src").join(rel);
+
+        let cases = [
+            // (パス, サブページか, まとめる index か)
+            ("public/index.md", false, false),
+            ("public/article.md", false, false),
+            ("public/series/index.md", false, true),
+            ("public/series/010-first.md", true, false),
+            ("private/series/index.md", false, true),
+        ];
+
+        for (rel, is_subpage, is_group) in cases {
+            let path = src(rel);
+            assert_eq!(paths.is_subpage(&path), is_subpage, "サブページ: {rel}");
+            assert_eq!(paths.is_group(&path), is_group, "まとめる index: {rel}");
+        }
     }
 }

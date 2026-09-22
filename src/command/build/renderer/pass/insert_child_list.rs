@@ -52,7 +52,7 @@ pub fn insert_child_list(
 ///
 /// 日付ではなくファイル名で並べるのは、連載の順序を書き手が決められるようにするためです。
 /// カテゴリをまとめるだけのページでも、同じ並べ方になります。
-pub fn children_of<'a>(
+fn children_of<'a>(
     src_path: &Path,
     title_map: &'a HashMap<PathBuf, String>,
 ) -> Vec<(&'a Path, &'a str)> {

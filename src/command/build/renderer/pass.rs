@@ -23,7 +23,7 @@ pub use convert_alert::convert_alert;
 pub use convert_image::convert_image;
 pub use convert_math::convert_math;
 pub use highlight_code::{HighlightRule, highlight_code};
-pub use insert_child_list::{children_of, insert_child_list};
+pub use insert_child_list::insert_child_list;
 pub use make_bloom_filter::make_bloom_filter;
 pub use make_toc::make_toc;
 pub use read_front_matter::PageFrontMatter;
