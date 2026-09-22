@@ -54,10 +54,17 @@ pub fn tag_elems(tags: &[String], url_to_root: &Url) -> String {
     tags.iter().map(|t| tag_link_html(t, url_to_root)).collect()
 }
 
+/// 設定に書かれた css と js の位置を、そのページから辿れる URL にします。
+///
+/// 先頭の `/` はサイトのルートとして読みます。そのまま出すとドメインの直下を指すため、
+/// サブディレクトリに置いたサイト (GitHub Pages のプロジェクトページなど) で読み込まれません。
+/// `//` で始まるものはプロトコル相対の URL なので、そのままにします。
 fn adjust_path_origin(path: &str, url_to_root: &Url) -> String {
-    if path.starts_with("http://") || path.starts_with("https://") || path.starts_with("/") {
+    if path.starts_with("http://") || path.starts_with("https://") || path.starts_with("//") {
         return path.to_string();
     }
+
+    let path = path.strip_prefix('/').unwrap_or(path);
     format!("{url_to_root}/{path}")
 }
 
@@ -240,7 +247,18 @@ mod test {
         assert_eq!(f("katex/katex.min.css"), "../katex/katex.min.css");
         assert_eq!(f("a%20b.css?v=2"), "../a%20b.css?v=2");
         assert_eq!(f("https://example.com/x.css"), "https://example.com/x.css");
-        assert_eq!(f("/assets/x.css"), "/assets/x.css");
+        assert_eq!(f("//example.com/x.css"), "//example.com/x.css");
+    }
+
+    /// `/assets/x.css` はドメインの直下を指します。サイトをサブディレクトリに置くと
+    /// そこにファイルはないので、サイトのルートからの位置として読み替えます。
+    #[test]
+    fn leading_slash_points_at_the_site_root() {
+        let sub = Url::from_relative_path(Path::new("..")).unwrap();
+        assert_eq!(adjust_path_origin("/assets/x.css", &sub), "../assets/x.css");
+
+        let root = Url::from_relative_path(Path::new(".")).unwrap();
+        assert_eq!(adjust_path_origin("/assets/x.css", &root), "./assets/x.css");
     }
 
     #[test]
