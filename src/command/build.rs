@@ -1,4 +1,5 @@
 mod assets;
+mod code_font;
 mod renderer;
 
 use crate::config::ProjectConfig;
@@ -9,9 +10,9 @@ use anyhow::{Context as _, Result, bail};
 use itertools::{Either, Itertools as _};
 use rayon::prelude::*;
 use renderer::extract_title_from_path;
-use renderer::{PageMetadata, Renderer};
+use renderer::{PageMetadata, PageOutput, Renderer};
 use std::cmp::Reverse;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
 pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
@@ -36,13 +37,13 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
     assets::copy_assets(pj_paths.build_dir())?;
 
     // Result のまま集める。1 件目のエラーで打ち切ると、残りの記事の問題が分からない。
-    let (metas, errors): (Vec<_>, Vec<_>) = files
+    let (outputs, errors): (Vec<_>, Vec<_>) = files
         .par_iter()
         .map(|p| renderer.render(p).with_context(|| p.display().to_string()))
         .collect::<Vec<_>>()
         .into_iter()
         .partition_map(|r| match r {
-            Ok(meta) => Either::Left(meta),
+            Ok(output) => Either::Left(output),
             Err(e) => Either::Right(e),
         });
 
@@ -51,17 +52,91 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> Result<()> {
         bail!("記事を変換できませんでした\n{list}");
     }
 
-    let mut metas: Vec<_> = metas.into_iter().flatten().collect();
+    let (mut metas, monospace_chars) = split_outputs(outputs);
 
     // 新しい順に並べる
     metas.sort_unstable_by_key(|m| Reverse(m.update));
 
     renderer::render_index(&cfg, pj_paths.build_dir(), &metas)?;
 
+    if let Some(font) = &cfg.code_font {
+        warn_private_only_chars(&monospace_chars);
+        code_font::output(font, &monospace_chars.all(), pj_paths.build_dir())?;
+    }
+
     output_sitemap(&cfg, &metas, pj_paths.build_dir())?;
     output_metadatas(metas, pj_paths.build_dir())?;
 
     Ok(())
+}
+
+/// 等幅で描く文字を、公開する記事と非公開の記事に分けて集めたものです。
+#[derive(Default)]
+struct MonospaceChars {
+    public: BTreeSet<char>,
+    private: BTreeSet<char>,
+}
+
+impl MonospaceChars {
+    /// サブセットに残す文字です。非公開の記事のぶんも要ります。
+    /// 外すと、その記事のコードだけ桁が揃わなくなります。
+    fn all(&self) -> BTreeSet<char> {
+        self.public.union(&self.private).copied().collect()
+    }
+
+    /// 非公開の記事にしか出てこない文字です。
+    /// 公開した記事にも出る文字は、フォントに残っていても何も示しません。
+    fn private_only(&self) -> BTreeSet<char> {
+        self.private.difference(&self.public).copied().collect()
+    }
+}
+
+/// 記事ごとの変換結果を、メタデータの一覧と、等幅で描く文字に分けます。
+fn split_outputs(outputs: Vec<Option<PageOutput>>) -> (Vec<PageMetadata>, MonospaceChars) {
+    let mut metas = Vec::with_capacity(outputs.len());
+    let mut chars = MonospaceChars::default();
+
+    for output in outputs.into_iter().flatten() {
+        let set = match output.meta.is_private {
+            true => &mut chars.private,
+            false => &mut chars.public,
+        };
+        set.extend(output.monospace_chars);
+        metas.push(output.meta);
+    }
+
+    (metas, chars)
+}
+
+/// 非公開の記事にしか出てこない文字を伝えます。
+///
+/// サブセットは全記事を混ぜた集合なので、どの記事に出たかは分かりません。
+/// それでも、公開した記事に出てこない文字が残れば、非公開の記事で使ったことは読み取れます。
+fn warn_private_only_chars(chars: &MonospaceChars) {
+    let leaked = chars.private_only();
+
+    if !leaked.is_empty() {
+        eprintln!("{}", private_only_warning(&leaked));
+    }
+}
+
+/// 並べて見せる字数の上限。超えたぶんは数だけ伝えます。
+const SHOWN_CHARS: usize = 40;
+
+fn private_only_warning(leaked: &BTreeSet<char>) -> String {
+    let shown = leaked
+        .iter()
+        .take(SHOWN_CHARS)
+        .map(char::to_string)
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    let rest = match leaked.len().saturating_sub(SHOWN_CHARS) {
+        0 => String::new(),
+        n => format!(" ほか {n} 字"),
+    };
+
+    format!("警告: 公開した記事に出てこない文字が、コード用フォントに残ります : {shown}{rest}")
 }
 
 fn collect_titles(files: &[PathBuf]) -> Result<HashMap<PathBuf, String>> {
@@ -145,7 +220,34 @@ fn output_metadatas(metas: Vec<PageMetadata>, build_dir: &Path) -> Result<()> {
 
 #[cfg(test)]
 mod test {
-    use super::escape_xml_text;
+    use super::{MonospaceChars, SHOWN_CHARS, escape_xml_text, private_only_warning};
+    use std::collections::BTreeSet;
+
+    fn set(s: &str) -> BTreeSet<char> {
+        s.chars().collect()
+    }
+
+    /// 公開した記事にも出る文字は、フォントに残っていても何も示しません。
+    #[test]
+    fn private_only_excludes_chars_that_public_pages_share() {
+        let chars = MonospaceChars {
+            public: set("abc"),
+            private: set("abz"),
+        };
+        assert_eq!(chars.private_only(), set("z"));
+        assert_eq!(chars.all(), set("abcz"));
+    }
+
+    /// 字数が多いときに全部並べると、警告が読めなくなります。
+    #[test]
+    fn warning_shows_the_rest_as_a_count() {
+        let few = set("ab");
+        assert!(private_only_warning(&few).ends_with(": a b"));
+
+        let many: BTreeSet<char> = ('a'..='z').chain('A'..='Z').collect();
+        let message = private_only_warning(&many);
+        assert!(message.ends_with(&format!(" ほか {} 字", many.len() - SHOWN_CHARS)));
+    }
 
     /// `&` をそのまま置くと、XML のパーサが実体参照の開始として読みます。
     #[test]

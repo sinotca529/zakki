@@ -1,12 +1,8 @@
-@font-face {
-  font-family: "Source Code Pro";
-  font-style: normal;
-  font-weight: normal;
-  src: url(font/SourceCodePro/SourceCodePro-Regular.otf.woff2) format("woff2");
-}
-
 :root {
-  --code-font: "Source Code Pro", Consolas, monospace;
+  /* コード用フォントの取りこぼしを受ける指定。
+     zakki.toml でフォントを指定すると、生成した CSS がこの前にもう 1 つ名前を足します。 */
+  --code-font-fallback: Consolas, monospace;
+  --code-font: var(--code-font-fallback);
   --bg: #c0c0c0;
   --fg: #000;
   --link: #000080;
@@ -92,7 +88,8 @@ p {
 
 #search-input {
   flex: 1;
-  font-family: var(--code-font);
+  /* 打った文字が等幅である必然性はないので、本文と同じ書体にする */
+  font-family: inherit;
   font-size: 1rem;
   border: 1px solid var(--border);
   padding: 0.2rem 0.4rem;
@@ -192,7 +189,6 @@ main {
   display: inline-block;
   border: 1px solid var(--border);
   padding: 0.1rem 0.35rem;
-  font-family: var(--code-font);
   font-size: 0.8rem;
   text-decoration: none;
   color: inherit;

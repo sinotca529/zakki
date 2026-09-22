@@ -39,11 +39,5 @@ pub fn copy_assets(build_dir: &Path) -> anyhow::Result<()> {
         "KaTeX_Typewriter-Regular.woff2",
     );
 
-    copy_asset!("font/SourceCodePro/LICENSE.md", build_dir)?;
-    copy_asset!(
-        "font/SourceCodePro/SourceCodePro-Regular.otf.woff2",
-        build_dir
-    )?;
-
     Ok(())
 }
