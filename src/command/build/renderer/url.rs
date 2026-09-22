@@ -24,6 +24,14 @@ impl Url {
                 }
             }
         }
+
+        // 区画が 1 つもなければ `.` にします。空にすると、前置きとして使う側が
+        // `{url_to_root}/style.css` のように `/` で始まる URL を書き、
+        // サブディレクトリに置いたサイトでドメインの直下を指してしまいます。
+        if segs.is_empty() {
+            return Ok(Self(".".to_string()));
+        }
+
         Ok(Self(segs.join("/")))
     }
 
@@ -73,6 +81,9 @@ mod test {
             ("public/sp ace.html", "public/sp%20ace.html"),
             ("public/a#b.html", "public/a%23b.html"),
             ("../..", "../.."),
+            // サイトのルートにあるページから見たルートの位置
+            (".", "."),
+            ("", "."),
         ];
         for (input, want) in cases {
             let url = Url::from_relative_path(Path::new(input)).unwrap();
