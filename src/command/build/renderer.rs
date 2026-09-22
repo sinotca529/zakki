@@ -208,7 +208,7 @@ impl<'a> Renderer<'a> {
             path: page_paths.url_path.clone(),
             bloom: filter,
             is_sub: self.pj_paths.is_subpage(page_paths.src_path),
-            is_group: !pass::children_of(page_paths.src_path, self.title_map).is_empty(),
+            is_group: self.pj_paths.is_group(page_paths.src_path),
             is_private: self.pj_paths.is_private(page_paths.src_path),
         };
 

@@ -17,7 +17,7 @@ pub struct PageMetadata {
     #[serde(skip)]
     pub is_sub: bool,
 
-    /// 子を持つディレクトリの `index.md` かどうか
+    /// 記事をまとめるディレクトリの `index.md` かどうか
     /// 一覧のカードの見た目を変えるために使います
     #[serde(skip)]
     pub is_group: bool,
