@@ -44,7 +44,10 @@ fn cards_html(metas: &[PageMetadata]) -> String {
         .iter()
         .filter(|m| !m.is_sub)
         .map(|m| {
-            let extra_class = if m.is_private { " crypto" } else { "" };
+            let extra_class = [(m.is_private, " crypto"), (m.is_group, " group")]
+                .into_iter()
+                .filter_map(|(on, class)| on.then_some(class))
+                .collect::<String>();
 
             let tag_links: String = m
                 .tags
