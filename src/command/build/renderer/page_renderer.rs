@@ -136,11 +136,22 @@ impl<'a> PageRenderer<'a> {
         // Markdown をイベント列に変換
         let mut events: Vec<_> = Parser::new_ext(content, markdown_options()).collect();
 
-        // イベント列に対してパスを適用
+        // ここから下はイベント列を順に書き換えます。並びには次の決まりがあります。
+        // 入れ替えてもコンパイルは通り、出力だけが変わります。
+        //
+        // - read_front_matter が最初。ヘッダのイベントを取り除くので、後のパスは本文だけを見ます。
+        //   パスワードが検索の索引に載らないのも、この順序によります
+        // - collect_monospace_chars は add_code_caption より前。キャプションは info string にあり、
+        //   add_code_caption がそこから取り出して消します
+        // - assign_header_id は make_toc より前。make_toc は見出しの id を読み、無ければ落ちます
+        // - highlight_code は make_bloom_filter より前。区切り文字はここで取り除かれるので、
+        //   索引に載りません
+        //
+        // ほかの組み合わせでは、触るイベントが重なりません。並びを変えるときは、
+        // 生成したサイトを変更前と比べてください。
         let front_matter = pass::read_front_matter(&mut events)?;
 
-        // フォントの指定がなければサブセットを作らないので、文字も集めない。
-        // キャプションが info string に残っているうちに数える。
+        // フォントの指定がなければサブセットを作らないので、文字も集めません。
         let monospace_chars = match self.config.code_font {
             Some(_) => pass::collect_monospace_chars(&events),
             None => BTreeSet::new(),
