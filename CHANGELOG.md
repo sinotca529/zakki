@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.1](https://github.com/sinotca529/zakki/compare/v0.20.0...v0.20.1) - 2026-09-23
+
+### Added
+
+- サブページの一覧を index に自動で出す
+- Source Code Pro の同梱をやめる
+- ttc の中のフォントを名前で選ぶ
+- private の記事の文字が混ざることを警告する
+- タグとキャプションの文字もサブセットに残す
+- コードブロックのフォントをサブセットして配る
+
+### Fixed
+
+- group の判定を、まとめるディレクトリの index.md に限る
+- css と js のパスの先頭の / をサイトのルートとして読む
+- サイトのルートに置くページで css と js の URL が / で始まる問題を修正
+- タグを等幅にしない
+- 警告を、非公開の記事にしかない文字に絞る
+- ASCII を常に含めるのをやめる
+- 検索窓を等幅にしない
+
+### Other
+
+- 作業の分担を、設計の力が伸びるかどうかで分ける
+- Merge remote-tracking branch 'origin/main' into feat/children-list
+- 生成する CSS を asset に出す
+- README にコードブロックのフォントの設定を書く
+
 ## [0.20.0](https://github.com/sinotca529/zakki/compare/v0.19.0...v0.20.0) - 2026-09-21
 
 ### Added
