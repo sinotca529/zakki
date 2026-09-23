@@ -126,6 +126,14 @@ impl<'a> MetaRenderer<'a> {
             urls
         )
     }
+
+    /// XML の要素内容として使えるようエスケープします。
+    ///
+    /// ファイル名に `&` が入ると実体参照の開始として読まれ、文書全体が整形式でなくなります。
+    /// `Url` は `&` をパーセントエンコードしないため、ここで実体参照に置き換えます。
+    fn escape_xml_text(text: &str) -> String {
+        text.replace('&', "&amp;").replace('<', "&lt;")
+    }
 }
 
 // ページ情報
@@ -149,14 +157,6 @@ impl<'a> MetaRenderer<'a> {
         let bloom_filter_path = self.pj_paths.build_dir().join("bloom_filter.js");
         util::write_file(bloom_filter_path, js)?;
         Ok(())
-    }
-
-    /// XML の要素内容として使えるようエスケープします。
-    ///
-    /// ファイル名に `&` が入ると実体参照の開始として読まれ、文書全体が整形式でなくなります。
-    /// `Url` は `&` をパーセントエンコードしないため、ここで実体参照に置き換えます。
-    fn escape_xml_text(text: &str) -> String {
-        text.replace('&', "&amp;").replace('<', "&lt;")
     }
 }
 
