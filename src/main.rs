@@ -1,6 +1,8 @@
 mod command;
 mod config;
+mod crypt;
 mod path;
+mod search;
 mod util;
 
 use anyhow::Result;

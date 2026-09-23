@@ -1,4 +1,4 @@
-use crate::util::{self, BloomFilter};
+use crate::search::{self, BloomFilter};
 use pulldown_cmark::Event;
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -12,11 +12,11 @@ use std::collections::HashSet;
 /// LaTeX を入れると `frac` や `sum` が索引に載り、数式を含む記事すべてに当たります。
 /// 描画結果の `x2` も打たれない文字列です。
 pub fn make_bloom_filter(events: &[Event], title: &str, fp: f64) -> BloomFilter {
-    let mut words: HashSet<Cow<'_, str>> = util::tokenize(title).into_iter().collect();
+    let mut words: HashSet<Cow<'_, str>> = search::tokenize(title).into_iter().collect();
 
     for e in events {
         match e {
-            Event::Text(t) | Event::Code(t) => words.extend(util::tokenize(t)),
+            Event::Text(t) | Event::Code(t) => words.extend(search::tokenize(t)),
             _ => {}
         }
     }
