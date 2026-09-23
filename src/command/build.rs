@@ -40,15 +40,11 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> anyhow::Result<()> 
     let (mut metas, errors): (Vec<_>, Vec<_>) = files
         .par_iter()
         .map(|p| renderer.render(p).with_context(|| p.display().to_string()))
-        .filter(|r| !matches!(r, Ok(None)))
+        .filter_map(|r| r.transpose())
         .partition_map(|r| match r {
-            // Ok(None) は filter で除外済み
-            Ok(output) => Either::Left(output.expect("Ok(None) は filter で除外済み")),
+            Ok(output) => Either::Left(output),
             Err(e) => Either::Right(e),
         });
-
-    metas.sort_unstable_by_key(|m| Reverse(m.update));
-    let metas = metas; // freeze
 
     if !errors.is_empty() {
         let list = errors.iter().map(|e| format!("{e:#}")).join("\n");
@@ -56,6 +52,7 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> anyhow::Result<()> 
     }
 
     let mr = MetaRenderer::new(&cfg, pj_paths);
+    metas.sort_unstable_by_key(|m| Reverse(m.update));
     mr.render(&metas)?;
 
     Ok(())

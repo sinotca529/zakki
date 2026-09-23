@@ -28,6 +28,12 @@ impl<'a> MetaRenderer<'a> {
         self.output_bloom_index(metas)?;
         Ok(())
     }
+}
+
+// 等幅フォント
+impl<'a> MetaRenderer<'a> {
+    /// 並べて見せる字数の上限。超えたぶんは数だけ伝えます。
+    const SHOWN_CHARS: usize = 40;
 
     fn output_monospace_font_file(&self, metas: &[PageMetadata]) -> anyhow::Result<()> {
         let monospace_chars = self.collect_monospace_chars(metas);
@@ -38,7 +44,7 @@ impl<'a> MetaRenderer<'a> {
         Ok(())
     }
 
-    /// 記事ごとの変換結果を、メタデータの一覧と、等幅で描く文字に分けます。
+    /// 記事ごとの変換結果から等幅で描く文字を抽出します
     fn collect_monospace_chars(&self, metas: &[PageMetadata]) -> MonospaceChars {
         let mut chars = MonospaceChars::default();
 
@@ -64,9 +70,6 @@ impl<'a> MetaRenderer<'a> {
         }
     }
 
-    /// 並べて見せる字数の上限。超えたぶんは数だけ伝えます。
-    const SHOWN_CHARS: usize = 40;
-
     fn private_only_warning(leaked: &BTreeSet<char>) -> String {
         let shown = leaked
             .iter()
@@ -82,7 +85,10 @@ impl<'a> MetaRenderer<'a> {
 
         format!("警告: 公開した記事に出てこない文字が、コード用フォントに残ります : {shown}{rest}")
     }
+}
 
+// サイトマップ
+impl<'a> MetaRenderer<'a> {
     fn output_sitemap(&self, metas: &[PageMetadata]) -> anyhow::Result<()> {
         let Some(pub_url) = self.cfg.publish_url.as_ref() else {
             return Ok(());
@@ -120,9 +126,12 @@ impl<'a> MetaRenderer<'a> {
             urls
         )
     }
+}
 
-    // METADATA を書き出します
-    // どちらも metas を先頭から順に並べるため、添字が同じ要素が同じ記事を指します。
+// ページ情報
+impl<'a> MetaRenderer<'a> {
+    /// METADATA を書き出します。
+    /// 書き出し順は BLOOM_FILTER と統一します。
     fn output_pagemeta(&self, metas: &[PageMetadata]) -> anyhow::Result<()> {
         let json = serde_json::to_string(metas)?;
         let js = format!("const METADATA={json}");
@@ -131,7 +140,8 @@ impl<'a> MetaRenderer<'a> {
         Ok(())
     }
 
-    // BLOOM_FILTER を書き出します。
+    /// BLOOM_FILTER を書き出します。
+    /// 書き出し順は METADATA と統一します。
     fn output_bloom_index(&self, metas: &[PageMetadata]) -> anyhow::Result<()> {
         let blooms: Vec<_> = metas.iter().map(|o| &o.bloom).collect();
         let json = serde_json::to_string(&blooms)?;
