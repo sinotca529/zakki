@@ -1,419 +1,514 @@
 :root {
-  /* コード用フォントの取りこぼしを受ける指定。
-     zakki.toml でフォントを指定すると、生成した CSS がこの前にもう 1 つ名前を足します。 */
-  --code-font-fallback: Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN",
+          "Noto Sans JP", "Yu Gothic UI", Meiryo, sans-serif;
+  /* コードに使う等幅。zakki.toml に code_font を書くと、zakki が作った
+     CSS がこの後に読まれ、--code-font を "zakki-code" 入りに差し替えます。
+     その CSS は --code-font-fallback を参照するので、ここで定義します。 */
+  --code-font-fallback: Consolas, "Courier New", monospace;
   --code-font: var(--code-font-fallback);
-  --bg: #c0c0c0;
-  --fg: #000;
-  --link: #000080;
-  --muted: #444;
-  --border: #808080;
-  --code-bg: #a8a8a8;
-  --code-fg: #600000;
+  --mono: var(--code-font);
+
+  /* 日付、タグ、札などの小さな文字に使う等幅。zakki-code は使いません。
+     サブセットに残るのは、コードブロック、インラインコード、コードブロックの
+     キャプションに出てきた文字だけです。日付やタグの文字は入らないので、
+     --mono を当てると字ごとに予備のフォントへ落ち、1 行の中で書体が混ざります。 */
+  --label: var(--code-font-fallback);
+
+  /* 地は白に近い明るさです。色は 2 つで、それぞれ別の意味を持たせます */
+  --ground: #fbfbfc;
+  --panel: #f2f2f4;   /* コードなどの面。地より少し暗い */
+  --field: #ffffff;   /* 入力欄 */
+  --ink: #1b1b1f;
+  --ink-2: #62656d;
+  --rule: #dcdde1;
+  --rule-2: #85898f;
+  --link: #1f3a5f;    /* 藍。リンク */
+  --code: #a8452a;    /* 朱。コード片 */
+  --flag: #a8452a;    /* 注意 */
+
+  /* 本文の幅。40rem で 1 行 40 字、48rem で 48 字です。
+     ヘッダ、本文、フッタがこの幅で揃います。 */
+  --measure: 48rem;
+  /* 本文の左右に空ける量。この幅は --measure の外側に付きます */
+  --gutter: 1.5rem;
 }
 
-/* ベース */
+/* width と max-width に padding と border を含めます。既定では内側の寸法だけを
+   指すので、両方を書いた main やヘッダで、外寸と行の長さが padding のぶん広がります */
+*, *::before, *::after { box-sizing: border-box; }
 
-html {
-  background: var(--bg);
-}
+html { background: var(--ground); }
 
 body {
-  font-family: sans-serif;
-  background: var(--bg);
-  color: var(--fg);
   margin: 0;
-  line-height: 1.6;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  /* 17px です。rem で書くので、ブラウザの文字サイズの設定を変えると一緒に動きます */
+  font-size: 1.0625rem;
+  /* 和文のゴシックは字面が大きいので、行間を広めに取ります */
+  line-height: 1.7;
+  line-break: strict;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
 }
 
-a {
-  color: var(--link);
+/* script.js はタグで絞り込むときに hidden 属性で要素を隠します。
+   作成者スタイルシートはユーザーエージェントスタイルシートより優先されるので、
+   .card などに display を書くと隠れなくなります。それを防ぎます。 */
+[hidden] { display: none !important; }
+
+a { color: var(--link); text-underline-offset: 0.16em; }
+
+:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+p { margin: 0 0 0.6em; }
+
+/* ヘッダ、本文、フッタに同じ幅を与えて、左右の端を揃えます。
+   面の色を持たないので、見た目に出るのは文字の行頭と行末の位置だけです。 */
+.site-header,
+main,
+footer {
+  width: 100%;
+  max-width: calc(var(--measure) + var(--gutter) * 2);
+  margin-inline: auto;
 }
 
-/* script.js は要素を隠すのに hidden 属性を使う。ユーザーエージェント
-   スタイルシートの [hidden] { display: none } より作成者スタイルシートが
-   優先されるため、.card などに display を書くと隠れなくなる。それを防ぐ。 */
-[hidden] {
-  display: none !important;
-}
-
-p {
-  margin: 0 0 1em;
-}
-
-/* スクロール */
-
-.x-scroll {
-  overflow-x: auto;
-}
-
-/* ヘッダー */
+/* ヘッダ */
 
 .site-header {
-  border-bottom: 2px solid var(--fg);
-  padding: 0.75rem 1rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  column-gap: 1rem;
+  padding: 1.1rem var(--gutter) 0.6rem;
+  border-bottom: 1px solid var(--rule-2);
+  margin-bottom: 1.2rem;
 }
 
-.header-inner {
-  max-width: 900px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
+.header-inner { grid-column: 1; }
 
-.site-title {
-  margin: 0;
-  font-size: 1.5rem;
-}
-
-.site-title a {
-  text-decoration: none;
-  color: inherit;
-}
-
-
-/* 検索 */
+.site-title { margin: 0; font-family: var(--sans); font-size: 1.125rem; font-weight: 700; line-height: 1.4; }
+.site-title a { color: var(--ink); text-decoration: none; }
 
 .site-search {
-  max-width: 900px;
-  margin: 0.5rem auto 0;
-  padding: 0 1rem;
+  grid-column: 2;
   display: flex;
-  gap: 0.5rem;
+  width: 12rem;
+  max-width: 38vw;
 }
 
 #search-input {
   flex: 1;
-  /* 打った文字が等幅である必然性はないので、本文と同じ書体にする */
-  font-family: inherit;
-  font-size: 1rem;
-  border: 1px solid var(--border);
+  min-width: 0;
+  font-family: var(--sans);
+  font-size: 0.8125rem;
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--rule);
   padding: 0.2rem 0.4rem;
-  background: var(--bg);
-  color: var(--fg);
 }
 
+#search-input:focus { border-color: var(--rule-2); }
+
+#search-input::placeholder { color: var(--ink-2); }
+
+/* 検索結果はヘッダの全幅を使います */
 #search-result {
-  max-width: 900px;
-  margin: 0.5rem auto 0;
-  padding: 0.5rem 1rem;
-  border-top: 1px solid var(--border);
+  grid-column: 1 / -1;
+  margin: 0.6rem 0 0;
+  font-size: 0.9375rem;
 }
-
-#search-result:empty {
-  display: none;
-}
-
-#search-result a {
-  font-weight: bold;
-}
-
-.search-hit {
-  margin-bottom: 0.4rem;
-}
-
-.search-result-meta {
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-/* メインコンテンツ */
+#search-result:empty { display: none; }
+#search-result a { font-weight: 700; }
+.search-hit { margin-bottom: 0.4rem; }
+.search-result-meta { margin-left: 0.6em; font-family: var(--label); font-size: 0.75rem; color: var(--ink-2); }
 
 main {
-  max-width: 900px;
-  width: 100%;
-  margin: 1.5rem auto;
-  padding: 0 1rem;
   flex: 1;
-  box-sizing: border-box;
+  padding: 0 var(--gutter) 1.75rem;
 }
-
-/* カード (インデックスページ) */
-
-.card {
-  position: relative;
-  border: 1px solid var(--border);
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.75rem;
-  color: inherit;
-}
-
-.card:hover {
-  background: var(--code-bg);
-}
-
-/* カード全体をリンクにする (stretched link パターン) */
-.card-link {
-  text-decoration: none;
-  color: inherit;
-  font-weight: bold;
-}
-
-.card-link::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-}
-
-.card.crypto .card-header::after {
-  content: " [private]";
-}
-
-.card.group .card-header::after {
-  content: " [group]";
-}
-
-/* まとめページに出す子の一覧 */
-
-.child-list {
-  list-style: none;
-  padding: 0;
-}
-
-.child-list li {
-  border-bottom: 1px solid var(--border);
-  padding: 0.35rem 0;
-}
-
-.card-meta {
-  font-size: 0.9rem;
-  color: var(--muted);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-/* card-link の上に重ねる */
-.card-tags {
-  position: relative;
-  z-index: 1;
-}
-
-/* タグ */
-
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
-.tag {
-  display: inline-block;
-  border: 1px solid var(--border);
-  padding: 0.1rem 0.35rem;
-  font-size: 0.8rem;
-  text-decoration: none;
-  color: inherit;
-}
-
-.tag:hover {
-  background: var(--fg);
-  color: var(--bg);
-}
-
-#tag-filter:not(:empty)::before {
-  content: "Filtered by: ";
-}
-
-/* ページタイトル */
 
 .page-title {
-  margin: 0 0 0.5rem;
-  font-size: 1.75rem;
-  line-height: 1.3;
+  margin-block: 0 0.5rem;
+  font-family: var(--sans);
+  font-size: 1.625rem;
+  font-weight: 700;
+  line-height: 1.45;
+  text-wrap: balance;
 }
 
-/* 日付・タグのメタ情報 */
-
+/* 日付とタグは等幅の小さな 1 行にまとめます。区切り線は引きません */
 .page-meta {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border);
+  align-items: baseline;
+  gap: 0.3rem 1rem;
+  margin-bottom: 1rem;
+  font-family: var(--label);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
 }
 
-.date {
-  font-size: 0.9rem;
-  color: var(--muted);
-}
 
-.date svg {
-  fill: currentColor;
-}
+/* カレンダーのアイコンは出しません。日付であることは書式で分かります */
+.date svg { display: none; }
 
 /* 目次 */
 
-.toc { border: 1px solid var(--border); padding: 0.5rem 0.75rem; margin: 1rem 0; }
-.toc summary { cursor: pointer; font-weight: bold; }
-.toc ol { margin: 0.5rem 0 0; padding-left: 1rem; }
+/* 目次は枠で囲まず、左の罫線だけで示します */
+.toc {
+  margin: 0 0 1rem;
+  font-family: var(--sans);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+}
+.toc summary {
+  cursor: pointer;
+  width: fit-content;
+  font-family: var(--label);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+}
+.toc summary:hover { color: var(--link); }
+.toc[open] summary { margin-bottom: 0.35rem; }
+.toc ol {
+  margin: 0;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--rule);
+  font-size: 0.8125rem;
+  line-height: 1.75;
+  color: var(--ink-2);
+}
 .toc li { list-style: none; }
-.toc a { text-decoration: none; }
-.toc a:hover { text-decoration: underline; }
+.toc ol ol { padding-left: 1em; border-left: 0; }
+.toc a { text-decoration: none; color: inherit; }
+.toc a:hover { color: var(--link); text-decoration: underline; }
 
-/* 見出し */
-
+/* 見出し。段階は大きさと余白で付けます。罫線は見出しの上に引き、
+   次の節の始まりを示します */
 h2 {
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 0.2rem;
-  margin-top: 2rem;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 1.25rem;
+  line-height: 1.5;
+  margin: 1.75rem 0 0.5rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--rule-2);
+  text-wrap: balance;
 }
 
-.section-number { color: var(--muted); }
+h3 {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  margin: 1.1rem 0 0.3rem;
+}
 
-/* コード */
+h4 {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 0.9rem 0 0.25rem;
+}
 
+/* 番号は見出しの文字のすぐ前に置きます。幅を固定して列にすると、
+   番号が短い段で見出しとの間が大きく空きます。
+   書体と大きさは指定せず、見出しに合わせます。太さと色だけ落として、
+   見出しの文字より後ろに引きます */
+.section-number {
+  margin-right: 0.6em;
+  font-weight: 400;
+  color: var(--ink-2);
+}
+
+ul, ol { margin: 0 0 0.6em; padding-left: 1.4em; }
+li { margin-bottom: 0.1em; }
+
+/* コード。枠は引かず、面の色だけで本文と分けます */
 pre {
-  background: var(--code-bg);
-  border: 1px solid var(--border);
-  padding: 0.75rem 1rem;
+  background: var(--panel);
+  padding: 0.85rem 1rem;
+  margin: 0.8rem 0;
   overflow-x: auto;
-  margin: 1rem 0;
+  /* 字の大きさは pre に持たせます。code 側に書くと、行の高さを決める
+     pre の文字の大きさ (本文と同じ) と食い違い、line-height: 1 でも
+     その差のぶん行間が空きます。
+     0.85 は GitHub の Markdown と同じ比率です。 */
+  font-size: 0.85em;
+  /* 罫線が縦に途切れないよう 1 にします。1 より大きいと行間が空き、
+     ─ や │ の端が上下の行とつながりません。 */
+  line-height: 1;
 }
 
-pre > code {
-  font-family: var(--code-font);
-  font-size: 0.95rem;
-}
+pre > code { font-family: var(--mono); font-size: inherit; }
 
+/* 欧文のサイトの相場は 0.85em から 0.875em です。和文はかな漢字が
+   全角いっぱいに描かれるので、同じ比率では小さく見えます。背景の箱も
+   付けないため、箱が行をまたいで重なるのを避ける必要もありません */
 :not(pre) > code {
-  font-family: var(--code-font);
-  color: var(--code-fg);
+  font-family: var(--mono);
+  font-size: 0.95em;
+  color: var(--code);
 }
 
-/* コードブロック caption */
+figure.code-figure { margin: 0.8rem 0; }
 
-figure.code-figure {
-  text-align: left;
-  margin: 1rem 0;
-}
-
+/* 見出しはコードの面に重ねず、上に置く小さな行にします */
 figure.code-figure figcaption {
-  font-size: 0.85rem;
-  font-family: var(--code-font);
-  background: var(--code-bg);
-  border: 1px solid var(--border);
-  border-bottom: none;
-  padding: 0.2rem 1rem;
-  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+  margin-bottom: 0.25rem;
 }
 
-figure.code-figure pre {
-  margin-top: 0;
-}
+figure.code-figure pre { margin-top: 0; }
 
-/* テーブル */
+/* 数式 */
+
+/* katex.min.css は .katex に font-size: 1.21em を当てます。KaTeX の書体は
+   Computer Modern 系で字が小さく描かれるため、欧文の本文に合わせた値です。
+   和文の本文に対しては大きいので下げます。LaTeX は本文中の数式を拡大せず、
+   jsarticle の和文は欧文の 0.9247 倍なので、和文から見た数式は約 1.08 倍です。
+   katex.min.css は style.css より後に読まれるので、詳細度を上げて勝たせます。 */
+#article .katex { font-size: 1.1em; }
+
+/* 表 */
+
+.x-scroll { overflow-x: auto; }
 
 table {
+  font-family: var(--sans);
   border-collapse: collapse;
-  margin: 1rem auto;
+  margin: 0.8rem auto;
+  font-size: 0.875rem;
+  line-height: 1.6;
 }
 
+/* 縦の罫線は引かず、横罫だけで行を分けます */
 td, th {
-  border: 1px solid var(--border);
-  padding: 0.3rem 0.6rem;
-  white-space: nowrap;
+  border-bottom: 1px solid var(--rule);
+  padding: 0.35rem 1.2rem 0.35rem 0;
+  text-align: left;
+  vertical-align: top;
 }
 
-th {
-  background: var(--code-bg);
+tr > :last-child { padding-right: 0; }
+
+/* 見出しの行は、面の色ではなく書体と太めの罫線で示します */
+thead th {
+  border-bottom: 1px solid var(--rule-2);
+  font-family: var(--label);
+  font-weight: 400;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
 }
 
 /* 引用 */
 
 blockquote {
-  border-left: 3px solid var(--border);
-  margin: 1rem 0;
-  padding: 0.25rem 1rem;
-  color: var(--muted);
+  margin: 0.8rem 0;
+  padding: 0 0 0 1rem;
+  border-left: 3px solid var(--rule-2);
+  color: inherit;
 }
 
 blockquote > :first-child { margin-top: 0; }
-blockquote > :last-child  { margin-bottom: 0; }
+blockquote > :last-child { margin-bottom: 0; }
 
-/* 注記 (> [!NOTE] など) */
-
-/* 注記は <aside class="markdown-alert markdown-alert-note"> として出力し、
-   その先頭に <p class="markdown-alert-title">Note</p> を置く。
-   種別ごとの色は --alert-color に持たせ、枠線と見出しの両方から参照する。 */
+/* 注記。種別の名前を等幅の小さなラベルにします */
 
 .markdown-alert {
-  --alert-color: var(--border);
+  --alert-color: var(--rule-2);
+  margin: 0.8rem 0;
+  padding: 0 0 0 1rem;
   border-left: 3px solid var(--alert-color);
-  margin: 1rem 0;
-  padding: 0.25rem 1rem;
 }
 
 .markdown-alert > :first-child { margin-top: 0; }
-.markdown-alert > :last-child  { margin-bottom: 0; }
+.markdown-alert > :last-child { margin-bottom: 0; }
 
 .markdown-alert-title {
-  font-weight: bold;
+  font-family: var(--label);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--alert-color);
+  margin-bottom: 0.15rem;
 }
 
-.markdown-alert-note      { --alert-color: #000080; }
-.markdown-alert-tip       { --alert-color: #006000; }
-.markdown-alert-important { --alert-color: #500080; }
-.markdown-alert-warning   { --alert-color: #805000; }
-.markdown-alert-caution   { --alert-color: #800000; }
+.markdown-alert-note      { --alert-color: var(--link); }
+.markdown-alert-tip       { --alert-color: #2f5d3a; }
+.markdown-alert-important { --alert-color: #4b3a7a; }
+.markdown-alert-warning   { --alert-color: #7a5410; }
+.markdown-alert-caution   { --alert-color: var(--flag); }
 
-/* 定義リスト */
+/* 定義リスト。語は太字のゴシックで示します */
 
-dt {
-  font-weight: bold;
-  border-bottom: 1px solid var(--border);
-  margin-top: 1rem;
+dl { margin: 0.8rem 0; }
+dt { font-family: var(--sans); font-weight: 700; margin-top: 0.9rem; }
+dt:first-child { margin-top: 0; }
+dd { margin: 0 0 0.4rem; padding-left: 1.5em; }
+
+/* 注の番号。上付きの既定は行の高さを押し広げるので、位置を自分で決めます */
+
+.footnote-reference {
+  font-size: 0.7em;
+  line-height: 0;
+  vertical-align: 0.42em;
+  margin-left: 0.15em;
 }
 
-dt:first-child {
-  margin-top: 0;
+.footnote-reference a {
+  font-family: var(--label);
+  text-decoration: none;
+  color: var(--link);
 }
 
-dd {
-  padding-left: 1rem;
-  margin: 0 0 0.5rem;
-}
+.footnote-reference a::before { content: "["; }
+.footnote-reference a::after { content: "]"; }
+.footnote-reference a:hover { text-decoration: underline; }
 
-/* 脚注 */
-
+/* 脚注の本体。区切りは 1 つめの上だけに引いて、本文との境目にします。:first-of-type は使えません。
+   脚注の前に .x-scroll の div が入ると、1 つめの div がそちらになるためです。
+   全部に引いてから、2 つめ以降で消します。 */
 .footnote-definition {
-  font-size: 0.9rem;
-  color: var(--muted);
+  margin: 1.75rem 0 0.3rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.9375rem;
+  color: var(--ink-2);
 }
 
-.footnote-definition > p {
-  display: inline;
+.footnote-definition + .footnote-definition {
+  margin-top: 0.3rem;
+  padding-top: 0;
+  border-top: 0;
 }
 
-/* 画像 */
+/* 番号と本文を同じ行に置きます */
+.footnote-definition > p { display: inline; }
 
-figure {
-  margin: 1rem 0;
-  text-align: center;
+.footnote-definition-label {
+  font-family: var(--label);
+  color: var(--ink-2);
+  margin-right: 0.3em;
 }
 
-figcaption {
-  font-size: 0.85rem;
-  color: var(--muted);
+figure { margin: 0.8rem 0; }
+figure img { max-width: 100%; height: auto; }
+figcaption { font-size: 0.8125rem; color: var(--ink-2); }
+
+/* 一覧。日付を等幅の列にして縦に揃えます */
+
+#contents-list { margin-bottom: 1.75rem; }
+
+/* カードは箱ではなく、横罫で区切った行として見せます */
+.card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.1rem 0.9rem;
+  align-items: baseline;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--rule);
 }
 
-/* フッター */
+.card:first-child { border-top: 1px solid var(--rule); }
 
+
+.card-date {
+  font-family: var(--label);
+  font-size: 0.75rem;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.card-header { grid-column: 2; grid-row: 1; font-family: var(--sans); font-size: 1rem; line-height: 1.6; }
+
+.card-link { text-decoration: none; color: var(--ink); }
+.card-link:hover { text-decoration: underline; }
+.card-link::after { content: ""; position: absolute; inset: 0; }
+
+.card-meta { display: contents; }
+
+/* タグはカード全体のリンクより上に出します。幅を内容に合わせないと、
+   タグのない右側までこの帯が覆い、その高さだけカードを押せなくなります。 */
+.card-tags { grid-column: 2; grid-row: 2; position: relative; z-index: 1; width: fit-content; }
+
+.card.crypto .card-header::after {
+  content: "[private]";
+  font-family: var(--label);
+  font-size: 0.75rem;
+  color: var(--ink-2);
+  margin-left: 0.5em;
+}
+
+/* まとめページの印 */
+.card.group .card-header::after {
+  content: "[group]";
+  font-family: var(--label);
+  font-size: 0.75rem;
+  color: var(--ink-2);
+  margin-left: 0.5em;
+}
+
+/* まとめページに出す子の一覧。カードと同じ横罫で並べます */
+
+.child-list { list-style: none; margin: 0.8rem 0; padding: 0; }
+.child-list li { margin-bottom: 0; border-bottom: 1px solid var(--rule); padding: 0.4rem 0; }
+.child-list li:first-child { border-top: 1px solid var(--rule); }
+.child-list a { font-family: var(--sans); font-size: 1rem; text-decoration: none; color: var(--ink); }
+.child-list a:hover { text-decoration: underline; }
+
+/* タグ。箱で囲まず、下線だけで押せることを示します */
+
+.tag-list { display: flex; flex-wrap: wrap; gap: 0.2rem 0.9rem; }
+
+.tag {
+  font-family: var(--label);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule-2);
+  padding: 0 0 0.05em;
+}
+
+.tag:hover { color: var(--link); border-bottom-color: var(--link); }
+
+#tags-section { padding-top: 1.2rem; border-top: 1px solid var(--rule); }
+
+#tag-filter:not(:empty) {
+  margin-bottom: 1rem;
+  font-family: var(--label);
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+#tag-filter:not(:empty)::before { content: "Filtered by: "; }
+
+/* フッタ。本文と同じ左端に揃えます */
 footer {
-  border-top: 1px solid var(--border);
-  padding: 0.75rem 1rem;
-  text-align: center;
-  font-size: 0.9rem;
-  color: var(--muted);
+  padding: 1.2rem var(--gutter) 2rem;
+  font-family: var(--label);
+  font-size: 0.75rem;
+  color: var(--ink-2);
 }
+footer > p { margin-block: 0; }
 
-footer > p {
-  margin: 0;
+@media (max-width: 30em) {
+  :root { --gutter: 1.25rem; }
+  .site-header { margin-bottom: 0.9rem; }
+  main { padding-block: 0 1.5rem; }
+  .card { grid-template-columns: 1fr; gap: 0.05rem; }
+  .card-header, .card-tags { grid-column: 1; grid-row: auto; }
+  .card-date { grid-row: 3; }
 }
