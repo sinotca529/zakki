@@ -308,16 +308,16 @@ pre > code {
   font-family: inherit;
   font-size: 1rem;
   line-height: 1;
-  padding: 0.1rem 0.4rem;
+  padding: 0.1rem 0.2rem;
   color: var(--muted);
-  background: var(--bg);
-  border: 1px solid var(--border);
+  /* 枠も面も持たせず、印だけを置く */
+  background: none;
+  border: 0;
   cursor: pointer;
 }
 
 .copy-button:hover {
   color: var(--fg);
-  border-color: var(--fg);
 }
 
 /* コピーできたことは吹き出しで知らせる。印を差し替えると、
