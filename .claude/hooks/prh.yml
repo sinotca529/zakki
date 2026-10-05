@@ -49,6 +49,13 @@ rules:
         to: 対応〜しました
 
   # 英語の技術用語を直訳した語
+  - expected: 挿入する
+    patterns:
+      - /挿(す|し|さ|そ|せ)/
+    specs:
+      - from: DOM に挿す
+        to: DOM に挿入する
+
   - expected: パーセントエンコーディング
     patterns:
       - 百分率符号化
