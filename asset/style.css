@@ -303,6 +303,8 @@ pre > code {
   position: absolute;
   top: 0.4rem;
   right: 0.4rem;
+  /* 読者がコードを範囲選択したときに、印が混ざらないようにする */
+  user-select: none;
   font-family: inherit;
   font-size: 1rem;
   line-height: 1;
