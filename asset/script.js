@@ -22,9 +22,7 @@ function indexMain() {
 }
 
 // 押した後に出す印。コピーの印は copy-button.html にあります。
-const COPIED_ICON =
-  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
-  '<polyline points="20 6 9 17 4 12"/></svg>';
+const COPIED_MARK = "\u2713";
 
 /// コピーボタンの動作を document で 1 つだけ受けます。
 ///
@@ -53,12 +51,12 @@ function setUpCopyButtons() {
       return;
     }
 
-    const original = button.innerHTML;
-    button.innerHTML = COPIED_ICON;
+    const original = button.textContent;
+    button.textContent = COPIED_MARK;
     button.classList.add("copied");
     clearTimeout(button.dataset.timer);
     button.dataset.timer = setTimeout(() => {
-      button.innerHTML = original;
+      button.textContent = original;
       button.classList.remove("copied");
     }, 2000);
   });

@@ -296,14 +296,17 @@ pre > code {
   position: relative;
 }
 
+/* 印は文字 (U+29C9 と U+2713) なので、本文と同じ書体で描く。
+   --code-font は当てない。サブセットに残るのはコードに出てきた文字だけで、
+   この 2 文字は入らない。 */
 .copy-button {
   position: absolute;
   top: 0.4rem;
   right: 0.4rem;
-  display: flex;
-  font-size: 0.9rem;
+  font-family: inherit;
+  font-size: 1rem;
   line-height: 1;
-  padding: 0.25rem;
+  padding: 0.1rem 0.4rem;
   color: var(--muted);
   background: var(--bg);
   border: 1px solid var(--border);
