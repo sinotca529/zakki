@@ -1,6 +1,6 @@
-use crate::command::build::renderer::html_component::DIV;
+use crate::command::build::renderer::html_component::{DIV, escape_html_attr};
 use crate::include_asset;
-use pulldown_cmark::{Event, Tag, TagEnd};
+use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
 
 /// コードブロックを `<div class="code-block">` で囲み、コピーボタンを置きます。
 ///
@@ -10,6 +10,10 @@ use pulldown_cmark::{Event, Tag, TagEnd};
 /// ボタンは JS で後から挿さずに、ここで出力します。挿す作りでは、
 /// 本文を描いた後にボタンが現れます。
 /// 押したときの動作は `script.js` が受け持ちます。
+///
+/// `pre` と `code` の開きタグもここで書きます。pulldown-cmark が書くタグには
+/// `tabindex` を足せないためです。横にスクロールする領域は、キーボードでも
+/// 送れる必要があります。表に対しては `wrap_table` が同じことをしています。
 pub fn add_copy_button(events: &mut Vec<Event<'_>>) {
     let mut out = Vec::with_capacity(events.len());
     let (open, close) = DIV.attr("class", "code-block").pair();
@@ -17,12 +21,12 @@ pub fn add_copy_button(events: &mut Vec<Event<'_>>) {
 
     for e in events.drain(..) {
         match e {
-            Event::Start(Tag::CodeBlock(_)) => {
+            Event::Start(Tag::CodeBlock(kind)) => {
                 out.push(Event::Html(open.clone().into()));
-                out.push(e);
+                out.push(Event::Html(code_open(&kind).into()));
             }
             Event::End(TagEnd::CodeBlock) => {
-                out.push(e);
+                out.push(Event::Html("</code></pre>".into()));
                 out.push(Event::Html(button.into()));
                 out.push(Event::Html(close.clone().into()));
             }
@@ -31,6 +35,26 @@ pub fn add_copy_button(events: &mut Vec<Event<'_>>) {
     }
 
     *events = out;
+}
+
+/// `pre` と `code` の開きタグを書きます。
+///
+/// 言語名の付け方は pulldown-cmark に合わせています。info string の
+/// 最初の空白までを言語名とし、`language-` を前に付けた class にします。
+fn code_open(kind: &CodeBlockKind) -> String {
+    let lang = match kind {
+        CodeBlockKind::Fenced(info) => info.split(' ').next().unwrap_or(""),
+        CodeBlockKind::Indented => "",
+    };
+
+    if lang.is_empty() {
+        r#"<pre tabindex="0"><code>"#.to_owned()
+    } else {
+        format!(
+            r#"<pre tabindex="0"><code class="language-{}">"#,
+            escape_html_attr(lang)
+        )
+    }
 }
 
 #[cfg(test)]
@@ -50,11 +74,11 @@ mod test {
     fn wraps_a_code_block_and_adds_a_button() {
         let html = html_of("```\nlet x = 1;\n```\n");
         assert!(
-            html.starts_with("<div class=\"code-block\">\n<pre>"),
+            html.starts_with("<div class=\"code-block\"><pre tabindex=\"0\"><code>"),
             "{html}"
         );
         assert!(
-            html.contains("</pre>\n<button type=\"button\" class=\"copy-button\""),
+            html.contains("</code></pre><button type=\"button\" class=\"copy-button\""),
             "{html}"
         );
         assert!(html.trim_end().ends_with("</button></div>"), "{html}");
