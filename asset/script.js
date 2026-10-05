@@ -21,6 +21,46 @@ function indexMain() {
   document.getElementById("tags-section").hidden = true;
 }
 
+// コピーできたときに吹き出しに出す文言です。
+const COPIED_MESSAGE = "コピーしました";
+
+/// コピーボタンの動作を document で 1 つだけ受けます。
+///
+/// ボタンそのものは add_copy_button が出力します。
+/// document で受けるので、復号した本文のボタンにも同じ処理が当たります。
+///
+/// navigator.clipboard は安全なコンテキストでしか使えません。
+/// 使えない場合は html に no-clipboard を付け、CSS でボタンを消します。
+function setUpCopyButtons() {
+  if (!navigator.clipboard) {
+    document.documentElement.classList.add("no-clipboard");
+    return;
+  }
+
+  document.addEventListener("click", async (e) => {
+    const button = e.target.closest(".copy-button");
+    if (!button) return;
+
+    const code = button.parentElement.querySelector("pre > code");
+    if (!code) return;
+
+    try {
+      await navigator.clipboard.writeText(code.textContent);
+    } catch {
+      return;
+    }
+
+    const tooltip = button.querySelector(".copy-tooltip");
+    tooltip.textContent = COPIED_MESSAGE;
+    button.classList.add("copied");
+    clearTimeout(button.dataset.timer);
+    button.dataset.timer = setTimeout(() => {
+      tooltip.textContent = "";
+      button.classList.remove("copied");
+    }, 2000);
+  });
+}
+
 async function decryptPage() {
   try {
     const pwd = document.getElementById("decrypt-key").value;
@@ -208,6 +248,9 @@ function searchAndRender() {
 //-----------------------------------------------------
 
 window.addEventListener("DOMContentLoaded", () => {
+  // 記事のページは data-page を持たないので、分岐の外で呼びます
+  setUpCopyButtons();
+
   switch (document.body.dataset.page) {
     case "index":
       indexMain();

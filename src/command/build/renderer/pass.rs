@@ -1,4 +1,5 @@
 mod add_code_caption;
+mod add_copy_button;
 mod adjust_link;
 mod assign_header_id;
 mod collect_footnotes;
@@ -15,6 +16,7 @@ mod validate_heading_order;
 mod wrap_table;
 
 pub use add_code_caption::add_code_caption;
+pub use add_copy_button::add_copy_button;
 pub use adjust_link::adjust_link;
 pub use assign_header_id::assign_header_id;
 pub use collect_footnotes::collect_footnotes;

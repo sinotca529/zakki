@@ -166,6 +166,7 @@ impl<'a> PageRenderer<'a> {
         pass::add_code_caption(&mut events);
         pass::highlight_code(&mut events, &front_matter.highlights);
         pass::convert_math(&mut events, &mut pass_assets)?;
+        pass::add_copy_button(&mut events);
         pass::wrap_table(&mut events);
         pass::convert_alert(&mut events);
         pass::collect_footnotes(&mut events);

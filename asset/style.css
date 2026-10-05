@@ -257,6 +257,64 @@ pre > code { font-family: var(--mono); font-size: inherit; }
   color: var(--code);
 }
 
+/* コピーボタン */
+
+/* div.code-block とボタンは add_copy_button が出力します。
+   ボタンの位置の基準はスクロールしない要素である必要があるので、
+   overflow-x: auto を当てた pre ではなく div.code-block を基準にします。 */
+
+.code-block {
+  position: relative;
+}
+
+/* 印は文字 (U+29C9) なので、本文と同じ書体で描きます。--code-font は
+   当てません。サブセットに残るのはコードに出てきた文字だけで、
+   この字は入らないためです。 */
+.copy-button {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  /* 読者がコードを範囲選択したときに、印が混ざらないようにします */
+  user-select: none;
+  /* 枠も面も持たせず、印だけを置きます */
+  background: none;
+  border: 0;
+  padding: 0.1rem 0.2rem;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.copy-button:hover {
+  color: var(--ink);
+}
+
+/* コピーできたことを知らせる吹き出し */
+.copy-tooltip {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 0.4rem);
+  transform: translateY(-50%);
+  padding: 0.1rem 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: nowrap;
+  color: var(--ground);
+  background: var(--ink);
+  visibility: hidden;
+}
+
+.copy-button.copied .copy-tooltip {
+  visibility: visible;
+}
+
+/* navigator.clipboard が使えない環境では script.js が html に付けます */
+.no-clipboard .copy-button {
+  display: none;
+}
+
 figure.code-figure { margin: 0.8rem 0; }
 
 /* 見出しはコードの面に重ねず、上に置く小さな行にします */
