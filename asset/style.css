@@ -315,10 +315,29 @@ pre > code {
   cursor: pointer;
 }
 
-.copy-button:hover,
-.copy-button.copied {
+.copy-button:hover {
   color: var(--fg);
   border-color: var(--fg);
+}
+
+/* コピーできたことは吹き出しで知らせる。印を差し替えると、
+   押した場所からボタンが消えたように見える。 */
+.copy-tooltip {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 0.4rem);
+  transform: translateY(-50%);
+  padding: 0.1rem 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: nowrap;
+  color: var(--bg);
+  background: var(--fg);
+  visibility: hidden;
+}
+
+.copy-button.copied .copy-tooltip {
+  visibility: visible;
 }
 
 /* navigator.clipboard が使えない環境では script.js が html に付ける */

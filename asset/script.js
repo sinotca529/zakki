@@ -21,8 +21,8 @@ function indexMain() {
   document.getElementById("tags-section").hidden = true;
 }
 
-// 押した後に出す印。コピーの印は copy-button.html にあります。
-const COPIED_MARK = "\u2713";
+// コピーできたときに吹き出しに出す文言です。
+const COPIED_MESSAGE = "コピーしました";
 
 /// コピーボタンの動作を document で 1 つだけ受けます。
 ///
@@ -51,12 +51,13 @@ function setUpCopyButtons() {
       return;
     }
 
-    const original = button.textContent;
-    button.textContent = COPIED_MARK;
+    // 印は変えません。消えたように見えるためです。吹き出しで知らせます。
+    const tooltip = button.querySelector(".copy-tooltip");
+    tooltip.textContent = COPIED_MESSAGE;
     button.classList.add("copied");
     clearTimeout(button.dataset.timer);
     button.dataset.timer = setTimeout(() => {
-      button.textContent = original;
+      tooltip.textContent = "";
       button.classList.remove("copied");
     }, 2000);
   });
