@@ -120,6 +120,10 @@ cargo build --release
 cd <テスト用サイト> && <path>/zakki build
 ```
 
+## PR 本文と設計の文書
+
+書き方は `.claude/skills/design-doc/SKILL.md` にまとめています。
+
 ## レビュー
 
 ### 進め方
