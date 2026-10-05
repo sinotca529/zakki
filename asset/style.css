@@ -289,7 +289,7 @@ pre > code {
 
 /* コピーボタン */
 
-/* div.code-block は wrap_code_block が出力し、script.js がその中にボタンを足す。
+/* div.code-block とボタンは add_copy_button が出力する。
    pre は overflow-x: auto なので、ボタンを pre の中に置くと横スクロールで流れる。 */
 
 .code-block {
@@ -314,6 +314,11 @@ pre > code {
 .copy-button.copied {
   color: var(--fg);
   border-color: var(--fg);
+}
+
+/* navigator.clipboard が使えない環境では script.js が html に付ける */
+.no-clipboard .copy-button {
+  display: none;
 }
 
 /* コードブロック caption */

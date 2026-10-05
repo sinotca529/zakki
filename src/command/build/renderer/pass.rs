@@ -1,4 +1,5 @@
 mod add_code_caption;
+mod add_copy_button;
 mod adjust_link;
 mod assign_header_id;
 mod collect_footnotes;
@@ -12,10 +13,10 @@ mod make_bloom_filter;
 mod make_toc;
 mod read_front_matter;
 mod validate_heading_order;
-mod wrap_code_block;
 mod wrap_table;
 
 pub use add_code_caption::add_code_caption;
+pub use add_copy_button::add_copy_button;
 pub use adjust_link::adjust_link;
 pub use assign_header_id::assign_header_id;
 pub use collect_footnotes::collect_footnotes;
@@ -30,7 +31,6 @@ pub use make_toc::make_toc;
 pub use read_front_matter::PageFrontMatter;
 pub use read_front_matter::read_front_matter;
 pub use validate_heading_order::validate_heading_order;
-pub use wrap_code_block::wrap_code_block;
 pub use wrap_table::wrap_table;
 
 use pulldown_cmark::Event;

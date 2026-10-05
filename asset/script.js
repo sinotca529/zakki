@@ -21,54 +21,46 @@ function indexMain() {
   document.getElementById("tags-section").hidden = true;
 }
 
-// コピーボタンの印。アイコンは矩形と折れ線だけで描いています。
-const COPY_ICON =
-  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
-  '<rect x="9" y="9" width="12" height="12" rx="2"/>' +
-  '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-
+// 押した後に出す印。コピーの印は copy-button.html にあります。
 const COPIED_ICON =
   '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
   '<polyline points="20 6 9 17 4 12"/></svg>';
 
-/// コードブロックにコピーボタンを足します。
+/// コピーボタンの動作を document で 1 つだけ受けます。
 ///
-/// 重ねる相手の div.code-block は wrap_code_block が出力します。
+/// ボタンそのものは add_copy_button が出力します。
+/// document で受けるので、復号した本文のボタンにも同じ処理が当たります。
 ///
 /// navigator.clipboard は安全なコンテキストでしか使えません。
-/// 使えない場合はボタンを出しません。押しても何も起きないボタンを見せないためです。
-function addCopyButtons(root) {
-  if (!navigator.clipboard) return;
+/// 使えない場合は html に no-clipboard を付け、CSS でボタンを消します。
+/// 押しても何も起きないボタンを見せないためです。
+function setUpCopyButtons() {
+  if (!navigator.clipboard) {
+    document.documentElement.classList.add("no-clipboard");
+    return;
+  }
 
-  root.querySelectorAll(".code-block").forEach((wrapper) => {
-    if (wrapper.querySelector(".copy-button")) return;
+  document.addEventListener("click", async (e) => {
+    const button = e.target.closest(".copy-button");
+    if (!button) return;
 
-    const code = wrapper.querySelector("pre > code");
+    const code = button.parentElement.querySelector("pre > code");
     if (!code) return;
 
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "copy-button";
-    button.setAttribute("aria-label", "コードをコピー");
-    button.innerHTML = COPY_ICON;
+    try {
+      await navigator.clipboard.writeText(code.textContent);
+    } catch {
+      return;
+    }
 
-    let timer = 0;
-    button.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(code.textContent);
-      } catch {
-        return;
-      }
-      button.innerHTML = COPIED_ICON;
-      button.classList.add("copied");
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        button.innerHTML = COPY_ICON;
-        button.classList.remove("copied");
-      }, 2000);
-    });
-
-    wrapper.appendChild(button);
+    const original = button.innerHTML;
+    button.innerHTML = COPIED_ICON;
+    button.classList.add("copied");
+    clearTimeout(button.dataset.timer);
+    button.dataset.timer = setTimeout(() => {
+      button.innerHTML = original;
+      button.classList.remove("copied");
+    }, 2000);
   });
 }
 
@@ -76,9 +68,7 @@ async function decryptPage() {
   try {
     const pwd = document.getElementById("decrypt-key").value;
     const plain = await decrypt(document.body.dataset.cypher, pwd);
-    const article = document.getElementById("article");
-    article.innerHTML = plain;
-    addCopyButtons(article);
+    document.getElementById("article").innerHTML = plain;
   } catch (e) {
     const err = document.getElementById("decrypt-error");
     if (e.name === "OperationError") {
@@ -262,7 +252,7 @@ function searchAndRender() {
 
 window.addEventListener("DOMContentLoaded", () => {
   // 記事のページは data-page を持たないので、分岐の外で呼びます
-  addCopyButtons(document);
+  setUpCopyButtons();
 
   switch (document.body.dataset.page) {
     case "index":
