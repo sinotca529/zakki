@@ -31,7 +31,6 @@ const COPIED_MESSAGE = "コピーしました";
 ///
 /// navigator.clipboard は安全なコンテキストでしか使えません。
 /// 使えない場合は html に no-clipboard を付け、CSS でボタンを消します。
-/// 押しても何も起きないボタンを見せないためです。
 function setUpCopyButtons() {
   if (!navigator.clipboard) {
     document.documentElement.classList.add("no-clipboard");
@@ -51,7 +50,6 @@ function setUpCopyButtons() {
       return;
     }
 
-    // 印は変えません。消えたように見えるためです。吹き出しで知らせます。
     const tooltip = button.querySelector(".copy-tooltip");
     tooltip.textContent = COPIED_MESSAGE;
     button.classList.add("copied");

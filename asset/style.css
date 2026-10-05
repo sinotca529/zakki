@@ -290,8 +290,8 @@ pre > code {
 /* コピーボタン */
 
 /* div.code-block とボタンは add_copy_button が出力する。
-   pre には overflow-x: auto を当てているので、ボタンを pre の中に置くと、
-   横にスクロールした量だけボタンも左へずれて見えなくなる。 */
+   ボタンの位置の基準はスクロールしない要素である必要があるので、
+   overflow-x: auto を当てた pre ではなく div.code-block を基準にする。 */
 
 .code-block {
   position: relative;
@@ -321,8 +321,7 @@ pre > code {
   color: var(--fg);
 }
 
-/* コピーできたことは吹き出しで知らせる。印を差し替えると、
-   押した場所からボタンが消えたように見える。 */
+/* コピーできたことを知らせる吹き出し */
 .copy-tooltip {
   position: absolute;
   top: 50%;
