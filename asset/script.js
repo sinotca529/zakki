@@ -33,23 +33,18 @@ const COPIED_ICON =
 
 /// コードブロックにコピーボタンを足します。
 ///
-/// pre は overflow-x: auto なので、ボタンを pre の中に置くと、
-/// 横にスクロールしたときに一緒に流れます。pre を div で包み、
-/// そちらにボタンを重ねます。
+/// 重ねる相手の div.code-block は wrap_code_block が出力します。
 ///
 /// navigator.clipboard は安全なコンテキストでしか使えません。
 /// 使えない場合はボタンを出しません。押しても何も起きないボタンを見せないためです。
 function addCopyButtons(root) {
   if (!navigator.clipboard) return;
 
-  root.querySelectorAll("pre").forEach((pre) => {
-    const code = pre.querySelector("code");
-    if (!code) return;
+  root.querySelectorAll(".code-block").forEach((wrapper) => {
+    if (wrapper.querySelector(".copy-button")) return;
 
-    const wrapper = document.createElement("div");
-    wrapper.className = "code-block";
-    pre.replaceWith(wrapper);
-    wrapper.appendChild(pre);
+    const code = wrapper.querySelector("pre > code");
+    if (!code) return;
 
     const button = document.createElement("button");
     button.type = "button";

@@ -289,7 +289,7 @@ pre > code {
 
 /* コピーボタン */
 
-/* script.js が pre を div.code-block で包み、その中にボタンを重ねる。
+/* div.code-block は wrap_code_block が出力し、script.js がその中にボタンを足す。
    pre は overflow-x: auto なので、ボタンを pre の中に置くと横スクロールで流れる。 */
 
 .code-block {

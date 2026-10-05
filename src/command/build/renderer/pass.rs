@@ -12,6 +12,7 @@ mod make_bloom_filter;
 mod make_toc;
 mod read_front_matter;
 mod validate_heading_order;
+mod wrap_code_block;
 mod wrap_table;
 
 pub use add_code_caption::add_code_caption;
@@ -29,6 +30,7 @@ pub use make_toc::make_toc;
 pub use read_front_matter::PageFrontMatter;
 pub use read_front_matter::read_front_matter;
 pub use validate_heading_order::validate_heading_order;
+pub use wrap_code_block::wrap_code_block;
 pub use wrap_table::wrap_table;
 
 use pulldown_cmark::Event;
