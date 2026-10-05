@@ -287,6 +287,35 @@ pre > code {
   color: var(--code-fg);
 }
 
+/* コピーボタン */
+
+/* script.js が pre を div.code-block で包み、その中にボタンを重ねる。
+   pre は overflow-x: auto なので、ボタンを pre の中に置くと横スクロールで流れる。 */
+
+.code-block {
+  position: relative;
+}
+
+.copy-button {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: flex;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0.25rem;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.copy-button:hover,
+.copy-button.copied {
+  color: var(--fg);
+  border-color: var(--fg);
+}
+
 /* コードブロック caption */
 
 figure.code-figure {

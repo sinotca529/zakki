@@ -21,11 +21,69 @@ function indexMain() {
   document.getElementById("tags-section").hidden = true;
 }
 
+// コピーボタンの印。アイコンは矩形と折れ線だけで描いています。
+const COPY_ICON =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
+  '<rect x="9" y="9" width="12" height="12" rx="2"/>' +
+  '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+
+const COPIED_ICON =
+  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
+  '<polyline points="20 6 9 17 4 12"/></svg>';
+
+/// コードブロックにコピーボタンを足します。
+///
+/// pre は overflow-x: auto なので、ボタンを pre の中に置くと、
+/// 横にスクロールしたときに一緒に流れます。pre を div で包み、
+/// そちらにボタンを重ねます。
+///
+/// navigator.clipboard は安全なコンテキストでしか使えません。
+/// 使えない場合はボタンを出しません。押しても何も起きないボタンを見せないためです。
+function addCopyButtons(root) {
+  if (!navigator.clipboard) return;
+
+  root.querySelectorAll("pre").forEach((pre) => {
+    const code = pre.querySelector("code");
+    if (!code) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "code-block";
+    pre.replaceWith(wrapper);
+    wrapper.appendChild(pre);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "copy-button";
+    button.setAttribute("aria-label", "コードをコピー");
+    button.innerHTML = COPY_ICON;
+
+    let timer = 0;
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(code.textContent);
+      } catch {
+        return;
+      }
+      button.innerHTML = COPIED_ICON;
+      button.classList.add("copied");
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        button.innerHTML = COPY_ICON;
+        button.classList.remove("copied");
+      }, 2000);
+    });
+
+    wrapper.appendChild(button);
+  });
+}
+
 async function decryptPage() {
   try {
     const pwd = document.getElementById("decrypt-key").value;
     const plain = await decrypt(document.body.dataset.cypher, pwd);
-    document.getElementById("article").innerHTML = plain;
+    const article = document.getElementById("article");
+    article.innerHTML = plain;
+    addCopyButtons(article);
   } catch (e) {
     const err = document.getElementById("decrypt-error");
     if (e.name === "OperationError") {
@@ -208,6 +266,9 @@ function searchAndRender() {
 //-----------------------------------------------------
 
 window.addEventListener("DOMContentLoaded", () => {
+  // 記事のページは data-page を持たないので、分岐の外で呼びます
+  addCopyButtons(document);
+
   switch (document.body.dataset.page) {
     case "index":
       indexMain();
