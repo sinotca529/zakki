@@ -290,7 +290,8 @@ pre > code {
 /* コピーボタン */
 
 /* div.code-block とボタンは add_copy_button が出力する。
-   pre は overflow-x: auto なので、ボタンを pre の中に置くと横スクロールで流れる。 */
+   pre には overflow-x: auto を当てているので、ボタンを pre の中に置くと、
+   横にスクロールした量だけボタンも左へずれて見えなくなる。 */
 
 .code-block {
   position: relative;
