@@ -9,6 +9,9 @@ use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
 ///
 /// 押したときの動作は `script.js` に書いています。
 ///
+/// 言語名も `div.code-lang` として出します。キャプションが付く場合は
+/// ファイル名の方が分かるので、CSS で隠します。
+///
 /// `pre` と `code` の開きタグもここで書きます。pulldown-cmark が書くタグには
 /// `tabindex` を足せないためです。横にスクロールする領域は、キーボードでも
 /// 送れる必要があります。表に対しては `wrap_table` が同じことをしています。
@@ -21,6 +24,12 @@ pub fn add_copy_button(events: &mut Vec<Event<'_>>) {
         match e {
             Event::Start(Tag::CodeBlock(kind)) => {
                 out.push(Event::Html(open.clone().into()));
+                let lang = lang_of(&kind);
+                if !lang.is_empty() {
+                    out.push(Event::Html(
+                        DIV.attr("class", "code-lang").text(lang).into(),
+                    ));
+                }
                 out.push(Event::Html(code_open(&kind).into()));
             }
             Event::End(TagEnd::CodeBlock) => {
@@ -35,15 +44,21 @@ pub fn add_copy_button(events: &mut Vec<Event<'_>>) {
     *events = out;
 }
 
-/// `pre` と `code` の開きタグを書きます。
+/// info string から言語名を取り出します。
 ///
-/// 言語名の付け方は pulldown-cmark に合わせています。info string の
-/// 最初の空白までを言語名とし、`language-` を前に付けた class にします。
-fn code_open(kind: &CodeBlockKind) -> String {
-    let lang = match kind {
+/// 区切り方は pulldown-cmark に合わせ、最初の空白までを言語名とします。
+fn lang_of<'a>(kind: &'a CodeBlockKind) -> &'a str {
+    match kind {
         CodeBlockKind::Fenced(info) => info.split(' ').next().unwrap_or(""),
         CodeBlockKind::Indented => "",
-    };
+    }
+}
+
+/// `pre` と `code` の開きタグを書きます。
+///
+/// 言語名の class は pulldown-cmark に合わせ、`language-` を前に付けます。
+fn code_open(kind: &CodeBlockKind) -> String {
+    let lang = lang_of(kind);
 
     if lang.is_empty() {
         r#"<pre tabindex="0"><code>"#.to_owned()

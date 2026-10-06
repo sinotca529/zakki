@@ -326,6 +326,23 @@ figure.code-figure figcaption {
   margin-bottom: 0.25rem;
 }
 
+/* コードブロックの言語名。add_copy_button が出力します。
+   --mono は当てません。サブセットに残るのはコードとキャプションに出てきた
+   文字だけで、言語名は入らないためです。 */
+.code-lang {
+  font-family: var(--label);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+  margin-bottom: 0.25rem;
+}
+
+/* キャプションが付く場合は、ファイル名の方が分かるので言語名は出しません */
+figure.code-figure .code-lang {
+  display: none;
+}
+
 figure.code-figure pre { margin-top: 0; }
 
 /* 数式 */
