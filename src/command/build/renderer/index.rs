@@ -2,7 +2,9 @@ use crate::{
     command::build::code_font,
     command::build::renderer::{
         PageMetadata,
-        html_component::{escape_html_attr, escape_html_text, footer, head, header, tag_link_html},
+        html_component::{
+            escape_html_attr, escape_html_text, feed_url, footer, head, header, tag_link_html,
+        },
         url::Url,
     },
     config::ProjectConfig,
@@ -28,7 +30,8 @@ pub fn render_index(
         &cfg.site_name,
         css_list,
         cfg.js_list.iter().map(|p| p.as_str()),
-        &footer(&cfg.footer),
+        &cfg.footer,
+        &cfg.publish_url,
         &cards,
         &tags,
     );
@@ -80,12 +83,21 @@ fn index_html<'a>(
     site_name: &str,
     css_list: impl Iterator<Item = &'a str>,
     js_list: impl Iterator<Item = &'a str>,
-    footer: &str,
+    custom_footer: &Option<String>,
+    publish_url: &Option<String>,
     cards: &str,
     tags: &str,
 ) -> String {
     let url_to_root = Url::from_relative_path(Path::new(".")).unwrap();
-    let head = head(&url_to_root, css_list, js_list, site_name);
+    let feed_url = feed_url(&url_to_root, publish_url);
+    let head = head(
+        &url_to_root,
+        css_list,
+        js_list,
+        site_name,
+        feed_url.as_deref(),
+    );
+    let footer = footer(custom_footer, feed_url.as_deref());
     let header = header(&url_to_root, site_name);
     format!(
         include_asset!("index.html"),

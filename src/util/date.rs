@@ -28,6 +28,13 @@ impl Date {
 
         Ok(Self { year, month, day })
     }
+
+    /// RFC 3339 の形で返します。
+    ///
+    /// Date は日付しか持たないので、時刻は協定世界時の 0 時にします。
+    pub fn to_rfc3339(self) -> String {
+        format!("{self}T00:00:00Z")
+    }
 }
 
 /// その月の日数を返します。

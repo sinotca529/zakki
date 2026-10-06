@@ -152,7 +152,6 @@ main {
   color: var(--ink-2);
 }
 
-
 /* カレンダーのアイコンは出しません。日付であることは書式で分かります */
 .date svg { display: none; }
 
@@ -482,7 +481,6 @@ figcaption { font-size: 0.8125rem; color: var(--ink-2); }
 
 .card:first-child { border-top: 1px solid var(--rule); }
 
-
 .card-date {
   font-family: var(--label);
   font-size: 0.75rem;
@@ -561,6 +559,9 @@ footer {
   color: var(--ink-2);
 }
 footer > p { margin-block: 0; }
+
+/* フィードへのリンク。利用者が書いたフッタとは別のブロックにします */
+.site-feed { margin-top: 0.3rem; }
 
 @media (max-width: 30em) {
   :root { --gutter: 1.25rem; }

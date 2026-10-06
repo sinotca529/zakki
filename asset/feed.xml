@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>{site_name}</title>
+  <link href="{site_url}/"/>
+  <link rel="self" href="{feed_url}"/>
+  <id>{site_url}/</id>
+  <updated>{updated}</updated>
+{entries}</feed>

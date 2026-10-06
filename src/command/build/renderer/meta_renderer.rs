@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use crate::include_asset;
 use crate::{
     command::build::{
         code_font,
@@ -9,6 +10,9 @@ use crate::{
     path::ProjectPaths,
     util,
 };
+
+/// フィードの位置。head.html からも参照します。
+pub const FEED_PATH: &str = "feed.xml";
 
 pub struct MetaRenderer<'a> {
     cfg: &'a ProjectConfig,
@@ -24,6 +28,7 @@ impl<'a> MetaRenderer<'a> {
         self.output_monospace_font_file(metas)?;
         renderer::render_index(self.cfg, self.pj_paths.build_dir(), metas)?;
         self.output_sitemap(metas)?;
+        self.output_feed(metas)?;
         self.output_pagemeta(metas)?;
         self.output_bloom_index(metas)?;
         Ok(())
@@ -84,6 +89,60 @@ impl<'a> MetaRenderer<'a> {
         };
 
         format!("警告: 公開した記事に出てこない文字が、コード用フォントに残ります : {shown}{rest}")
+    }
+}
+
+// フィード
+impl<'a> MetaRenderer<'a> {
+    /// Atom フィードを書きます。
+    ///
+    /// 絶対 URL が要るので、
+    /// publish_url を書いていないサイトでは作りません。
+    /// sitemap.xml と同じ条件です。
+    fn output_feed(&self, metas: &[PageMetadata]) -> anyhow::Result<()> {
+        let Some(pub_url) = self.cfg.publish_url.as_ref() else {
+            return Ok(());
+        };
+
+        let mut pages: Vec<&PageMetadata> = metas.iter().filter(|m| !m.is_private).collect();
+        if pages.is_empty() {
+            return Ok(());
+        }
+        pages.sort_by_key(|m| std::cmp::Reverse(m.update));
+
+        let feed_path = self.pj_paths.build_dir().join(FEED_PATH);
+        util::write_file(feed_path, self.feed_xml(pub_url, &pages))?;
+
+        Ok(())
+    }
+
+    /// 公開する記事から Atom フィードの中身を作ります。
+    ///
+    /// `pages` は新しい順に並び、空でないことを呼び出し元が保証します。
+    fn feed_xml(&self, publish_url: &str, pages: &[&PageMetadata]) -> String {
+        let site_url = publish_url.trim_end_matches('/');
+
+        let entries: String = pages
+            .iter()
+            .map(|m| {
+                let url = Self::escape_xml_text(&format!("{site_url}/{}", m.path));
+                format!(
+                    include_asset!("feed-entry.xml"),
+                    title = Self::escape_xml_text(&m.title),
+                    url = url,
+                    updated = m.update.to_rfc3339(),
+                )
+            })
+            .collect();
+
+        format!(
+            include_asset!("feed.xml"),
+            site_name = Self::escape_xml_text(&self.cfg.site_name),
+            site_url = site_url,
+            feed_url = format_args!("{site_url}/{FEED_PATH}"),
+            updated = pages[0].update.to_rfc3339(),
+            entries = entries,
+        )
     }
 }
 

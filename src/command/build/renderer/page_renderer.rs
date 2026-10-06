@@ -1,5 +1,5 @@
 use crate::command::build::code_font;
-use crate::command::build::renderer::html_component::footer;
+use crate::command::build::renderer::html_component::{feed_url, footer};
 use crate::command::build::renderer::pass::{self, PageFrontMatter, PassAssets};
 use crate::command::build::renderer::{PageLocs, PageMetadata, crypto_html, page_html};
 use crate::config::ProjectConfig;
@@ -78,6 +78,9 @@ impl<'a> PageRenderer<'a> {
 
         let article = format!("{toc}{body}");
 
+        let feed_url = feed_url(&page_paths.url_to_root, &self.config.publish_url);
+        let footer = footer(&self.config.footer, feed_url.as_deref());
+
         let is_private = self.pj_paths.is_private(page_paths.src_path);
         let html = if is_private {
             let password = front_matter
@@ -101,7 +104,8 @@ impl<'a> PageRenderer<'a> {
                 js_list,
                 &front_matter.tags,
                 &encoded,
-                &footer(&self.config.footer),
+                &footer,
+                feed_url.as_deref(),
             )
         } else {
             page_html(
@@ -114,7 +118,8 @@ impl<'a> PageRenderer<'a> {
                 js_list,
                 &front_matter.tags,
                 &article,
-                &footer(&self.config.footer),
+                &footer,
+                feed_url.as_deref(),
             )
         };
 
