@@ -1,4 +1,7 @@
-use crate::{command::build::renderer::url::Url, include_asset};
+use crate::{
+    command::build::renderer::{meta_renderer::FEED_PATH, url::Url},
+    include_asset,
+};
 use std::marker::PhantomData;
 
 pub fn tag_link_html(tag: &str, url_to_root: &Url) -> String {
@@ -14,11 +17,33 @@ pub fn header(url_to_root: &Url, site_name: &str) -> String {
     )
 }
 
-pub fn footer(custom_footer: &Option<String>) -> String {
-    custom_footer
+/// フッタを作ります。中身が何もなければ、要素ごと出しません。
+///
+/// custom_footer には利用者が書いた HTML がそのまま入ります。
+/// 1 つの要素とは限らないので、フィードのリンクは連結せず、
+/// 別のブロックとして並べます。
+pub fn footer(custom_footer: &Option<String>, feed_url: Option<&str>) -> String {
+    let custom_footer = custom_footer.as_deref().unwrap_or("");
+    let feed_link = feed_url
+        .map(|u| format!(r#"<div class="site-feed"><a href="{u}">RSS</a></div>"#))
+        .unwrap_or_default();
+
+    if custom_footer.is_empty() && feed_link.is_empty() {
+        return String::new();
+    }
+
+    FOOTER.html(format!("{custom_footer}{feed_link}"))
+}
+
+/// そのページから見たフィードの位置です。
+///
+/// フィードには絶対 URL が要るので、
+/// publish_url を書いていないサイトではフィード自体を作りません。
+/// その場合は `None` を返します。
+pub fn feed_url(url_to_root: &Url, publish_url: &Option<String>) -> Option<String> {
+    publish_url
         .as_ref()
-        .map(|f| FOOTER.html(f))
-        .unwrap_or_default()
+        .map(|_| format!("{url_to_root}/{FEED_PATH}"))
 }
 
 pub fn head<'a>(
@@ -26,6 +51,7 @@ pub fn head<'a>(
     css_list: impl Iterator<Item = &'a str>,
     js_list: impl Iterator<Item = &'a str>,
     title: &str,
+    feed_url: Option<&str>,
 ) -> String {
     let css_list = css_list.map(|p| {
         LINK.attr("rel", "stylesheet")
@@ -41,11 +67,16 @@ pub fn head<'a>(
             .build()
     });
 
+    let feed_head_link = feed_url
+        .map(|u| format!(r#"<link rel="alternate" type="application/atom+xml" href="{u}" />"#))
+        .unwrap_or_default();
+
     format!(
         include_asset!("head.html"),
         url_to_root = url_to_root,
         css_list = css_list.collect::<String>(),
         js_list = js_list.collect::<String>(),
+        feed_head_link = feed_head_link,
         title = escape_html_text(title),
     )
 }

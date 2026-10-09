@@ -1,0 +1,6 @@
+  <entry>
+    <title>{title}</title>
+    <link href="{url}"/>
+    <id>{url}</id>
+    <updated>{updated}</updated>
+  </entry>

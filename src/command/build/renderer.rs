@@ -72,8 +72,9 @@ pub fn page_html<'a>(
     tags: &[String],
     article: &str,
     footer: &str,
+    feed_url: Option<&str>,
 ) -> String {
-    let head = head(url_to_root, css_list, js_list, title);
+    let head = head(url_to_root, css_list, js_list, title, feed_url);
     let header = header(url_to_root, site_name);
     let tag_elems = tag_elems(tags, url_to_root);
     format!(
@@ -101,8 +102,9 @@ pub fn crypto_html<'a>(
     tags: &[String],
     encoded_body: &str,
     footer: &str,
+    feed_url: Option<&str>,
 ) -> String {
-    let head = head(url_to_root, css_list, js_list, title);
+    let head = head(url_to_root, css_list, js_list, title, feed_url);
     let header = header(url_to_root, site_name);
     let tag_elems = tag_elems(tags, url_to_root);
     format!(
