@@ -1,4 +1,5 @@
 mod assets;
+mod box_drawing;
 mod code_font;
 mod renderer;
 

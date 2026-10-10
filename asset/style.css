@@ -214,16 +214,45 @@ ul, ol { margin: 0 0 0.6em; padding-left: 1.4em; }
 li { margin-bottom: 0.1em; }
 
 pre {
+  /* 罫線素片を描く SVG の位置の基準です。横にスクロールすると文字と一緒に動きます。 */
+  position: relative;
   background: var(--panel);
-  padding: 0.85rem 1rem;
+  /* 余白は SVG を文字の先頭に合わせるのにも使います。 */
+  --pad-x: 1rem;
+  --pad-y: 0.85rem;
+  padding: var(--pad-y) var(--pad-x);
   margin: 0.8rem 0;
   overflow-x: auto;
   font-size: 0.85em;
-  /* 罫線素片が途切れない値を指定 */
-  line-height: 1.25;
+  /* 行送りは罫線素片を描く SVG の高さにも使うので、変数に置きます。 */
+  --lh: 1.25;
+  line-height: var(--lh);
 }
 
 pre > code { font-family: var(--mono); font-size: inherit; }
+
+/* 罫線素片の線です。字形は zakki が空にしているので、見えるのはここで描く線だけです。
+   セルの幅は '0' の advance、高さは行送りで、どちらもブラウザが決めます。
+   座標は半セル単位なので、viewBox の値は列数と行数の 2 倍です。 */
+.box-drawing {
+  position: absolute;
+  left: var(--pad-x);
+  top: var(--pad-y);
+  width: calc(var(--cols) * 1ch);
+  height: calc(var(--rows) * var(--lh) * 1em);
+  pointer-events: none;
+}
+
+.box-drawing path {
+  fill: none;
+  stroke: currentColor;
+  /* 縦横で倍率が違うため、変形の影響を受けない指定にします。
+     太さは em なので、文字の大きさに付いてきます。 */
+  vector-effect: non-scaling-stroke;
+}
+
+.box-light { stroke-width: 0.085em; }
+.box-heavy { stroke-width: 0.17em; }
 
 :not(pre) > code {
   font-family: var(--mono);
