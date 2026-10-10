@@ -21,9 +21,12 @@ set -u
 
 HOOK_DIR=$(dirname "$0")
 
-# 全角記号と強調の太字。textlint は Markdown の ** を本文として読まないため、
-# ここで見る。
-PATTERNS='（|）|！|？|：|；|\*\*'
+# 全角記号。どのファイルでも見る。
+PATTERNS='（|）|！|？|：|；'
+
+# 強調の太字。textlint は Markdown の ** を本文として読まないため、ここで見る。
+# Rust の ** は二重の参照外しなので、Markdown の文面だけを対象にする。
+MD_PATTERNS='\*\*'
 
 # 見出しは名詞句にする。文の述語で終わるもの、接続詞で始まるものを検出する。
 # 目次に並べて意味が通らない見出しを弾くのが狙い。
@@ -49,6 +52,8 @@ find_hits() {
 
     case "$1" in
     *.md)
+        md=$(grep -nE "$MD_PATTERNS" "$1" 2>/dev/null)
+        hits=$(printf '%s\n%s' "$hits" "$md")
         if has_textlint; then
             tl=$("$HOOK_DIR/node_modules/.bin/textlint" -c "$HOOK_DIR/.textlintrc.json" \
                 -f compact "$1" 2>/dev/null)
@@ -83,7 +88,7 @@ if [ "$event" = "PreToolUse" ]; then
     body=$(printf '%s' "$input" | jq -r '.tool_input.body // .tool_input.text // empty')
     [ -n "$body" ] || exit 0
 
-    hits=$(printf '%s\n' "$body" | grep -nE "$PATTERNS|$HEAD_NG")
+    hits=$(printf '%s\n' "$body" | grep -nE "$PATTERNS|$MD_PATTERNS|$HEAD_NG")
     if has_textlint; then
         tl=$(printf '%s\n' "$body" | "$HOOK_DIR/node_modules/.bin/textlint" \
             -c "$HOOK_DIR/.textlintrc.json" -f compact \
