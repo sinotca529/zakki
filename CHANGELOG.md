@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.2](https://github.com/sinotca529/zakki/compare/v0.20.1...v0.20.2) - 2026-10-10
+
+### Added
+
+- 軽重の混在と半線を SVG で描く
+- 罫線素片の字形を空白に向けて SVG で描く
+- Atom フィードを出す
+- コードブロックにコピーボタンを足す
+
+### Fixed
+
+- コピーできたことを吹き出しで知らせる
+- コピーボタンの印を範囲選択に含めない
+- コードブロックをキーボードでも横に送れるようにする
+
+### Other
+
+- 太字の検査を Markdown だけに当てる
+- update css
+- 着手の判断の節を足す
+- PR 本文と設計の文書の書き方を skill に移す
+- PR 本文と設計の文書の書き方を足す
+- 「挿す」を検出する規則を足す
+- Merge branch 'main' into claude/apply-patch-qmhk9c
+- コピーボタンの説明から、やらない作り方の記述を外す
+- コピーボタンの位置についての説明を書き直す
+- コピーボタンの枠と面をやめる
+- コピーボタンの印を SVG から文字にする
+- コピーボタンもビルド時に出す
+- コードブロックを囲む div を、JS ではなくビルド時に出す
+
 ## [0.20.1](https://github.com/sinotca529/zakki/compare/v0.20.0...v0.20.1) - 2026-10-04
 
 ### Added
