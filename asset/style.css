@@ -1,40 +1,40 @@
 :root {
-  --sans: system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN",
-          "Noto Sans JP", "Yu Gothic UI", Meiryo, sans-serif;
-  /* コードに使う等幅。zakki.toml に code_font を書くと、zakki が作った
-     CSS がこの後に読まれ、--code-font を "zakki-code" 入りに差し替えます。
-     その CSS は --code-font-fallback を参照するので、ここで定義します。 */
+  --sans: system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", Meiryo, sans-serif;
+  /*
+   * コードに使う等幅。
+   * zakki.toml で指定したフォントが欠損していた場合のフォールバック。
+   */
   --code-font-fallback: Consolas, "Courier New", monospace;
   --code-font: var(--code-font-fallback);
   --mono: var(--code-font);
 
-  /* 日付、タグ、札などの小さな文字に使う等幅。zakki-code は使いません。
-     サブセットに残るのは、コードブロック、インラインコード、コードブロックの
-     キャプションに出てきた文字だけです。日付やタグの文字は入らないので、
-     --mono を当てると字ごとに予備のフォントへ落ち、1 行の中で書体が混ざります。 */
+  /*
+   * コードブロック以外で使う等幅フォント。
+   * zakki が生成する等幅フォントはコードブロックのみに対応したサブセットであるため、
+   * 他の箇所ではフォールバック先のフォントを利用する。
+   */
   --label: var(--code-font-fallback);
 
-  /* 地は白に近い明るさです。色は 2 つで、それぞれ別の意味を持たせます */
   --ground: #fbfbfc;
-  --panel: #f2f2f4;   /* コードなどの面。地より少し暗い */
-  --field: #ffffff;   /* 入力欄 */
+  --panel: #f2f2f4;
+  --field: #ffffff;
   --ink: #1b1b1f;
   --ink-2: #62656d;
   --rule: #dcdde1;
   --rule-2: #85898f;
-  --link: #1f3a5f;    /* 藍。リンク */
-  --code: #a8452a;    /* 朱。コード片 */
-  --flag: #a8452a;    /* 注意 */
+  --link: #1f3a5f;
+  --code: #a8452a;
+  --flag: #a8452a;
 
-  /* 本文の幅。40rem で 1 行 40 字、48rem で 48 字です。
-     ヘッダ、本文、フッタがこの幅で揃います。 */
+  /* 1行を何文字とするか */
   --measure: 48rem;
-  /* 本文の左右に空ける量。この幅は --measure の外側に付きます */
+  /* 本文の左右に空ける量。--measure の外側に付く */
   --gutter: 1.5rem;
 }
 
-/* width と max-width に padding と border を含めます。既定では内側の寸法だけを
-   指すので、両方を書いた main やヘッダで、外寸と行の長さが padding のぶん広がります */
+/*
+ * width と max-width に padding と border を含める。
+ */
 *, *::before, *::after { box-sizing: border-box; }
 
 html { background: var(--ground); }
@@ -44,19 +44,14 @@ body {
   background: var(--ground);
   color: var(--ink);
   font-family: var(--sans);
-  /* 17px です。rem で書くので、ブラウザの文字サイズの設定を変えると一緒に動きます */
-  font-size: 1.0625rem;
-  /* 和文のゴシックは字面が大きいので、行間を広めに取ります */
-  line-height: 1.7;
+  line-height: 1.9;
   line-break: strict;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
 }
 
-/* script.js はタグで絞り込むときに hidden 属性で要素を隠します。
-   作成者スタイルシートはユーザーエージェントスタイルシートより優先されるので、
-   .card などに display を書くと隠れなくなります。それを防ぎます。 */
+/* script.js はタグで絞り込むときに hidden 属性で要素を隠す。 */
 [hidden] { display: none !important; }
 
 a { color: var(--link); text-underline-offset: 0.16em; }
@@ -65,11 +60,8 @@ a { color: var(--link); text-underline-offset: 0.16em; }
 
 p { margin: 0 0 0.6em; }
 
-/* ヘッダ、本文、フッタに同じ幅を与えて、左右の端を揃えます。
-   面の色を持たないので、見た目に出るのは文字の行頭と行末の位置だけです。 */
-.site-header,
-main,
-footer {
+/* ヘッダ、本文、フッタの幅をそろえる。 */
+.site-header, main, footer {
   width: 100%;
   max-width: calc(var(--measure) + var(--gutter) * 2);
   margin-inline: auto;
@@ -114,7 +106,7 @@ footer {
 
 #search-input::placeholder { color: var(--ink-2); }
 
-/* 検索結果はヘッダの全幅を使います */
+/* 検索結果はヘッダの全幅を使う */
 #search-result {
   grid-column: 1 / -1;
   margin: 0.6rem 0 0;
@@ -139,7 +131,6 @@ main {
   text-wrap: balance;
 }
 
-/* 日付とタグは等幅の小さな 1 行にまとめます。区切り線は引きません */
 .page-meta {
   display: flex;
   flex-wrap: wrap;
@@ -152,12 +143,10 @@ main {
   color: var(--ink-2);
 }
 
-/* カレンダーのアイコンは出しません。日付であることは書式で分かります */
 .date svg { display: none; }
 
 /* 目次 */
 
-/* 目次は枠で囲まず、左の罫線だけで示します */
 .toc {
   margin: 0 0 1rem;
   font-family: var(--sans);
@@ -188,8 +177,7 @@ main {
 .toc a { text-decoration: none; color: inherit; }
 .toc a:hover { color: var(--link); text-decoration: underline; }
 
-/* 見出し。段階は大きさと余白で付けます。罫線は見出しの上に引き、
-   次の節の始まりを示します */
+/* 見出し。 */
 h2 {
   font-family: var(--sans);
   font-weight: 700;
@@ -216,10 +204,6 @@ h4 {
   margin: 0.9rem 0 0.25rem;
 }
 
-/* 番号は見出しの文字のすぐ前に置きます。幅を固定して列にすると、
-   番号が短い段で見出しとの間が大きく空きます。
-   書体と大きさは指定せず、見出しに合わせます。太さと色だけ落として、
-   見出しの文字より後ろに引きます */
 .section-number {
   margin-right: 0.6em;
   font-weight: 400;
@@ -229,27 +213,18 @@ h4 {
 ul, ol { margin: 0 0 0.6em; padding-left: 1.4em; }
 li { margin-bottom: 0.1em; }
 
-/* コード。枠は引かず、面の色だけで本文と分けます */
 pre {
   background: var(--panel);
   padding: 0.85rem 1rem;
   margin: 0.8rem 0;
   overflow-x: auto;
-  /* 字の大きさは pre に持たせます。code 側に書くと、行の高さを決める
-     pre の文字の大きさ (本文と同じ) と食い違い、line-height: 1 でも
-     その差のぶん行間が空きます。
-     0.85 は GitHub の Markdown と同じ比率です。 */
   font-size: 0.85em;
-  /* 罫線が縦に途切れないよう 1 にします。1 より大きいと行間が空き、
-     ─ や │ の端が上下の行とつながりません。 */
-  line-height: 1;
+  /* 罫線素片が途切れない値を指定 */
+  line-height: 1.25;
 }
 
 pre > code { font-family: var(--mono); font-size: inherit; }
 
-/* 欧文のサイトの相場は 0.85em から 0.875em です。和文はかな漢字が
-   全角いっぱいに描かれるので、同じ比率では小さく見えます。背景の箱も
-   付けないため、箱が行をまたいで重なるのを避ける必要もありません */
 :not(pre) > code {
   font-family: var(--mono);
   font-size: 0.95em;
@@ -258,24 +233,15 @@ pre > code { font-family: var(--mono); font-size: inherit; }
 
 /* コピーボタン */
 
-/* div.code-block とボタンは add_copy_button が出力します。
-   ボタンの位置の基準はスクロールしない要素である必要があるので、
-   overflow-x: auto を当てた pre ではなく div.code-block を基準にします。 */
-
 .code-block {
   position: relative;
 }
 
-/* 印は文字 (U+29C9) なので、本文と同じ書体で描きます。--code-font は
-   当てません。サブセットに残るのはコードに出てきた文字だけで、
-   この字は入らないためです。 */
 .copy-button {
   position: absolute;
   top: 0.4rem;
   right: 0.4rem;
-  /* 読者がコードを範囲選択したときに、印が混ざらないようにします */
   user-select: none;
-  /* 枠も面も持たせず、印だけを置きます */
   background: none;
   border: 0;
   padding: 0.1rem 0.2rem;
@@ -309,14 +275,13 @@ pre > code { font-family: var(--mono); font-size: inherit; }
   visibility: visible;
 }
 
-/* navigator.clipboard が使えない環境では script.js が html に付けます */
+/* navigator.clipboard が使えない環境では script.js が html に付ける */
 .no-clipboard .copy-button {
   display: none;
 }
 
 figure.code-figure { margin: 0.8rem 0; }
 
-/* 見出しはコードの面に重ねず、上に置く小さな行にします */
 figure.code-figure figcaption {
   font-family: var(--mono);
   font-size: 0.75rem;
@@ -329,11 +294,6 @@ figure.code-figure pre { margin-top: 0; }
 
 /* 数式 */
 
-/* katex.min.css は .katex に font-size: 1.21em を当てます。KaTeX の書体は
-   Computer Modern 系で字が小さく描かれるため、欧文の本文に合わせた値です。
-   和文の本文に対しては大きいので下げます。LaTeX は本文中の数式を拡大せず、
-   jsarticle の和文は欧文の 0.9247 倍なので、和文から見た数式は約 1.08 倍です。
-   katex.min.css は style.css より後に読まれるので、詳細度を上げて勝たせます。 */
 #article .katex { font-size: 1.1em; }
 
 /* 表 */
@@ -348,7 +308,6 @@ table {
   line-height: 1.6;
 }
 
-/* 縦の罫線は引かず、横罫だけで行を分けます */
 td, th {
   border-bottom: 1px solid var(--rule);
   padding: 0.35rem 1.2rem 0.35rem 0;
@@ -358,7 +317,6 @@ td, th {
 
 tr > :last-child { padding-right: 0; }
 
-/* 見出しの行は、面の色ではなく書体と太めの罫線で示します */
 thead th {
   border-bottom: 1px solid var(--rule-2);
   font-family: var(--label);
@@ -380,7 +338,7 @@ blockquote {
 blockquote > :first-child { margin-top: 0; }
 blockquote > :last-child { margin-bottom: 0; }
 
-/* 注記。種別の名前を等幅の小さなラベルにします */
+/* 注記。 */
 
 .markdown-alert {
   --alert-color: var(--rule-2);
@@ -408,14 +366,14 @@ blockquote > :last-child { margin-bottom: 0; }
 .markdown-alert-warning   { --alert-color: #7a5410; }
 .markdown-alert-caution   { --alert-color: var(--flag); }
 
-/* 定義リスト。語は太字のゴシックで示します */
+/* 定義リスト。 */
 
 dl { margin: 0.8rem 0; }
 dt { font-family: var(--sans); font-weight: 700; margin-top: 0.9rem; }
 dt:first-child { margin-top: 0; }
 dd { margin: 0 0 0.4rem; padding-left: 1.5em; }
 
-/* 注の番号。上付きの既定は行の高さを押し広げるので、位置を自分で決めます */
+/* 注の番号。*/
 
 .footnote-reference {
   font-size: 0.7em;
@@ -434,9 +392,6 @@ dd { margin: 0 0 0.4rem; padding-left: 1.5em; }
 .footnote-reference a::after { content: "]"; }
 .footnote-reference a:hover { text-decoration: underline; }
 
-/* 脚注の本体。区切りは 1 つめの上だけに引いて、本文との境目にします。:first-of-type は使えません。
-   脚注の前に .x-scroll の div が入ると、1 つめの div がそちらになるためです。
-   全部に引いてから、2 つめ以降で消します。 */
 .footnote-definition {
   margin: 1.75rem 0 0.3rem;
   padding-top: 0.8rem;
@@ -451,7 +406,6 @@ dd { margin: 0 0 0.4rem; padding-left: 1.5em; }
   border-top: 0;
 }
 
-/* 番号と本文を同じ行に置きます */
 .footnote-definition > p { display: inline; }
 
 .footnote-definition-label {
@@ -464,11 +418,10 @@ figure { margin: 0.8rem 0; }
 figure img { max-width: 100%; height: auto; }
 figcaption { font-size: 0.8125rem; color: var(--ink-2); }
 
-/* 一覧。日付を等幅の列にして縦に揃えます */
+/* 一覧。*/
 
 #contents-list { margin-bottom: 1.75rem; }
 
-/* カードは箱ではなく、横罫で区切った行として見せます */
 .card {
   position: relative;
   display: grid;
@@ -496,8 +449,6 @@ figcaption { font-size: 0.8125rem; color: var(--ink-2); }
 
 .card-meta { display: contents; }
 
-/* タグはカード全体のリンクより上に出します。幅を内容に合わせないと、
-   タグのない右側までこの帯が覆い、その高さだけカードを押せなくなります。 */
 .card-tags { grid-column: 2; grid-row: 2; position: relative; z-index: 1; width: fit-content; }
 
 .card.crypto .card-header::after {
@@ -517,7 +468,7 @@ figcaption { font-size: 0.8125rem; color: var(--ink-2); }
   margin-left: 0.5em;
 }
 
-/* まとめページに出す子の一覧。カードと同じ横罫で並べます */
+/* まとめページに出す子の一覧 */
 
 .child-list { list-style: none; margin: 0.8rem 0; padding: 0; }
 .child-list li { margin-bottom: 0; border-bottom: 1px solid var(--rule); padding: 0.4rem 0; }
@@ -525,7 +476,7 @@ figcaption { font-size: 0.8125rem; color: var(--ink-2); }
 .child-list a { font-family: var(--sans); font-size: 1rem; text-decoration: none; color: var(--ink); }
 .child-list a:hover { text-decoration: underline; }
 
-/* タグ。箱で囲まず、下線だけで押せることを示します */
+/* タグ */
 
 .tag-list { display: flex; flex-wrap: wrap; gap: 0.2rem 0.9rem; }
 
@@ -551,7 +502,7 @@ figcaption { font-size: 0.8125rem; color: var(--ink-2); }
 }
 #tag-filter:not(:empty)::before { content: "Filtered by: "; }
 
-/* フッタ。本文と同じ左端に揃えます */
+/* フッタ */
 footer {
   padding: 1.2rem var(--gutter) 2rem;
   font-family: var(--label);
@@ -560,7 +511,7 @@ footer {
 }
 footer > p { margin-block: 0; }
 
-/* フィードへのリンク。利用者が書いたフッタとは別のブロックにします */
+/* フィードへのリンク */
 .site-feed { margin-top: 0.3rem; }
 
 @media (max-width: 30em) {
