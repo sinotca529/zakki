@@ -103,16 +103,87 @@ const TABLE: &[(char, Arms)] = &[
     ('╿', [2, 1, 0, 0]),
 ];
 
+/// 塗りで描く符号位置と、その長方形です。
+///
+/// 座標はセルの左上を (0, 0)、右下を (1, 1) とする割合です。
+/// 網掛け (`░▒▓`) は点の模様なので入れていません。
+const BLOCKS: &[(char, &[Rect])] = &[
+    ('▀', &[(0.0, 0.0, 1.0, 0.5)]),
+    ('▁', &[(0.0, 0.875, 1.0, 1.0)]),
+    ('▂', &[(0.0, 0.75, 1.0, 1.0)]),
+    ('▃', &[(0.0, 0.625, 1.0, 1.0)]),
+    ('▄', &[(0.0, 0.5, 1.0, 1.0)]),
+    ('▅', &[(0.0, 0.375, 1.0, 1.0)]),
+    ('▆', &[(0.0, 0.25, 1.0, 1.0)]),
+    ('▇', &[(0.0, 0.125, 1.0, 1.0)]),
+    ('█', &[(0.0, 0.0, 1.0, 1.0)]),
+    ('▉', &[(0.0, 0.0, 0.875, 1.0)]),
+    ('▊', &[(0.0, 0.0, 0.75, 1.0)]),
+    ('▋', &[(0.0, 0.0, 0.625, 1.0)]),
+    ('▌', &[(0.0, 0.0, 0.5, 1.0)]),
+    ('▍', &[(0.0, 0.0, 0.375, 1.0)]),
+    ('▎', &[(0.0, 0.0, 0.25, 1.0)]),
+    ('▏', &[(0.0, 0.0, 0.125, 1.0)]),
+    ('▐', &[(0.5, 0.0, 1.0, 1.0)]),
+    ('▔', &[(0.0, 0.0, 1.0, 0.125)]),
+    ('▕', &[(0.875, 0.0, 1.0, 1.0)]),
+    ('▖', &[(0.0, 0.5, 0.5, 1.0)]),
+    ('▗', &[(0.5, 0.5, 1.0, 1.0)]),
+    ('▘', &[(0.0, 0.0, 0.5, 0.5)]),
+    (
+        '▙',
+        &[
+            (0.0, 0.0, 0.5, 0.5),
+            (0.0, 0.5, 0.5, 1.0),
+            (0.5, 0.5, 1.0, 1.0),
+        ],
+    ),
+    ('▚', &[(0.0, 0.0, 0.5, 0.5), (0.5, 0.5, 1.0, 1.0)]),
+    (
+        '▛',
+        &[
+            (0.0, 0.0, 0.5, 0.5),
+            (0.5, 0.0, 1.0, 0.5),
+            (0.0, 0.5, 0.5, 1.0),
+        ],
+    ),
+    (
+        '▜',
+        &[
+            (0.0, 0.0, 0.5, 0.5),
+            (0.5, 0.0, 1.0, 0.5),
+            (0.5, 0.5, 1.0, 1.0),
+        ],
+    ),
+    ('▝', &[(0.5, 0.0, 1.0, 0.5)]),
+    ('▞', &[(0.5, 0.0, 1.0, 0.5), (0.0, 0.5, 0.5, 1.0)]),
+    (
+        '▟',
+        &[
+            (0.5, 0.0, 1.0, 0.5),
+            (0.0, 0.5, 0.5, 1.0),
+            (0.5, 0.5, 1.0, 1.0),
+        ],
+    ),
+];
+
+/// 塗る長方形です。左上と右下を持ちます。
+type Rect = (f32, f32, f32, f32);
+
 /// SVG で描く文字かどうかを返します。
 ///
 /// SVG で描く文字と、フォントから字形を落とす文字は同じである必要があります。
 /// 片方だけ変えると、線が二重に描かれるか、消えたままになります。
 pub fn is_covered(c: char) -> bool {
-    arms(c).is_some()
+    arms(c).is_some() || blocks(c).is_some()
 }
 
 fn arms(c: char) -> Option<Arms> {
     TABLE.iter().find(|(x, _)| *x == c).map(|(_, a)| *a)
+}
+
+fn blocks(c: char) -> Option<&'static [Rect]> {
+    BLOCKS.iter().find(|(x, _)| *x == c).map(|(_, r)| *r)
 }
 
 /// 文字がセルをいくつ占めるかを返します。
@@ -244,12 +315,25 @@ fn subpath(points: &[Point]) -> String {
     d
 }
 
-/// コードブロックの中身から、太さごとの線を集めます。
-fn collect(code: &str) -> ([Lines; 2], u32, u32) {
-    let mut lines = [Lines::default(), Lines::default()];
-    let mut cols = 0;
+/// 図から取り出した形です。
+#[derive(Default)]
+struct Shapes {
+    /// 太さごとの線。
+    lines: [Lines; 2],
+    /// 塗る長方形。座標は線と同じ半セル単位です。
+    fills: Vec<Rect>,
+    cols: u32,
+    rows: u32,
+}
 
-    let rows = code.lines().count() as u32;
+/// コードブロックの中身から形を集めます。
+fn collect(code: &str) -> Shapes {
+    let mut shapes = Shapes {
+        rows: code.lines().count() as u32,
+        ..Shapes::default()
+    };
+    let lines = &mut shapes.lines;
+
     for (row, text) in code.lines().enumerate() {
         let mut col = 0;
         let (top, bottom) = (row as u32 * 2, row as u32 * 2 + 2);
@@ -257,6 +341,12 @@ fn collect(code: &str) -> ([Lines; 2], u32, u32) {
         for c in text.chars() {
             let (left, right) = (col * 2, col * 2 + 2);
             let (cx, cy) = (left + 1, top + 1);
+
+            for (x0, y0, x1, y1) in blocks(c).unwrap_or_default() {
+                let x = |f: f32| left as f32 + f * 2.0;
+                let y = |f: f32| top as f32 + f * 2.0;
+                shapes.fills.push((x(*x0), y(*y0), x(*x1), y(*y1)));
+            }
 
             if let Some([up, down, l, r]) = arms(c) {
                 if up != 0 {
@@ -276,10 +366,10 @@ fn collect(code: &str) -> ([Lines; 2], u32, u32) {
             col += cell_width(c);
         }
 
-        cols = cols.max(col);
+        shapes.cols = shapes.cols.max(col);
     }
 
-    (lines, cols, rows)
+    shapes
 }
 
 /// コードブロックに重ねる SVG を作ります。
@@ -288,13 +378,26 @@ fn collect(code: &str) -> ([Lines; 2], u32, u32) {
 /// 座標の単位は半セルなので、viewBox は列数と行数の 2 倍になります。
 /// 実際の大きさは CSS が `--cols` と `--rows` から決めます。
 pub fn svg(code: &str) -> Option<String> {
-    let ([light, heavy], cols, rows) = collect(code);
+    let Shapes {
+        lines: [light, heavy],
+        fills,
+        cols,
+        rows,
+    } = collect(code);
 
     let mut paths = String::new();
     for (lines, class) in [(light, "box-light"), (heavy, "box-heavy")] {
         if let Some(d) = lines.path_data() {
             paths.push_str(&format!(r#"<path class="{class}" d="{d}"/>"#));
         }
+    }
+
+    if !fills.is_empty() {
+        let d: String = fills
+            .iter()
+            .map(|(x0, y0, x1, y1)| format!("M{x0} {y0}H{x1}V{y1}H{x0}Z"))
+            .collect();
+        paths.push_str(&format!(r#"<path class="box-fill" d="{d}"/>"#));
     }
 
     (!paths.is_empty()).then(|| {
@@ -308,7 +411,7 @@ pub fn svg(code: &str) -> Option<String> {
 
 #[cfg(test)]
 mod test {
-    use super::{TABLE, svg};
+    use super::{BLOCKS, TABLE, svg};
 
     /// 1 つの箱は 1 つのサブパスになります。文字ごとに描けば 12 本のところです。
     /// 端は角の中心までなので、4 列の箱の横線は 1 から 7 までです。
@@ -339,6 +442,23 @@ mod test {
     fn keeps_crossings_apart() {
         let d = svg("┼\n").unwrap();
         assert!(d.contains(r#"d="M2 1H0M1 2V0""#), "{d}");
+    }
+
+    /// ブロックは線ではなく長方形の塗りです。
+    #[test]
+    fn fills_a_block() {
+        let d = svg("\u{2588}").unwrap();
+        assert!(
+            d.contains(r#"<path class="box-fill" d="M0 0H2V2H0Z"/>"#),
+            "{d}"
+        );
+    }
+
+    /// 四分円は長方形 2 つ以上になります。
+    #[test]
+    fn fills_each_quadrant() {
+        let d = svg("\u{259e}").unwrap();
+        assert!(d.contains(r#"d="M1 0H2V1H1ZM0 1H1V2H0Z""#), "{d}");
     }
 
     /// 腕ごとに太さが違う文字では、太さごとに別の path に分かれます。
@@ -372,7 +492,11 @@ mod test {
     /// 字形を落とす文字は、すべて描ける必要があります。
     #[test]
     fn draws_every_covered_character() {
-        for (c, _) in TABLE {
+        let chars = TABLE
+            .iter()
+            .map(|(c, _)| c)
+            .chain(BLOCKS.iter().map(|(c, _)| c));
+        for c in chars {
             assert!(svg(&c.to_string()).is_some(), "{c} を描けません");
         }
     }
