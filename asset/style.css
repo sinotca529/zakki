@@ -243,7 +243,7 @@ pre > code { font-family: var(--mono); font-size: inherit; }
   pointer-events: none;
 }
 
-.box-drawing path {
+.box-light, .box-heavy {
   fill: none;
   stroke: currentColor;
   /* 縦横で倍率が違うため、変形の影響を受けない指定にします。
@@ -253,6 +253,9 @@ pre > code { font-family: var(--mono); font-size: inherit; }
 
 .box-light { stroke-width: 0.085em; }
 .box-heavy { stroke-width: 0.17em; }
+
+/* ブロックは線ではなく面です。 */
+.box-fill { fill: currentColor; }
 
 :not(pre) > code {
   font-family: var(--mono);
