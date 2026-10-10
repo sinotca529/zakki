@@ -103,6 +103,28 @@ const TABLE: &[(char, Arms)] = &[
     ('╿', [2, 1, 0, 0]),
 ];
 
+/// 破線の符号位置です。1 セルに引く本数、太さ、横向きかどうかを持ちます。
+const DASHES: &[(char, u8, u8, bool)] = &[
+    ('┄', 3, 1, true),
+    ('┅', 3, 2, true),
+    ('┆', 3, 1, false),
+    ('┇', 3, 2, false),
+    ('┈', 4, 1, true),
+    ('┉', 4, 2, true),
+    ('┊', 4, 1, false),
+    ('┋', 4, 2, false),
+    ('╌', 2, 1, true),
+    ('╍', 2, 2, true),
+    ('╎', 2, 1, false),
+    ('╏', 2, 2, false),
+];
+
+/// 破線の間隔です。セルに対する割合で、両端にはこの半分を空けます。
+///
+/// 隣のセルと合わせて間隔が揃うので、破線が続いても間延びしません。
+/// DejaVu Sans Mono の字形も、本数によらずこの間隔でした。
+const DASH_GAP: f32 = 0.1;
+
 /// 塗りで描く符号位置と、その長方形です。
 ///
 /// 座標はセルの左上を (0, 0)、右下を (1, 1) とする割合です。
@@ -175,7 +197,7 @@ type Rect = (f32, f32, f32, f32);
 /// SVG で描く文字と、フォントから字形を落とす文字は同じである必要があります。
 /// 片方だけ変えると、線が二重に描かれるか、消えたままになります。
 pub fn is_covered(c: char) -> bool {
-    arms(c).is_some() || blocks(c).is_some()
+    arms(c).is_some() || blocks(c).is_some() || dashes(c).is_some()
 }
 
 fn arms(c: char) -> Option<Arms> {
@@ -184,6 +206,13 @@ fn arms(c: char) -> Option<Arms> {
 
 fn blocks(c: char) -> Option<&'static [Rect]> {
     BLOCKS.iter().find(|(x, _)| *x == c).map(|(_, r)| *r)
+}
+
+fn dashes(c: char) -> Option<(u8, u8, bool)> {
+    DASHES
+        .iter()
+        .find(|(x, ..)| *x == c)
+        .map(|(_, count, weight, horizontal)| (*count, *weight, *horizontal))
 }
 
 /// 文字がセルをいくつ占めるかを返します。
@@ -201,22 +230,27 @@ type Point = (u32, u32);
 ///
 /// 出力を毎回同じにしたいので、並びの決まる BTree を使います。
 #[derive(Default)]
-struct Lines(BTreeMap<Point, BTreeSet<Point>>);
+struct Lines {
+    /// 辺のつながりです。
+    edges: BTreeMap<Point, BTreeSet<Point>>,
+    /// 破線の 1 本ずつです。両端を持ちます。
+    dashes: Vec<(f32, f32, f32, f32)>,
+}
 
 impl Lines {
     /// 辺を 1 本足します。
     fn add(&mut self, a: Point, b: Point) {
-        self.0.entry(a).or_default().insert(b);
-        self.0.entry(b).or_default().insert(a);
+        self.edges.entry(a).or_default().insert(b);
+        self.edges.entry(b).or_default().insert(a);
     }
 
     /// 辺を 1 本取り除きます。辺のなくなった点は落とします。
     fn remove(&mut self, a: Point, b: Point) {
         for (from, to) in [(a, b), (b, a)] {
-            if let Some(next) = self.0.get_mut(&from) {
+            if let Some(next) = self.edges.get_mut(&from) {
                 next.remove(&to);
                 if next.is_empty() {
-                    self.0.remove(&from);
+                    self.edges.remove(&from);
                 }
             }
         }
@@ -227,7 +261,7 @@ impl Lines {
     /// まっすぐを選ぶので、同じ向きに続く線は 1 本になり、
     /// 交差点では通り抜ける線が 1 本になります。
     fn next(&self, point: Point, from: Option<Point>) -> Option<Point> {
-        let next = self.0.get(&point)?;
+        let next = self.edges.get(&point)?;
         let straight = from.and_then(|from| next.iter().find(|to| is_straight(from, point, **to)));
 
         straight.or_else(|| next.iter().next()).copied()
@@ -252,7 +286,7 @@ impl Lines {
     fn path_data(mut self) -> Option<String> {
         let mut d = String::new();
 
-        while let Some(start) = self.0.keys().next().copied() {
+        while let Some(start) = self.edges.keys().next().copied() {
             // 両方向に伸ばします。先に辿ったほうは逆向きなので、並べ直します。
             let back = self.walk(start, None);
             let forward = self.walk(start, back.first().copied());
@@ -265,8 +299,25 @@ impl Lines {
             d.push_str(&subpath(&points));
         }
 
+        // 破線はつながりに入れません。隣のセルや実線と地続きにしないためです。
+        for (x1, y1, x2, y2) in self.dashes {
+            d.push_str(&format!(
+                "M{} {}{}{}",
+                num(x1),
+                num(y1),
+                if y1 == y2 { "H" } else { "V" },
+                if y1 == y2 { num(x2) } else { num(y2) }
+            ));
+        }
+
         (!d.is_empty()).then_some(d)
     }
+}
+
+/// 座標を書きます。小数は 2 桁までにします。セルの 1/200 なので、見た目には出ません。
+fn num(v: f32) -> String {
+    let s = format!("{v:.2}");
+    s.trim_end_matches('0').trim_end_matches('.').to_owned()
 }
 
 /// 3 点が一直線に並び、`from` と `to` が `point` の反対側にあるかどうかを返します。
@@ -348,6 +399,27 @@ fn collect(code: &str) -> Shapes {
                 shapes.fills.push((x(*x0), y(*y0), x(*x1), y(*y1)));
             }
 
+            if let Some((count, weight, horizontal)) = dashes(c) {
+                let (start, across) = if horizontal {
+                    (left as f32, cy as f32)
+                } else {
+                    (top as f32, cx as f32)
+                };
+                // セルを本数で割り、各区画の中ほどに引きます。
+                let step = 2.0 / f32::from(count);
+                let gap = DASH_GAP * 2.0;
+                for i in 0..u32::from(count) {
+                    let a = start + step * i as f32 + gap / 2.0;
+                    let b = a + step - gap;
+                    let dash = if horizontal {
+                        (a, across, b, across)
+                    } else {
+                        (across, a, across, b)
+                    };
+                    lines[weight as usize - 1].dashes.push(dash);
+                }
+            }
+
             if let Some([up, down, l, r]) = arms(c) {
                 if up != 0 {
                     lines[up as usize - 1].add((cx, cy), (cx, top));
@@ -395,7 +467,10 @@ pub fn svg(code: &str) -> Option<String> {
     if !fills.is_empty() {
         let d: String = fills
             .iter()
-            .map(|(x0, y0, x1, y1)| format!("M{x0} {y0}H{x1}V{y1}H{x0}Z"))
+            .map(|(x0, y0, x1, y1)| {
+                let (x0, y0, x1, y1) = (num(*x0), num(*y0), num(*x1), num(*y1));
+                format!("M{x0} {y0}H{x1}V{y1}H{x0}Z")
+            })
             .collect();
         paths.push_str(&format!(r#"<path class="box-fill" d="{d}"/>"#));
     }
@@ -411,7 +486,7 @@ pub fn svg(code: &str) -> Option<String> {
 
 #[cfg(test)]
 mod test {
-    use super::{BLOCKS, TABLE, svg};
+    use super::{is_covered, svg};
 
     /// 1 つの箱は 1 つのサブパスになります。文字ごとに描けば 12 本のところです。
     /// 端は角の中心までなので、4 列の箱の横線は 1 から 7 までです。
@@ -476,6 +551,20 @@ mod test {
         assert!(d.contains(r#"d="M1 1H0""#), "{d}");
     }
 
+    /// 破線はセルを本数で割り、間隔の分だけ縮めて引きます。
+    #[test]
+    fn breaks_a_dashed_line_into_segments() {
+        let d = svg("╌").unwrap();
+        assert!(d.contains(r#"d="M0.1 1H0.9M1.1 1H1.9""#), "{d}");
+    }
+
+    /// 破線は隣のセルとつなぎません。つなぐと間隔が消えます。
+    #[test]
+    fn keeps_dashes_apart_from_their_neighbours() {
+        let d = svg("─╌").unwrap();
+        assert!(d.contains(r#"d="M2 1H0M2.1 1H2.9M3.1 1H3.9""#), "{d}");
+    }
+
     /// 太さごとに別の path にします。
     #[test]
     fn separates_heavy_lines() {
@@ -489,15 +578,13 @@ mod test {
         assert!(svg("let x = 1;\n").is_none());
     }
 
-    /// 字形を落とす文字は、すべて描ける必要があります。
+    /// 字形を落とす文字と、描く文字が一致することを確かめます。
+    ///
+    /// 片方だけに入っていると、線が二重に描かれるか、消えたままになります。
     #[test]
     fn draws_every_covered_character() {
-        let chars = TABLE
-            .iter()
-            .map(|(c, _)| c)
-            .chain(BLOCKS.iter().map(|(c, _)| c));
-        for c in chars {
-            assert!(svg(&c.to_string()).is_some(), "{c} を描けません");
+        for c in '\u{2500}'..='\u{259f}' {
+            assert_eq!(is_covered(c), svg(&c.to_string()).is_some(), "{c}");
         }
     }
 }
