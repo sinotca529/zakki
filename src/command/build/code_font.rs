@@ -1,13 +1,16 @@
+use crate::command::build::box_drawing;
 use crate::config::CodeFontConfig;
 use crate::include_asset;
 use crate::util;
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 use fontcull_klippa::{Plan, SubsetFlags, subset_font};
 use fontcull_skrifa::raw::collections::IntSet;
 use fontcull_skrifa::raw::types::NameId;
 use fontcull_skrifa::raw::{FileRef, TableProvider as _};
 use fontcull_skrifa::string::StringId;
 use fontcull_skrifa::{FontRef, GlyphId, MetadataProvider as _, Tag};
+use fontcull_write_fonts::tables::cmap::Cmap;
+use fontcull_write_fonts::{FontBuilder, dump_table};
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -36,6 +39,16 @@ const NO_FONT_CSS: &str = include_asset!("code-font-none.css");
 /// その差でサイズは 3% しか変わらないため、9 を選んでいます。
 const BROTLI_QUALITY: u8 = 9;
 
+/// セルの幅を測るのに使う文字。
+///
+/// CSS の `ch` がこの文字の advance なので、合わせておく必要があります。
+const CELL_WIDTH_CHAR: char = '0';
+
+/// 罫線素片に割り当てる字形の文字。
+///
+/// 等幅のフォントなら advance がセル 1 つ分で、字形も空です。
+const BLANK_CHAR: char = ' ';
+
 /// `OS/2` の `fsType` のうち、許可なく埋め込めないことを表すビット。
 const FS_TYPE_RESTRICTED: u16 = 0x0002;
 
@@ -62,8 +75,22 @@ pub fn output(cfg: &CodeFontConfig, chars: &BTreeSet<char>, build_dir: &Path) ->
     check_outlines(&font, cfg)?;
     check_coverage(&font, cfg, chars)?;
 
-    let sfnt = subset(&font, chars)
+    // 罫線素片は線を SVG で描くので、字形を残しません。
+    let (box_chars, mut chars): (BTreeSet<_>, BTreeSet<_>) =
+        chars.iter().partition(|c| box_drawing::is_covered(**c));
+
+    // '0' と空白は記事で使われていなくても残します。
+    // CSS の `ch` が '0' の advance で、罫線素片を描く SVG の幅をこれで決めます。
+    // 字形がないと、ブラウザは `ch` を 0.5em と見なし、図が文字とずれます。
+    // 空白の字形は、罫線素片の行き先として使います。
+    chars.insert(CELL_WIDTH_CHAR);
+    chars.insert(BLANK_CHAR);
+
+    let sfnt = subset(&font, &chars)
         .with_context(|| format!("{} のサブセットに失敗しました", cfg.path.display()))?;
+
+    let sfnt = blank_box_drawing(&sfnt, &box_chars)
+        .with_context(|| format!("{} の罫線素片を空にできません", cfg.path.display()))?;
 
     // 既定では 1 スレッドで圧縮するため、同じ入力からは同じバイト列が出ます。
     let woff2 = ttf2woff2::encode(&sfnt, BROTLI_QUALITY.into())
@@ -84,7 +111,38 @@ pub fn output(cfg: &CodeFontConfig, chars: &BTreeSet<char>, build_dir: &Path) ->
     Ok(())
 }
 
-/// 使うフォントがファイルの何番目かを決めます。
+/// 罫線素片を空白の字形に向けます。
+///
+/// 線は `box_drawing` が作る SVG で描くので、字形は要りません。サブセットの時点で
+/// 落としたうえで、`cmap` だけを書き直して空白の字形を指すようにします。
+/// 字形を残すと、SVG の線と二重に描かれます。
+///
+/// 日本語のフォントは罫線素片に全角の advance を与えていることがあり、
+/// そのままでは図の格子が崩れます。等幅のフォントなら空白の advance はセル 1 つ分なので、
+/// 向け先を変えるだけで幅も揃います。
+fn blank_box_drawing(sfnt: &[u8], box_chars: &BTreeSet<char>) -> Result<Vec<u8>> {
+    if box_chars.is_empty() {
+        return Ok(sfnt.to_owned());
+    }
+
+    let font = FontRef::new(sfnt)?;
+    let charmap = font.charmap();
+    let blank = charmap.map(BLANK_CHAR).context("空白の字形がありません")?;
+
+    let mappings = charmap
+        .mappings()
+        .filter_map(|(code, gid)| char::from_u32(code).map(|c| (c, gid)))
+        .chain(box_chars.iter().map(|c| (*c, blank)));
+    let cmap = Cmap::from_mappings(mappings).map_err(|e| anyhow!("cmap を作れません : {e}"))?;
+
+    let mut builder = FontBuilder::new();
+    builder.add_raw(Tag::new(b"cmap"), dump_table(&cmap)?);
+    builder.copy_missing_tables(font);
+
+    Ok(builder.build())
+}
+
+/// 使うフォントがファイルの何番目かを決めます。/// 使うフォントがファイルの何番目かを決めます。
 ///
 /// 1 つのファイルに複数のフォントが入っていることがあります (`.ttc`)。
 /// 番号を人が知る手立てはないので、フォントが名乗っている名前で選びます。

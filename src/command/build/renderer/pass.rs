@@ -1,3 +1,4 @@
+mod add_box_drawing;
 mod add_code_caption;
 mod add_copy_button;
 mod adjust_link;
@@ -15,6 +16,7 @@ mod read_front_matter;
 mod validate_heading_order;
 mod wrap_table;
 
+pub use add_box_drawing::add_box_drawing;
 pub use add_code_caption::add_code_caption;
 pub use add_copy_button::add_copy_button;
 pub use adjust_link::adjust_link;

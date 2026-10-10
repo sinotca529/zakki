@@ -151,6 +151,8 @@ impl<'a> PageRenderer<'a> {
         // - assign_header_id は make_toc より前。make_toc は見出しの id を読み、無ければ落ちます
         // - highlight_code は make_bloom_filter より前。区切り文字はここで取り除かれるので、
         //   索引に載りません
+        // - add_box_drawing は highlight_code より後。先に置くと、highlight_code が
+        //   コードブロックの中身を Text から組み直すときに SVG が落ちます
         //
         // ほかの組み合わせでは、触るイベントが重なりません。並びを変えるときは、
         // 生成したサイトを変更前と比べてください。
@@ -171,6 +173,10 @@ impl<'a> PageRenderer<'a> {
         pass::add_code_caption(&mut events);
         pass::highlight_code(&mut events, &front_matter.highlights);
         pass::convert_math(&mut events, &mut pass_assets)?;
+        // フォントを作らないサイトでは罫線素片の字形が残るので、線を重ねません。
+        if self.config.code_font.is_some() {
+            pass::add_box_drawing(&mut events);
+        }
         pass::add_copy_button(&mut events);
         pass::wrap_table(&mut events);
         pass::convert_alert(&mut events);
