@@ -5,20 +5,14 @@ use std::path::Path;
 /// 書き写すだけの style.css。末尾に zakki が組み立てた分を足します。
 const STYLE_CSS: &str = include_asset!("style.css");
 
-/// 書き出す style.css の先頭に置く断り書き。
-///
-/// 足す分だけでなく、ファイル全体がビルドのたびに書き直されます。
-const HEADER: &str =
-    "/* zakki がビルドのたびに書き出します。手を入れても次のビルドで消えます。 */\n";
-
 /// style.css を書き出します。
 ///
 /// `generated` は zakki が組み立てた分で、末尾に足します。
 /// 後ろに置くのは、style.css が定義している変数を上書きできるようにするためです。
 pub fn write_style_css(build_dir: &Path, generated: &str) -> anyhow::Result<()> {
     let css = match generated.is_empty() {
-        true => format!("{HEADER}{STYLE_CSS}"),
-        false => format!("{HEADER}{STYLE_CSS}\n{generated}"),
+        true => STYLE_CSS.to_owned(),
+        false => format!("{STYLE_CSS}\n{generated}"),
     };
     util::write_file(build_dir.join("style.css"), css).map_err(Into::into)
 }
