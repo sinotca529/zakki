@@ -7,7 +7,7 @@
 //! そこで、`code_font` の字形を空にしたうえで (`code_font::output`)、
 //! ここで作った SVG をコードブロックに重ねます。
 //! 線はつないで 1 本にするので、継ぎ目が残りません。
-//! 塗りも、同じ濃さで隣り合うものを 1 つの長方形にまとめます。
+//! 塗りは濃さごとに 1 つの path にまとめるので、こちらも継ぎ目が残りません。
 
 use super::code_font::Advances;
 use std::collections::BTreeMap;
@@ -681,7 +681,8 @@ fn collect(code: &str, advances: Option<&Advances>, arc_ry: u32, gap: (u32, u32)
 
 /// 同じ濃さで隣り合う長方形を、1 つの大きな長方形にまとめます。
 ///
-/// 長方形を 1 つずつ描くと、境の列が下地と混ざって縞に見えます。
+/// 継ぎ目のためではなく、path のデータを短くするために行います。
+/// 60 列 12 行を塗りつぶす図では、まとめると 15190 バイトが 39 バイトになりました。
 /// `FILL_UNIT` の格子に敷き直したうえで、右と下に伸ばせるだけ伸ばした長方形を切り出します。
 fn merge_fills(fills: &[(u8, Rect)], cols: u32, rows: u32) -> Vec<(u8, Rect)> {
     let w = (cols * CELL / FILL_UNIT) as usize;
@@ -780,6 +781,9 @@ pub fn svg(code: &str, advances: Option<&Advances>, ratio: f32) -> Option<String
         }
     }
 
+    // 濃さごとに 1 つの path にします。path 要素を分けると、
+    // 境の列が下地と混ざって縞に見えます。1 つの path の中であれば、
+    // サブパスが辺を共有しても継ぎ目は出ません。
     let mut by_density: BTreeMap<u8, String> = BTreeMap::new();
     for (density, (x0, y0, x1, y1)) in merge_fills(&fills, cols, rows) {
         let d = by_density.entry(density).or_default();
@@ -868,7 +872,6 @@ mod test {
     }
 
     /// 同じ濃さで隣り合う塗りは、1 つの長方形になります。
-    /// 別々に描くと、境の列が下地と混ざって縞に見えます。
     #[test]
     fn merges_fills_that_touch() {
         let d = svg("\u{2592}\u{2592}\u{2592}").unwrap();
