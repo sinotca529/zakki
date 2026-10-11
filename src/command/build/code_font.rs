@@ -14,24 +14,19 @@ use fontcull_write_fonts::{FontBuilder, dump_table};
 use std::collections::BTreeSet;
 use std::path::Path;
 
-/// 生成した CSS の位置。サイト全体に読み込みます。
-pub const CSS_PATH: &str = "font/zakki-code.css";
+/// 生成したフォントを置くディレクトリ。ライセンス文書も同じ場所に入れます。
+const FONT_DIR: &str = "font";
 
-/// 生成したフォントの位置。CSS と同じディレクトリに置き、相対で参照します。
+/// 生成したフォントのファイル名。
 const WOFF2_NAME: &str = "zakki-code.woff2";
 
-/// 生成したフォントを読み込む CSS。
+/// 生成したフォントを読み込む CSS。style.css の末尾に足します。
 ///
-/// `--code-font` は style.css が定義しています。この CSS は後から読み込まれるので、
+/// `--code-font` は style.css が定義しています。後ろに足すので、
 /// 同じ名前を書き直せば先頭に差し込めます。
 /// フォントに付ける名前を元フォントから取らないのは、改変したものに元の名前を
 /// 使わせない条件 (SIL Open Font License でいう Reserved Font Name) を踏まないためです。
 const CSS: &str = include_asset!("code-font.css");
-
-/// 等幅で描く文字が記事に 1 つもないときに出す CSS。
-///
-/// 参照だけ残して woff2 を置かないと、ブラウザが 404 を引きます。
-const NO_FONT_CSS: &str = include_asset!("code-font-none.css");
 
 /// brotli の圧縮の強さ。
 ///
@@ -55,13 +50,17 @@ const FS_TYPE_RESTRICTED: u16 = 0x0002;
 /// `OS/2` の `fsType` のうち、サブセットを禁じることを表すビット。
 const FS_TYPE_NO_SUBSETTING: u16 = 0x0100;
 
-/// サブセットしたフォントと、それを読み込む CSS を出力します。
+/// サブセットしたフォントを出力し、それを読み込む CSS を返します。
 /// ライセンス文書の指定があれば、あわせてコピーします。
-pub fn output(cfg: &CodeFontConfig, chars: &BTreeSet<char>, build_dir: &Path) -> Result<()> {
-    // 残す文字がなければ、フォントを読む必要もありません。CSS だけは出します。
-    // 記事の HTML には参照が入っているため、置かないとブラウザが 404 を引きます。
+///
+/// 残す文字が 1 つもなければフォントを作らないので、空の CSS を返します。
+pub fn output(
+    cfg: &CodeFontConfig,
+    chars: &BTreeSet<char>,
+    build_dir: &Path,
+) -> Result<&'static str> {
     if chars.is_empty() {
-        return util::write_file(build_dir.join(CSS_PATH), NO_FONT_CSS).map_err(Into::into);
+        return Ok("");
     }
 
     let bytes =
@@ -96,9 +95,8 @@ pub fn output(cfg: &CodeFontConfig, chars: &BTreeSet<char>, build_dir: &Path) ->
     let woff2 = ttf2woff2::encode(&sfnt, BROTLI_QUALITY.into())
         .with_context(|| format!("{} を woff2 にできません", cfg.path.display()))?;
 
-    let font_dir = build_dir.join("font");
+    let font_dir = build_dir.join(FONT_DIR);
     util::write_file(font_dir.join(WOFF2_NAME), woff2)?;
-    util::write_file(build_dir.join(CSS_PATH), CSS)?;
 
     if let Some(license) = &cfg.license {
         let name = license
@@ -108,7 +106,7 @@ pub fn output(cfg: &CodeFontConfig, chars: &BTreeSet<char>, build_dir: &Path) ->
             .with_context(|| format!("{} をコピーできません", license.display()))?;
     }
 
-    Ok(())
+    Ok(CSS)
 }
 
 /// 罫線素片を空白の字形に向けます。
@@ -288,12 +286,16 @@ fn subset(font: &FontRef, chars: &BTreeSet<char>) -> Result<Vec<u8>> {
 
 #[cfg(test)]
 mod test {
-    use super::{CSS, WOFF2_NAME};
+    use super::{CSS, FONT_DIR, WOFF2_NAME};
 
-    /// CSS が読むファイル名と、実際に書き出すファイル名は同じである必要があります。
+    /// CSS が読む URL と、実際に書き出す位置は同じである必要があります。
+    /// CSS は style.css の末尾に入るので、URL はサイトの根からの相対です。
     #[test]
     fn css_points_at_the_generated_font() {
-        assert!(CSS.contains(WOFF2_NAME));
+        assert!(
+            CSS.contains(&format!("url({FONT_DIR}/{WOFF2_NAME})")),
+            "{CSS}"
+        );
     }
 
     /// CSS は @font-face の名前と `--code-font` の先頭を揃えている必要があります。

@@ -1,9 +1,9 @@
-/* zakki が生成したファイルです。編集しても次のビルドで上書きされます。 */
+/* 等幅フォントの読み込み。記事に出た文字だけを入れたフォントを zakki が作っています。 */
 @font-face {
   font-family: "zakki-code";
   font-style: normal;
   font-weight: normal;
-  src: url(zakki-code.woff2) format("woff2");
+  src: url(font/zakki-code.woff2) format("woff2");
 }
 
 :root {

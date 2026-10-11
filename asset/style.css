@@ -233,7 +233,7 @@ pre > code { font-family: var(--mono); font-size: inherit; }
 
 /* 罫線素片の線です。字形は zakki が空にしているので、見えるのはここで描く線だけです。
    セルの幅は '0' の advance、高さは行送りで、どちらもブラウザが決めます。
-   座標は半セル単位なので、viewBox の値は列数と行数の 2 倍です。 */
+   座標は 1 セルを 24 とするので、viewBox の値は列数と行数の 24 倍です。 */
 .box-drawing {
   position: absolute;
   left: var(--pad-x);

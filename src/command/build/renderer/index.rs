@@ -1,5 +1,4 @@
 use crate::{
-    command::build::code_font,
     command::build::renderer::{
         PageMetadata,
         html_component::{
@@ -20,11 +19,7 @@ pub fn render_index(
     let cards = cards_html(metadatas);
     let tags = all_tags_html(metadatas);
 
-    let css_list = cfg
-        .code_font
-        .iter()
-        .map(|_| code_font::CSS_PATH)
-        .chain(cfg.css_list.iter().map(String::as_str));
+    let css_list = cfg.css_list.iter().map(String::as_str);
 
     let content = index_html(
         &cfg.site_name,
