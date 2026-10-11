@@ -8,6 +8,7 @@
 //! ここで作った SVG をコードブロックに重ねます。
 //! 線はつないで 1 本にするので、継ぎ目が残りません。
 
+use super::code_font::Advances;
 use std::collections::{BTreeMap, BTreeSet};
 use unicode_width::UnicodeWidthChar;
 
@@ -185,10 +186,14 @@ fn dashes(c: char) -> Option<(u8, u8, bool)> {
 
 /// 文字がセルをいくつ占めるかを返します。
 ///
-/// ターミナルと同じく East Asian Width で決めます。幅を持たない文字は 1 と数えます。
+/// フォントが持っている文字は送り幅から決めます。持っていない文字はフォールバックの
+/// フォントで描かれるため送り幅を読めないので、East Asian Width で推測します。
+/// 幅を持たない文字は 1 と数えます。
 /// タブは桁を揃えられないので、罫線素片と同じ行には書けません。
-fn cell_width(c: char) -> u32 {
-    c.width().unwrap_or(1) as u32
+fn cell_width(c: char, advances: Option<&Advances>) -> u32 {
+    advances
+        .and_then(|a| a.cells(c))
+        .unwrap_or_else(|| c.width().unwrap_or(1) as u32)
 }
 
 /// 1 セルの長さです。座標はこの単位の整数で持ちます。
@@ -337,7 +342,7 @@ struct Shapes {
 }
 
 /// コードブロックの中身から形を集めます。
-fn collect(code: &str) -> Shapes {
+fn collect(code: &str, advances: Option<&Advances>) -> Shapes {
     let mut shapes = Shapes {
         rows: code.lines().count() as u32,
         ..Shapes::default()
@@ -390,7 +395,7 @@ fn collect(code: &str) -> Shapes {
                 }
             }
 
-            col += cell_width(c);
+            col += cell_width(c, advances);
         }
 
         shapes.cols = shapes.cols.max(col);
@@ -413,14 +418,14 @@ fn weight_class(weight: u8) -> &'static str {
 /// 描く罫線素片が 1 つもなければ `None` を返します。
 /// 座標の単位は 1 セルの `CELL` 分の 1 なので、viewBox は列数と行数の `CELL` 倍になります。
 /// 実際の大きさは CSS が `--cols` と `--rows` から決めます。
-pub fn svg(code: &str) -> Option<String> {
+pub fn svg(code: &str, advances: Option<&Advances>) -> Option<String> {
     let Shapes {
         lines: [light, heavy],
         dashes,
         fills,
         cols,
         rows,
-    } = collect(code);
+    } = collect(code, advances);
 
     let mut paths = String::new();
     for (lines, weight) in [(light, 1), (heavy, 2)] {
@@ -463,7 +468,12 @@ pub fn svg(code: &str) -> Option<String> {
 
 #[cfg(test)]
 mod test {
-    use super::{is_covered, svg};
+    use super::is_covered;
+
+    /// フォントを渡さずに描きます。列は East Asian Width で数えます。
+    fn svg(code: &str) -> Option<String> {
+        super::svg(code, None)
+    }
 
     /// 1 つの箱は 1 つのサブパスになります。文字ごとに描けば 12 本のところです。
     /// 端は角の中心までなので、4 列の箱の横線は 12 から 84 までです。

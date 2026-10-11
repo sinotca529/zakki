@@ -1,5 +1,6 @@
 use super::end_of;
 use crate::command::build::box_drawing;
+use crate::command::build::code_font::Advances;
 use pulldown_cmark::{Event, Tag};
 
 /// コードブロックに罫線素片があれば、線を描く SVG を差し込みます。
@@ -9,7 +10,7 @@ use pulldown_cmark::{Event, Tag};
 ///
 /// 字形を空にするのは `code_font` です。フォントを作らないサイトでは字形が残り、
 /// 線が二重になるので、呼び出し元がこのパスを飛ばします。
-pub fn add_box_drawing(events: &mut Vec<Event<'_>>) {
+pub fn add_box_drawing(events: &mut Vec<Event<'_>>, advances: Option<&Advances>) {
     let mut out = Vec::with_capacity(events.len());
     let mut i = 0;
 
@@ -30,7 +31,7 @@ pub fn add_box_drawing(events: &mut Vec<Event<'_>>) {
             .collect();
 
         out.extend_from_slice(&events[i..end]);
-        if let Some(svg) = box_drawing::svg(&code) {
+        if let Some(svg) = box_drawing::svg(&code, advances) {
             out.push(Event::InlineHtml(svg.into()));
         }
         out.push(events[end].clone());
@@ -47,7 +48,7 @@ mod test {
 
     fn html_of(md: &str) -> String {
         let mut events: Vec<_> = Parser::new_ext(md, Options::empty()).collect();
-        add_box_drawing(&mut events);
+        add_box_drawing(&mut events, None);
         let mut out = String::new();
         pulldown_cmark::html::push_html(&mut out, events.into_iter());
         out
