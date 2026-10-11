@@ -58,8 +58,10 @@ const FS_TYPE_NO_SUBSETTING: u16 = 0x0100;
 /// 記事を描く前に読み、列を数えるのとサブセットを作るのに使い回します。
 pub struct CodeFont<'a> {
     cfg: &'a CodeFontConfig,
+    /// 読んだファイルの中身。
     bytes: Vec<u8>,
-    index: u32,
+    /// ファイルの何番目のフォントを使うか。コレクションでなければ 0 です。
+    font_index: u32,
 }
 
 impl<'a> CodeFont<'a> {
@@ -67,13 +69,17 @@ impl<'a> CodeFont<'a> {
     pub fn read(cfg: &'a CodeFontConfig) -> Result<Self> {
         let bytes = std::fs::read(&cfg.path)
             .with_context(|| format!("{} を読めません", cfg.path.display()))?;
-        let index = select_index(&bytes, cfg)?;
+        let font_index = select_font_index(&bytes, cfg)?;
 
-        Ok(Self { cfg, bytes, index })
+        Ok(Self {
+            cfg,
+            bytes,
+            font_index,
+        })
     }
 
     fn font(&self) -> Result<FontRef<'_>> {
-        FontRef::from_index(&self.bytes, self.index)
+        FontRef::from_index(&self.bytes, self.font_index)
             .with_context(|| format!("{} をフォントとして読めません", self.cfg.path.display()))
     }
 
@@ -244,7 +250,10 @@ fn blank_box_drawing(sfnt: &[u8], box_chars: &BTreeSet<char>) -> Result<Vec<u8>>
 ///
 /// 1 つのファイルに複数のフォントが入っていることがあります (`.ttc`)。
 /// 番号を人が知る手立てはないので、フォントが名乗っている名前で選びます。
-fn select_index(bytes: &[u8], cfg: &CodeFontConfig) -> Result<u32> {
+/// 使うフォントがファイルの何番目かを返します。
+///
+/// 1 つのファイルに複数のフォントが入っていることがあるので、設定の `name` で選びます。
+fn select_font_index(bytes: &[u8], cfg: &CodeFontConfig) -> Result<u32> {
     let count = match FileRef::new(bytes) {
         Ok(FileRef::Collection(collection)) => collection.len(),
         _ => 1,
