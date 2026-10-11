@@ -7,6 +7,7 @@
 //! そこで、`code_font` の字形を空にしたうえで (`code_font::output`)、
 //! ここで作った SVG をコードブロックに重ねます。
 //! 線はつないで 1 本にするので、継ぎ目が残りません。
+//! 塗りは濃さごとに 1 つの path にまとめるので、こちらも継ぎ目が残りません。
 
 use super::code_font::Advances;
 use std::collections::BTreeMap;
@@ -177,7 +178,6 @@ const DASHES: &[(char, u8, u8, bool)] = &[
 /// 塗りで描く符号位置と、その長方形です。
 ///
 /// 座標はセルの左上を (0, 0)、右下を (`CELL`, `CELL`) とする位置です。
-/// 網掛け (`░▒▓`) は点の模様なので入れていません。
 const BLOCKS: &[(char, &[Rect])] = &[
     ('▀', &[(0, 0, 24, 12)]),
     ('▁', &[(0, 21, 24, 24)]),
@@ -210,6 +210,20 @@ const BLOCKS: &[(char, &[Rect])] = &[
     ('▟', &[(12, 0, 24, 12), (0, 12, 12, 24), (12, 12, 24, 24)]),
 ];
 
+/// 網掛けの符号位置と、その濃さです。濃さは `DENSITY_STEPS` 分のいくつかで表します。
+///
+/// もとは CP437 の 176 から 178 で、点の模様でセルを埋めるものです。
+/// 模様の繰り返しがセルの境で合うことを当てにした文字なので、
+/// フォントの字形に任せると境で合わないことがあります。
+/// 端末も模様を使わず、前景色を薄く塗って描くものがあります。
+const SHADES: &[(char, u8)] = &[('░', 1), ('▒', 2), ('▓', 3)];
+
+/// 塗りの濃さの段数です。`BLOCKS` の長方形はこの濃さで塗ります。
+const DENSITY_STEPS: u8 = 4;
+
+/// 塗りの座標の刻みです。`BLOCKS` の長方形はすべてこの倍数に載ります。
+const FILL_UNIT: u32 = 3;
+
 /// 塗る長方形です。左上と右下を持ちます。
 type Rect = (u32, u32, u32, u32);
 
@@ -222,6 +236,7 @@ pub fn is_covered(c: char) -> bool {
         || rounds(c).is_some()
         || doubles(c).is_some()
         || blocks(c).is_some()
+        || shades(c).is_some()
         || dashes(c).is_some()
 }
 
@@ -239,6 +254,10 @@ fn rounds(c: char) -> Option<Arms> {
 
 fn blocks(c: char) -> Option<&'static [Rect]> {
     BLOCKS.iter().find(|(x, _)| *x == c).map(|(_, r)| *r)
+}
+
+fn shades(c: char) -> Option<u8> {
+    SHADES.iter().find(|(x, _)| *x == c).map(|(_, d)| *d)
 }
 
 fn dashes(c: char) -> Option<(u8, u8, bool)> {
@@ -560,8 +579,8 @@ struct Shapes {
     lines: [Lines; 2],
     /// 組ごとの破線。
     dashes: BTreeMap<Dash, Lines>,
-    /// 塗る長方形。座標は線と同じ単位です。
-    fills: Vec<Rect>,
+    /// 塗る長方形と、その濃さ。座標は線と同じ単位です。
+    fills: Vec<(u8, Rect)>,
     cols: u32,
     rows: u32,
 }
@@ -583,9 +602,12 @@ fn collect(code: &str, advances: Option<&Advances>, arc_ry: u32, gap: (u32, u32)
             let (cx, cy) = (left + CELL / 2, top + CELL / 2);
 
             for &(x0, y0, x1, y1) in blocks(c).unwrap_or_default() {
-                shapes
-                    .fills
-                    .push((left + x0, top + y0, left + x1, top + y1));
+                let rect = (left + x0, top + y0, left + x1, top + y1);
+                shapes.fills.push((DENSITY_STEPS, rect));
+            }
+
+            if let Some(density) = shades(c) {
+                shapes.fills.push((density, (left, top, right, bottom)));
             }
 
             if let Some((count, weight, horizontal)) = dashes(c) {
@@ -657,6 +679,61 @@ fn collect(code: &str, advances: Option<&Advances>, arc_ry: u32, gap: (u32, u32)
     shapes
 }
 
+/// 同じ濃さで隣り合う長方形を、1 つの大きな長方形にまとめます。
+///
+/// 継ぎ目のためではなく、path のデータを短くするために行います。
+/// 60 列 12 行を塗りつぶす図では、まとめると 15190 バイトが 39 バイトになりました。
+/// `FILL_UNIT` の格子に敷き直したうえで、右と下に伸ばせるだけ伸ばした長方形を切り出します。
+fn merge_fills(fills: &[(u8, Rect)], cols: u32, rows: u32) -> Vec<(u8, Rect)> {
+    let w = (cols * CELL / FILL_UNIT) as usize;
+    let h = (rows * CELL / FILL_UNIT) as usize;
+    let mut grid = vec![0u8; w * h];
+    for &(density, (x0, y0, x1, y1)) in fills {
+        for y in y0 / FILL_UNIT..y1 / FILL_UNIT {
+            for x in x0 / FILL_UNIT..x1 / FILL_UNIT {
+                grid[y as usize * w + x as usize] = density;
+            }
+        }
+    }
+
+    let mut merged = Vec::new();
+    let mut taken = vec![false; w * h];
+    for y in 0..h {
+        for x in 0..w {
+            let density = grid[y * w + x];
+            if density == 0 || taken[y * w + x] {
+                continue;
+            }
+            let free = |grid: &[u8], taken: &[bool], i: usize| grid[i] == density && !taken[i];
+            let mut right = x + 1;
+            while right < w && free(&grid, &taken, y * w + right) {
+                right += 1;
+            }
+            let mut bottom = y + 1;
+            while bottom < h && (x..right).all(|i| free(&grid, &taken, bottom * w + i)) {
+                bottom += 1;
+            }
+            for row in y..bottom {
+                taken[row * w + x..row * w + right].fill(true);
+            }
+            let unit = |v: usize| v as u32 * FILL_UNIT;
+            merged.push((density, (unit(x), unit(y), unit(right), unit(bottom))));
+        }
+    }
+    merged
+}
+
+/// 濃さに対応する `fill-opacity` です。塗りつぶしのときは属性を出しません。
+fn fill_opacity(density: u8) -> String {
+    if density >= DENSITY_STEPS {
+        return String::new();
+    }
+    format!(
+        r#" fill-opacity="{:.2}""#,
+        f32::from(density) / f32::from(DENSITY_STEPS)
+    )
+}
+
 /// 太さに対応する class です。
 fn weight_class(weight: u8) -> &'static str {
     if weight == 1 {
@@ -704,12 +781,17 @@ pub fn svg(code: &str, advances: Option<&Advances>, ratio: f32) -> Option<String
         }
     }
 
-    if !fills.is_empty() {
-        let d: String = fills
-            .iter()
-            .map(|(x0, y0, x1, y1)| format!("M{x0} {y0}H{x1}V{y1}H{x0}Z"))
-            .collect();
-        paths.push_str(&format!(r#"<path class="box-fill" d="{d}"/>"#));
+    // 濃さごとに 1 つの path にします。path 要素を分けると、
+    // 境の列が下地と混ざって縞に見えます。1 つの path の中であれば、
+    // サブパスが辺を共有しても継ぎ目は出ません。
+    let mut by_density: BTreeMap<u8, String> = BTreeMap::new();
+    for (density, (x0, y0, x1, y1)) in merge_fills(&fills, cols, rows) {
+        let d = by_density.entry(density).or_default();
+        d.push_str(&format!("M{x0} {y0}H{x1}V{y1}H{x0}Z"));
+    }
+    for (density, d) in by_density {
+        let opacity = fill_opacity(density);
+        paths.push_str(&format!(r#"<path class="box-fill"{opacity} d="{d}"/>"#));
     }
 
     (!paths.is_empty()).then(|| {
@@ -772,11 +854,65 @@ mod test {
         );
     }
 
-    /// 四分円は長方形 2 つ以上になります。
+    /// 四分割のブロックは長方形 2 つ以上になります。
     #[test]
     fn fills_each_quadrant() {
         let d = svg("\u{259e}").unwrap();
         assert!(d.contains(r#"d="M12 0H24V12H12ZM0 12H12V24H0Z""#), "{d}");
+    }
+
+    /// 網掛けはセル全体を薄く塗ります。
+    #[test]
+    fn fills_a_shade_with_a_lighter_paint() {
+        let d = svg("\u{2591}").unwrap();
+        assert!(
+            d.contains(r#"<path class="box-fill" fill-opacity="0.25" d="M0 0H24V24H0Z"/>"#),
+            "{d}"
+        );
+    }
+
+    /// 同じ濃さで隣り合う塗りは、1 つの長方形になります。
+    #[test]
+    fn merges_fills_that_touch() {
+        let d = svg("\u{2592}\u{2592}\u{2592}").unwrap();
+        assert!(
+            d.contains(r#"fill-opacity="0.50" d="M0 0H72V24H0Z""#),
+            "{d}"
+        );
+    }
+
+    /// 行をまたいでもまとめます。
+    #[test]
+    fn merges_fills_across_rows() {
+        let d = svg("\u{2588}\u{2588}\n\u{2588}\u{2588}\n").unwrap();
+        assert!(
+            d.contains(r#"<path class="box-fill" d="M0 0H48V48H0Z"/>"#),
+            "{d}"
+        );
+    }
+
+    /// 濃さが違えば別の長方形になります。濃さごとに path も分かれます。
+    #[test]
+    fn keeps_fills_of_different_densities_apart() {
+        let d = svg("\u{2593}\u{2588}").unwrap();
+        assert!(
+            d.contains(r#"<path class="box-fill" fill-opacity="0.75" d="M0 0H24V24H0Z"/>"#),
+            "{d}"
+        );
+        assert!(
+            d.contains(r#"<path class="box-fill" d="M24 0H48V24H24Z"/>"#),
+            "{d}"
+        );
+    }
+
+    /// 隣り合う半分のブロックもまとめます。長方形の境はセルの中にもあります。
+    #[test]
+    fn merges_fills_inside_a_cell() {
+        let d = svg("\u{2590}\u{258c}").unwrap();
+        assert!(
+            d.contains(r#"<path class="box-fill" d="M12 0H36V24H12Z"/>"#),
+            "{d}"
+        );
     }
 
     /// 腕ごとに太さが違う文字では、太さごとに別の path に分かれます。
