@@ -114,6 +114,48 @@ const ROUNDS: &[(char, Arms)] = &[
     ('╰', [1, 0, 0, 1]),
 ];
 
+/// 二重線の符号位置と、その腕です。腕の値は 0 が無し、1 が単線、2 が二重線です。
+///
+/// 1 つの文字の中では、上下の腕どうし、左右の腕どうしが同じ値になります。
+const DOUBLES: &[(char, Arms)] = &[
+    ('═', [0, 0, 2, 2]),
+    ('║', [2, 2, 0, 0]),
+    ('╒', [0, 1, 0, 2]),
+    ('╓', [0, 2, 0, 1]),
+    ('╔', [0, 2, 0, 2]),
+    ('╕', [0, 1, 2, 0]),
+    ('╖', [0, 2, 1, 0]),
+    ('╗', [0, 2, 2, 0]),
+    ('╘', [1, 0, 0, 2]),
+    ('╙', [2, 0, 0, 1]),
+    ('╚', [2, 0, 0, 2]),
+    ('╛', [1, 0, 2, 0]),
+    ('╜', [2, 0, 1, 0]),
+    ('╝', [2, 0, 2, 0]),
+    ('╞', [1, 1, 0, 2]),
+    ('╟', [2, 2, 0, 1]),
+    ('╠', [2, 2, 0, 2]),
+    ('╡', [1, 1, 2, 0]),
+    ('╢', [2, 2, 1, 0]),
+    ('╣', [2, 2, 2, 0]),
+    ('╤', [0, 1, 2, 2]),
+    ('╥', [0, 2, 1, 1]),
+    ('╦', [0, 2, 2, 2]),
+    ('╧', [1, 0, 2, 2]),
+    ('╨', [2, 0, 1, 1]),
+    ('╩', [2, 0, 2, 2]),
+    ('╪', [1, 1, 2, 2]),
+    ('╫', [2, 2, 1, 1]),
+    ('╬', [2, 2, 2, 2]),
+];
+
+/// 二重線の 2 本の間隔です。軸からの距離を、縦方向の単位で持ちます。
+///
+/// 画面の上で縦横を揃えたいので、横方向の距離は比から出します。
+/// 手元の 29 フォントでは、2 本の中心間が 0.08em から 0.176em まで散らばっていました。
+/// どれかに合わせる必要はないので、本文の大きさで 2 本に見える値を選んでいます。
+const DOUBLE_GAP: u32 = 2;
+
 /// 破線の符号位置です。1 セルに引く本数、太さ、横向きかどうかを持ちます。
 ///
 /// 線と間隔の長さは CSS が決めるので、ここには 1 セルの本数だけを持ちます。
@@ -176,11 +218,19 @@ type Rect = (u32, u32, u32, u32);
 /// SVG で描く文字と、フォントから字形を落とす文字は同じである必要があります。
 /// 片方だけ変えると、線が二重に描かれるか、消えたままになります。
 pub fn is_covered(c: char) -> bool {
-    arms(c).is_some() || rounds(c).is_some() || blocks(c).is_some() || dashes(c).is_some()
+    arms(c).is_some()
+        || rounds(c).is_some()
+        || doubles(c).is_some()
+        || blocks(c).is_some()
+        || dashes(c).is_some()
 }
 
 fn arms(c: char) -> Option<Arms> {
     TABLE.iter().find(|(x, _)| *x == c).map(|(_, a)| *a)
+}
+
+fn doubles(c: char) -> Option<Arms> {
+    DOUBLES.iter().find(|(x, _)| *x == c).map(|(_, a)| *a)
 }
 
 fn rounds(c: char) -> Option<Arms> {
@@ -230,6 +280,12 @@ pub fn cell_ratio(advances: &Advances) -> f32 {
 fn arc_radius(ratio: f32) -> u32 {
     let ry = (CELL as f32 / 2.0 / ratio).round();
     (ry as u32).clamp(1, CELL / 2)
+}
+
+/// 二重線の 2 本の、軸からの距離を返します。縦と横で単位の長さが違うので、横は比を掛けます。
+fn double_gap(ratio: f32) -> (u32, u32) {
+    let gx = (DOUBLE_GAP as f32 * ratio).round();
+    ((gx as u32).clamp(1, CELL / 2 - 1), DOUBLE_GAP)
 }
 
 /// 1 セルの長さです。座標はこの単位の整数で持ちます。
@@ -415,6 +471,88 @@ fn subpath(first: Point, steps: &[(Point, Edge)], arc_ry: u32) -> String {
 /// 組が違うと線と間隔の長さが変わります。CSS で指定するので、組ごとに別の path にします。
 type Dash = (u8, bool, u8);
 
+/// 二重線の交点を組み立てます。
+///
+/// 軸から ±gap の位置に走るレールと、それらをつなぐ枠でできています。
+/// 腕はつねに手前のレールで止めます。枠は 4 辺のうち、腕のある向きの辺を外します。
+/// `╬` は 4 辺とも外れて中心が開き、`╠` は左の辺だけが残って左の縦線が通ります。
+/// 単線が二重線を横切るところには渡りの線を足します。
+/// これで `╒` のように、単線が二重線の蓋になる形も出ます。
+fn add_double(lines: &mut Lines, arms: Arms, cell: &CellBox, gap: (u32, u32)) {
+    let [up, down, left, right] = arms;
+    let (gx, gy) = gap;
+    let (cx, cy) = (cell.cx, cell.cy);
+
+    // レールの位置です。二重なら 2 本、単線なら 1 本、腕がなければ 0 本です。
+    let rails = |kind: u8, center: u32, g: u32| match kind {
+        2 => vec![center - g, center + g],
+        1 => vec![center],
+        _ => Vec::new(),
+    };
+    let vertical = rails(up.max(down), cx, gx);
+    let horizontal = rails(left.max(right), cy, gy);
+
+    // 手前のレールの位置です。相手がいなければセルの中心で止めます。
+    let near = |rails: &[u32], center: u32, small: bool| match (rails, small) {
+        ([], _) => center,
+        (other, true) => other[0],
+        (other, false) => other[other.len() - 1],
+    };
+
+    for &x in &vertical {
+        if up != 0 {
+            lines.add((x, cell.top), (x, near(&horizontal, cy, true)));
+        }
+        if down != 0 {
+            lines.add((x, cell.bottom), (x, near(&horizontal, cy, false)));
+        }
+    }
+
+    for &y in &horizontal {
+        if left != 0 {
+            lines.add((cell.left, y), (near(&vertical, cx, true), y));
+        }
+        if right != 0 {
+            lines.add((cell.right, y), (near(&vertical, cx, false), y));
+        }
+    }
+
+    // 単線が二重線を横切るところを渡します。
+    if vertical.len() == 1 && horizontal.len() == 2 {
+        lines.add((cx, cy - gy), (cx, cy + gy));
+    }
+    if horizontal.len() == 1 && vertical.len() == 2 {
+        lines.add((cx - gx, cy), (cx + gx, cy));
+    }
+
+    // 枠は、縦横とも二重のときだけ要ります。腕のない向きの辺を残します。
+    if vertical.len() == 2 && horizontal.len() == 2 {
+        let (x0, x1, y0, y1) = (cx - gx, cx + gx, cy - gy, cy + gy);
+        if up == 0 {
+            lines.add((x0, y0), (x1, y0));
+        }
+        if down == 0 {
+            lines.add((x0, y1), (x1, y1));
+        }
+        if left == 0 {
+            lines.add((x0, y0), (x0, y1));
+        }
+        if right == 0 {
+            lines.add((x1, y0), (x1, y1));
+        }
+    }
+}
+
+/// セルの枠の座標です。
+struct CellBox {
+    left: u32,
+    right: u32,
+    top: u32,
+    bottom: u32,
+    cx: u32,
+    cy: u32,
+}
+
 /// 図から取り出した形です。
 #[derive(Default)]
 struct Shapes {
@@ -429,7 +567,7 @@ struct Shapes {
 }
 
 /// コードブロックの中身から形を集めます。
-fn collect(code: &str, advances: Option<&Advances>, arc_ry: u32) -> Shapes {
+fn collect(code: &str, advances: Option<&Advances>, arc_ry: u32, gap: (u32, u32)) -> Shapes {
     let mut shapes = Shapes {
         rows: code.lines().count() as u32,
         ..Shapes::default()
@@ -465,6 +603,18 @@ fn collect(code: &str, advances: Option<&Advances>, arc_ry: u32) -> Shapes {
                     .entry((weight, horizontal, count))
                     .or_default()
                     .add(from, to);
+            }
+
+            if let Some(arms) = doubles(c) {
+                let cell = CellBox {
+                    left,
+                    right,
+                    top,
+                    bottom,
+                    cx,
+                    cy,
+                };
+                add_double(&mut lines[0], arms, &cell, gap);
             }
 
             if let Some([up, down, l, r]) = rounds(c) {
@@ -523,13 +673,14 @@ fn weight_class(weight: u8) -> &'static str {
 /// 実際の大きさは CSS が `--cols` と `--rows` から決めます。
 pub fn svg(code: &str, advances: Option<&Advances>, ratio: f32) -> Option<String> {
     let arc_ry = arc_radius(ratio);
+    let gap = double_gap(ratio);
     let Shapes {
         lines: [light, heavy],
         dashes,
         fills,
         cols,
         rows,
-    } = collect(code, advances, arc_ry);
+    } = collect(code, advances, arc_ry, gap);
 
     let mut paths = String::new();
     for (lines, weight) in [(light, 1), (heavy, 2)] {
@@ -731,6 +882,51 @@ mod test {
     fn keeps_the_arc_visible() {
         use super::arc_radius;
         assert_eq!(arc_radius(100.0), 1);
+    }
+
+    /// 二重線は軸から等しく離れた 2 本になります。比が 2 なので、縦は 2、横は 4 です。
+    #[test]
+    fn draws_two_rails_for_a_double_line() {
+        assert!(svg("═").unwrap().contains(r#"d="M24 10H0M24 14H0""#));
+        assert!(svg("║").unwrap().contains(r#"d="M8 24V0M16 24V0""#));
+    }
+
+    /// 二重線どうしの交点は中心が開き、4 つの L になります。
+    #[test]
+    fn opens_the_centre_of_a_double_crossing() {
+        let d = svg("╬").unwrap();
+        let want = "M8 0V10H0M8 24V14H0M24 10H16V0M16 24V14H24";
+        assert!(d.contains(&format!(r#"d="{want}""#)), "{d}");
+    }
+
+    /// 腕のない側の線は通します。`╠` の左は 1 本の縦線になります。
+    #[test]
+    fn keeps_the_armless_side_closed() {
+        let d = svg("╠").unwrap();
+        assert!(d.contains(r#"d="M8 24V0M24 10H16V0M16 24V14H24""#), "{d}");
+    }
+
+    /// 片方が単線なら、その線は交点を突き抜けます。
+    #[test]
+    fn lets_a_single_line_pass_through() {
+        assert!(svg("╪").unwrap().contains("M12 24V0"), "");
+        assert!(svg("╫").unwrap().contains("M24 12H0"), "");
+    }
+
+    /// 単線と二重線が出会う角では、単線が二重線の蓋になります。
+    #[test]
+    fn caps_a_double_line_with_the_single_arm() {
+        let d = svg("╒").unwrap();
+        assert!(d.contains(r#"d="M12 24V10H24M24 14H12""#), "{d}");
+    }
+
+    /// 2 本の間隔は、縦を決めてから横を比で出します。
+    #[test]
+    fn widens_the_double_gap_to_the_cell_shape() {
+        use super::double_gap;
+        assert_eq!(double_gap(1.0), (2, 2));
+        assert_eq!(double_gap(2.0), (4, 2));
+        assert_eq!(double_gap(2.5), (5, 2));
     }
 
     #[test]
