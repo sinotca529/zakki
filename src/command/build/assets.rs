@@ -1,9 +1,23 @@
-use crate::copy_asset;
+use crate::{copy_asset, include_asset, util};
 use anyhow::{Context, anyhow};
 use std::path::Path;
 
+/// 書き写すだけの style.css。末尾に zakki が組み立てた分を足します。
+const STYLE_CSS: &str = include_asset!("style.css");
+
+/// style.css を書き出します。
+///
+/// `generated` は zakki が組み立てた分で、末尾に足します。
+/// 後ろに置くのは、style.css が定義している変数を上書きできるようにするためです。
+pub fn write_style_css(build_dir: &Path, generated: &str) -> anyhow::Result<()> {
+    let css = match generated.is_empty() {
+        true => STYLE_CSS.to_owned(),
+        false => format!("{STYLE_CSS}\n{generated}"),
+    };
+    util::write_file(build_dir.join("style.css"), css).map_err(Into::into)
+}
+
 pub fn copy_assets(build_dir: &Path) -> anyhow::Result<()> {
-    copy_asset!("style.css", build_dir)?;
     copy_asset!("script.js", build_dir)?;
 
     copy_asset!("katex/LICENSE", build_dir)?;

@@ -1,4 +1,3 @@
-use crate::command::build::code_font;
 use crate::command::build::renderer::html_component::{feed_url, footer};
 use crate::command::build::renderer::pass::{self, PageFrontMatter, PassAssets};
 use crate::command::build::renderer::{PageLocs, PageMetadata, crypto_html, page_html};
@@ -68,10 +67,9 @@ impl<'a> PageRenderer<'a> {
 
         let css_list = self
             .config
-            .code_font
+            .css_list
             .iter()
-            .map(|_| code_font::CSS_PATH)
-            .chain(self.config.css_list.iter().map(String::as_str))
+            .map(String::as_str)
             .chain(pass_assets.css_paths.iter().map(String::as_str));
 
         let js_list = self.config.js_list.iter().map(String::as_str);

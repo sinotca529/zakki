@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use crate::include_asset;
 use crate::{
     command::build::{
-        code_font,
+        assets, code_font,
         renderer::{self, PageMetadata},
     },
     config::ProjectConfig,
@@ -25,7 +25,7 @@ impl<'a> MetaRenderer<'a> {
     }
 
     pub fn render(&self, metas: &[PageMetadata]) -> anyhow::Result<()> {
-        self.output_monospace_font_file(metas)?;
+        self.output_style_sheet(metas)?;
         renderer::render_index(self.cfg, self.pj_paths.build_dir(), metas)?;
         self.output_sitemap(metas)?;
         self.output_feed(metas)?;
@@ -40,13 +40,20 @@ impl<'a> MetaRenderer<'a> {
     /// 並べて見せる字数の上限。超えたぶんは数だけ伝えます。
     const SHOWN_CHARS: usize = 40;
 
-    fn output_monospace_font_file(&self, metas: &[PageMetadata]) -> anyhow::Result<()> {
-        let monospace_chars = self.collect_monospace_chars(metas);
-        if let Some(font) = &self.cfg.code_font {
-            Self::warn_private_only_chars(&monospace_chars);
-            code_font::output(font, &monospace_chars.all(), self.pj_paths.build_dir())?;
-        }
-        Ok(())
+    /// style.css を書き出します。等幅フォントを作る場合は、それを読み込む CSS を足します。
+    fn output_style_sheet(&self, metas: &[PageMetadata]) -> anyhow::Result<()> {
+        let build_dir = self.pj_paths.build_dir();
+
+        let font_css = match &self.cfg.code_font {
+            Some(font) => {
+                let monospace_chars = self.collect_monospace_chars(metas);
+                Self::warn_private_only_chars(&monospace_chars);
+                code_font::output(font, &monospace_chars.all(), build_dir)?
+            }
+            None => "",
+        };
+
+        assets::write_style_css(build_dir, font_css)
     }
 
     /// 記事ごとの変換結果から等幅で描く文字を抽出します
