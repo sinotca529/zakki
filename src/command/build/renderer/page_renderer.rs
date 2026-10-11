@@ -1,3 +1,4 @@
+use crate::command::build::box_drawing;
 use crate::command::build::code_font::Advances;
 use crate::command::build::renderer::html_component::{feed_url, footer};
 use crate::command::build::renderer::pass::{self, PageFrontMatter, PassAssets};
@@ -177,8 +178,9 @@ impl<'a> PageRenderer<'a> {
         pass::highlight_code(&mut events, &front_matter.highlights);
         pass::convert_math(&mut events, &mut pass_assets)?;
         // フォントを作らないサイトでは罫線素片の字形が残るので、線を重ねません。
-        if self.config.code_font.is_some() {
-            pass::add_box_drawing(&mut events, self.advances);
+        if let Some(advances) = self.advances {
+            let ratio = box_drawing::cell_ratio(advances);
+            pass::add_box_drawing(&mut events, Some(advances), ratio);
         }
         pass::add_copy_button(&mut events);
         pass::wrap_table(&mut events);

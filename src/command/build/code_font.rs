@@ -101,10 +101,13 @@ impl<'a> CodeFont<'a> {
                 )
             })?;
 
+        let upem = u32::from(font.head()?.units_per_em());
+
         Ok(Advances {
             charmap,
             metrics,
             cell,
+            upem,
         })
     }
 }
@@ -115,6 +118,8 @@ pub struct Advances<'a> {
     metrics: GlyphMetrics<'a>,
     /// セル 1 つ分の送り幅。CSS の `ch` に合わせて `'0'` のものを使います。
     cell: u32,
+    /// em あたりのフォント単位。送り幅を em に直すのに使います。
+    upem: u32,
 }
 
 impl Advances<'_> {
@@ -125,6 +130,11 @@ impl Advances<'_> {
     pub fn cells(&self, c: char) -> Option<u32> {
         let advance = self.advance(c)?;
         cells_of(advance, self.cell)
+    }
+
+    /// セル 1 つ分の幅を em で返します。
+    pub fn cell_width_em(&self) -> f32 {
+        self.cell as f32 / self.upem as f32
     }
 
     /// 送り幅がセルの整数倍でない文字を集めます。
