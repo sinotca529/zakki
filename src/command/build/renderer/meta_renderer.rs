@@ -67,18 +67,13 @@ impl<'a> MetaRenderer<'a> {
         assets::write_style_css(build_dir, font_css)
     }
 
-    /// 送り幅がセルの整数倍でない文字を知らせます。
-    ///
-    /// 等幅でない文字が混ざると、その文字から先の列がずれます。
+    /// 等幅でない文字を知らせます。混ざっていると、その文字から先の列がずれます。
     fn warn_odd_advance_chars(advances: &Advances, chars: &BTreeSet<char>) {
         let odd = advances.odd_chars(chars);
 
         if !odd.is_empty() {
             let list = Self::char_list(&odd);
-            eprintln!(
-                "警告: 送り幅がセルの整数倍でない文字があります : {list}\n\
-                 この文字から先は、罫線素片の線が文字とずれます。"
-            );
+            eprintln!("警告: コード用フォントに等幅でない文字があります : {list}");
         }
     }
 
@@ -110,7 +105,7 @@ impl<'a> MetaRenderer<'a> {
 
     fn private_only_warning(leaked: &BTreeSet<char>) -> String {
         let list = Self::char_list(leaked);
-        format!("警告: 公開した記事に出てこない文字が、コード用フォントに残ります : {list}")
+        format!("警告: 公開する記事に出てこない文字がコード用フォントに残ります : {list}")
     }
 
     /// 文字を並べて書きます。多いときは先頭だけ出し、残りは数で伝えます。
