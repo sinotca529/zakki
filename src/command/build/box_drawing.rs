@@ -9,7 +9,7 @@
 //! 線はつないで 1 本にするので、継ぎ目が残りません。
 
 use super::code_font::Advances;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use unicode_width::UnicodeWidthChar;
 
 /// 腕の太さ。添字は上、下、左、右の順です。
@@ -104,6 +104,16 @@ const TABLE: &[(char, Arms)] = &[
     ('╿', [2, 1, 0, 0]),
 ];
 
+/// 角を丸める符号位置と、その腕です。
+///
+/// 腕は上下左右のうち 2 つで、太さは細線だけです。Unicode に太線の丸角はありません。
+const ROUNDS: &[(char, Arms)] = &[
+    ('╭', [0, 1, 0, 1]),
+    ('╮', [0, 1, 1, 0]),
+    ('╯', [1, 0, 1, 0]),
+    ('╰', [1, 0, 0, 1]),
+];
+
 /// 破線の符号位置です。1 セルに引く本数、太さ、横向きかどうかを持ちます。
 ///
 /// 線と間隔の長さは CSS が決めるので、ここには 1 セルの本数だけを持ちます。
@@ -166,11 +176,15 @@ type Rect = (u32, u32, u32, u32);
 /// SVG で描く文字と、フォントから字形を落とす文字は同じである必要があります。
 /// 片方だけ変えると、線が二重に描かれるか、消えたままになります。
 pub fn is_covered(c: char) -> bool {
-    arms(c).is_some() || blocks(c).is_some() || dashes(c).is_some()
+    arms(c).is_some() || rounds(c).is_some() || blocks(c).is_some() || dashes(c).is_some()
 }
 
 fn arms(c: char) -> Option<Arms> {
     TABLE.iter().find(|(x, _)| *x == c).map(|(_, a)| *a)
+}
+
+fn rounds(c: char) -> Option<Arms> {
+    ROUNDS.iter().find(|(x, _)| *x == c).map(|(_, a)| *a)
 }
 
 fn blocks(c: char) -> Option<&'static [Rect]> {
@@ -196,6 +210,28 @@ fn cell_width(c: char, advances: Option<&Advances>) -> u32 {
         .unwrap_or_else(|| c.width().unwrap_or(1) as u32)
 }
 
+/// コードブロックの行の高さ。SVG の縦横比を出すのに使い、CSS にも同じ値を書き出します。
+pub const CODE_LINE_HEIGHT: f32 = 1.25;
+
+/// Rust 側が持っている値を、CSS のカスタムプロパティとして書き出します。
+pub fn css_variables() -> String {
+    format!("pre {{\n  --code-line-height: {CODE_LINE_HEIGHT};\n}}\n")
+}
+
+/// セルの高さが幅の何倍かを返します。
+pub fn cell_ratio(advances: &Advances) -> f32 {
+    CODE_LINE_HEIGHT / advances.cell_width_em()
+}
+
+/// 円弧の縦の半径を返します。横の半径はセルの幅の半分で固定です。
+///
+/// 画面の上で真円に見えるよう、縦は比で割ります。
+/// 座標を整数に保つために丸めるので、半径は 1 単位まで狂います。
+fn arc_radius(ratio: f32) -> u32 {
+    let ry = (CELL as f32 / 2.0 / ratio).round();
+    (ry as u32).clamp(1, CELL / 2)
+}
+
 /// 1 セルの長さです。座標はこの単位の整数で持ちます。
 ///
 /// ブロックはセルを 8 つに、破線は 2 つから 4 つに割ります。
@@ -209,13 +245,41 @@ type Point = (u32, u32);
 ///
 /// 出力を毎回同じにしたいので、並びの決まる BTree を使います。
 #[derive(Default)]
-struct Lines(BTreeMap<Point, BTreeSet<Point>>);
+struct Lines(BTreeMap<Point, BTreeMap<Point, Edge>>);
+
+/// 2 点の結び方です。
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Edge {
+    /// まっすぐ結びます。
+    Line,
+    /// 四分円で結びます。`sweep` は SVG の sweep-flag です。
+    Arc { sweep: bool },
+}
+
+impl Edge {
+    /// 逆向きに辿るときの結び方を返します。円弧は回る向きが逆になります。
+    fn flip(self) -> Self {
+        match self {
+            Self::Line => Self::Line,
+            Self::Arc { sweep } => Self::Arc { sweep: !sweep },
+        }
+    }
+}
 
 impl Lines {
-    /// 辺を 1 本足します。
+    /// 直線の辺を 1 本足します。
     fn add(&mut self, a: Point, b: Point) {
-        self.0.entry(a).or_default().insert(b);
-        self.0.entry(b).or_default().insert(a);
+        self.insert(a, b, Edge::Line);
+    }
+
+    /// 円弧の辺を 1 本足します。`sweep` は `a` から `b` へ辿るときの向きです。
+    fn add_arc(&mut self, a: Point, b: Point, sweep: bool) {
+        self.insert(a, b, Edge::Arc { sweep });
+    }
+
+    fn insert(&mut self, a: Point, b: Point, edge: Edge) {
+        self.0.entry(a).or_default().insert(b, edge);
+        self.0.entry(b).or_default().insert(a, edge.flip());
     }
 
     /// 辺を 1 本取り除きます。辺のなくなった点は落とします。
@@ -234,21 +298,24 @@ impl Lines {
     ///
     /// まっすぐを選ぶので、同じ向きに続く線は 1 本になり、
     /// 交差点では通り抜ける線が 1 本になります。
-    fn next(&self, point: Point, from: Option<Point>) -> Option<Point> {
+    fn next(&self, point: Point, from: Option<Point>) -> Option<(Point, Edge)> {
         let next = self.0.get(&point)?;
-        let straight = from.and_then(|from| next.iter().find(|to| is_straight(from, point, **to)));
+        let straight =
+            from.and_then(|from| next.iter().find(|(to, _)| is_straight(from, point, **to)));
 
-        straight.or_else(|| next.iter().next()).copied()
+        straight
+            .or_else(|| next.iter().next())
+            .map(|(to, edge)| (*to, *edge))
     }
 
-    /// 辺を辿り、通った点を順に返します。辿った辺は取り除きます。
-    fn walk(&mut self, start: Point, from: Option<Point>) -> Vec<Point> {
+    /// 辺を辿り、通った点と、そこへ来た辺を順に返します。辿った辺は取り除きます。
+    fn walk(&mut self, start: Point, from: Option<Point>) -> Vec<(Point, Edge)> {
         let mut out = Vec::new();
         let (mut point, mut from) = (start, from);
 
-        while let Some(next) = self.next(point, from) {
+        while let Some((next, edge)) = self.next(point, from) {
             self.remove(point, next);
-            out.push(next);
+            out.push((next, edge));
             from = Some(point);
             point = next;
         }
@@ -257,20 +324,28 @@ impl Lines {
     }
 
     /// `d` 属性を作ります。線が 1 本もなければ `None` を返します。
-    fn path_data(mut self) -> Option<String> {
+    ///
+    /// `arc_ry` は円弧の縦の半径です。
+    fn path_data(mut self, arc_ry: u32) -> Option<String> {
         let mut d = String::new();
 
         while let Some(start) = self.0.keys().next().copied() {
             // 両方向に伸ばします。先に辿ったほうは逆向きなので、並べ直します。
             let back = self.walk(start, None);
-            let forward = self.walk(start, back.first().copied());
+            let forward = self.walk(start, back.first().map(|(p, _)| *p));
 
-            let mut points = back;
-            points.reverse();
-            points.push(start);
-            points.extend(forward);
+            // 逆向きにすると、始点は最後に着いた点になり、辺の向きも入れ替わります。
+            let first = back.last().map_or(start, |(p, _)| *p);
+            let mut steps: Vec<_> = (0..back.len())
+                .rev()
+                .map(|i| {
+                    let to = if i == 0 { start } else { back[i - 1].0 };
+                    (to, back[i].1.flip())
+                })
+                .collect();
+            steps.extend(forward);
 
-            d.push_str(&subpath(&points));
+            d.push_str(&subpath(first, &steps, arc_ry));
         }
 
         (!d.is_empty()).then_some(d)
@@ -290,29 +365,41 @@ fn is_straight(from: Point, point: Point, to: Point) -> bool {
 /// 向きが変わらない点は書きません。始点に戻る線は `Z` で閉じます。
 /// 1 つのサブパスにすると、曲がり角が継ぎ目 (linejoin) として描かれます。
 /// 別々に引くと端が並ぶだけになり、角の外側が線の太さの半分だけ欠けます。
-fn subpath(points: &[Point]) -> String {
-    let mut corners = vec![points[0]];
-    for p in points.windows(3) {
-        if !is_straight(p[0], p[1], p[2]) {
-            corners.push(p[1]);
+fn subpath(first: Point, steps: &[(Point, Edge)], arc_ry: u32) -> String {
+    // まっすぐ続く点は書く必要がないので、手前の辺に畳みます。
+    let mut corners: Vec<(Point, Edge)> = Vec::new();
+    for &(point, edge) in steps {
+        let straight = match (corners.len(), corners.last()) {
+            (n, Some(&(prev, Edge::Line))) if edge == Edge::Line => {
+                let before = if n == 1 { first } else { corners[n - 2].0 };
+                is_straight(before, prev, point)
+            }
+            _ => false,
+        };
+
+        match straight {
+            true => *corners.last_mut().expect("まっすぐなら手前がある") = (point, edge),
+            false => corners.push((point, edge)),
         }
     }
-    corners.extend(points.last().filter(|_| points.len() > 1));
 
-    let closed = corners.len() > 2 && corners.first() == corners.last();
-    let body = if closed {
-        &corners[1..corners.len() - 1]
-    } else {
-        &corners[1..]
+    // 始点に戻る線は閉じます。最後が直線であれば、書かずに `Z` に任せます。
+    let closed = corners.len() > 2 && corners.last().map(|(p, _)| *p) == Some(first);
+    let body = match closed && corners.last().is_some_and(|(_, e)| *e == Edge::Line) {
+        true => &corners[..corners.len() - 1],
+        false => &corners[..],
     };
 
-    let mut prev = corners[0];
-    let mut d = format!("M{} {}", prev.0, prev.1);
-    for &(x, y) in body {
-        if y == prev.1 {
-            d.push_str(&format!("H{x}"));
-        } else {
-            d.push_str(&format!("V{y}"));
+    let mut prev = first;
+    let mut d = format!("M{} {}", first.0, first.1);
+    for &((x, y), edge) in body {
+        match edge {
+            Edge::Arc { sweep } => {
+                let sweep = u8::from(sweep);
+                d.push_str(&format!("A{} {arc_ry} 0 0 {sweep} {x} {y}", CELL / 2));
+            }
+            Edge::Line if y == prev.1 => d.push_str(&format!("H{x}")),
+            Edge::Line => d.push_str(&format!("V{y}")),
         }
         prev = (x, y);
     }
@@ -342,7 +429,7 @@ struct Shapes {
 }
 
 /// コードブロックの中身から形を集めます。
-fn collect(code: &str, advances: Option<&Advances>) -> Shapes {
+fn collect(code: &str, advances: Option<&Advances>, arc_ry: u32) -> Shapes {
     let mut shapes = Shapes {
         rows: code.lines().count() as u32,
         ..Shapes::default()
@@ -378,6 +465,22 @@ fn collect(code: &str, advances: Option<&Advances>) -> Shapes {
                     .entry((weight, horizontal, count))
                     .or_default()
                     .add(from, to);
+            }
+
+            if let Some([up, down, l, r]) = rounds(c) {
+                // 円弧は横の腕の端から、縦の腕の側へ回ります。
+                let (from, across) = match (l, r) {
+                    (0, _) => ((right, cy), (cx, cy)),
+                    _ => ((left, cy), (cx, cy)),
+                };
+                let (to, arm) = match (up, down) {
+                    (0, _) => ((across.0, cy + arc_ry), (cx, bottom)),
+                    _ => ((across.0, cy - arc_ry), (cx, top)),
+                };
+                // 進む向きが右回りなら sweep を立てます。
+                let turn = (from.0 < to.0) == (from.1 < to.1);
+                lines[0].add_arc(from, to, turn);
+                lines[0].add(to, arm);
             }
 
             if let Some([up, down, l, r]) = arms(c) {
@@ -418,18 +521,19 @@ fn weight_class(weight: u8) -> &'static str {
 /// 描く罫線素片が 1 つもなければ `None` を返します。
 /// 座標の単位は 1 セルの `CELL` 分の 1 なので、viewBox は列数と行数の `CELL` 倍になります。
 /// 実際の大きさは CSS が `--cols` と `--rows` から決めます。
-pub fn svg(code: &str, advances: Option<&Advances>) -> Option<String> {
+pub fn svg(code: &str, advances: Option<&Advances>, ratio: f32) -> Option<String> {
+    let arc_ry = arc_radius(ratio);
     let Shapes {
         lines: [light, heavy],
         dashes,
         fills,
         cols,
         rows,
-    } = collect(code, advances);
+    } = collect(code, advances, arc_ry);
 
     let mut paths = String::new();
     for (lines, weight) in [(light, 1), (heavy, 2)] {
-        if let Some(d) = lines.path_data() {
+        if let Some(d) = lines.path_data(arc_ry) {
             let class = weight_class(weight);
             paths.push_str(&format!(r#"<path class="{class}" d="{d}"/>"#));
         }
@@ -442,7 +546,7 @@ pub fn svg(code: &str, advances: Option<&Advances>) -> Option<String> {
         } else {
             "box-dash-y"
         };
-        if let Some(d) = lines.path_data() {
+        if let Some(d) = lines.path_data(arc_ry) {
             paths.push_str(&format!(
                 r#"<path class="{weight} {dir}" style="--n:{count}" d="{d}"/>"#
             ));
@@ -471,8 +575,9 @@ mod test {
     use super::is_covered;
 
     /// フォントを渡さずに描きます。列は East Asian Width で数えます。
+    /// 比はセルが縦 2 倍のものとします。
     fn svg(code: &str) -> Option<String> {
-        super::svg(code, None)
+        super::svg(code, None, 2.0)
     }
 
     /// 1 つの箱は 1 つのサブパスになります。文字ごとに描けば 12 本のところです。
@@ -599,6 +704,33 @@ mod test {
             d.contains(r#"<path class="box-heavy" d="M24 36H0"/>"#),
             "{d}"
         );
+    }
+
+    /// 丸角の箱は、角丸でない箱と同じく 1 つの閉じたサブパスになります。
+    /// 比が 2 なので、縦の半径は横の半分の 6 です。
+    #[test]
+    fn rounds_a_corner_within_one_subpath() {
+        let d = svg("╭─╮\n│ │\n╰─╯\n").unwrap();
+        let want = "M12 18A12 6 0 0 1 24 12H48A12 6 0 0 1 60 18\
+                    V54A12 6 0 0 1 48 60H24A12 6 0 0 1 12 54Z";
+        assert!(d.contains(&format!(r#"d="{want}""#)), "{d}");
+    }
+
+    /// 縦の半径は、横の半径をセルの縦横比で割ったものです。
+    #[test]
+    fn shrinks_the_arc_to_the_cell_shape() {
+        use super::arc_radius;
+        assert_eq!(arc_radius(1.0), 12);
+        assert_eq!(arc_radius(2.0), 6);
+        assert_eq!(arc_radius(2.5), 5);
+        assert_eq!(arc_radius(2.076), 6);
+    }
+
+    /// 縦に長いセルでも、半径は 1 を下回りません。
+    #[test]
+    fn keeps_the_arc_visible() {
+        use super::arc_radius;
+        assert_eq!(arc_radius(100.0), 1);
     }
 
     #[test]
