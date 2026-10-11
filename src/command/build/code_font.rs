@@ -24,8 +24,8 @@ const WOFF2_NAME: &str = "zakki-code.woff2";
 ///
 /// `--code-font` は style.css が定義しています。後ろに足すので、
 /// 同じ名前を書き直せば先頭に差し込めます。
-/// フォントに付ける名前を元フォントから取らないのは、改変したものに元の名前を
-/// 使わせない条件 (SIL Open Font License でいう Reserved Font Name) を踏まないためです。
+/// フォントに付ける名前は zakki が決めます。改変したものに元の名前を使わせない条件
+/// (SIL Open Font License でいう Reserved Font Name) を踏まないためです。
 const CSS: &str = include_asset!("code-font.css");
 
 /// brotli の圧縮の強さ。

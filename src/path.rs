@@ -3,7 +3,7 @@ use anyhow::{Result, bail};
 use std::path::{Path, PathBuf};
 
 /// 設定ファイルの名前。
-/// `include_bytes!` の `concat!` がリテラルを要求するため、定数ではなくマクロで定義します。
+/// `include_bytes!` の `concat!` がリテラルを要求するため、マクロで定義します。
 #[macro_export]
 macro_rules! config_file_name {
     () => {
