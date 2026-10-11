@@ -224,9 +224,8 @@ pre {
   margin: 0.8rem 0;
   overflow-x: auto;
   font-size: 0.85em;
-  /* 行送りは罫線素片を描く SVG の高さにも使うので、変数に置きます。 */
-  --lh: 1.25;
-  line-height: var(--lh);
+  /* 行送りは罫線素片を描く SVG の高さにも使うので、zakki が変数として書き出します。 */
+  line-height: var(--code-line-height);
 }
 
 pre > code { font-family: var(--mono); font-size: inherit; }
@@ -240,7 +239,7 @@ pre > code { font-family: var(--mono); font-size: inherit; }
   top: var(--pad-y);
   /* セル 1 つ分の長さです。破線の間隔もここから決めます。 */
   --cell-x: 1ch;
-  --cell-y: calc(var(--lh) * 1em);
+  --cell-y: calc(var(--code-line-height) * 1em);
   width: calc(var(--cols) * var(--cell-x));
   height: calc(var(--rows) * var(--cell-y));
   pointer-events: none;

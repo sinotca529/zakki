@@ -10,10 +10,7 @@ const STYLE_CSS: &str = include_asset!("style.css");
 /// `generated` は zakki が組み立てた分で、末尾に足します。
 /// 後ろに置くのは、style.css が定義している変数を上書きできるようにするためです。
 pub fn write_style_css(build_dir: &Path, generated: &str) -> anyhow::Result<()> {
-    let css = match generated.is_empty() {
-        true => STYLE_CSS.to_owned(),
-        false => format!("{STYLE_CSS}\n{generated}"),
-    };
+    let css = format!("{STYLE_CSS}\n{generated}");
     util::write_file(build_dir.join("style.css"), css).map_err(Into::into)
 }
 

@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use crate::include_asset;
 use crate::{
     command::build::{
-        assets,
+        assets, box_drawing,
         code_font::{self, Advances, CodeFont},
         renderer::{self, PageMetadata},
     },
@@ -53,6 +53,8 @@ impl<'a> MetaRenderer<'a> {
     ) -> anyhow::Result<()> {
         let build_dir = self.pj_paths.build_dir();
 
+        let variables = box_drawing::css_variables();
+
         let font_css = match code_font {
             Some(font) => {
                 let monospace_chars = self.collect_monospace_chars(metas);
@@ -64,7 +66,7 @@ impl<'a> MetaRenderer<'a> {
             None => "",
         };
 
-        assets::write_style_css(build_dir, font_css)
+        assets::write_style_css(build_dir, &format!("{variables}{font_css}"))
     }
 
     /// 等幅でない文字を知らせます。混ざっていると、その文字から先の列がずれます。

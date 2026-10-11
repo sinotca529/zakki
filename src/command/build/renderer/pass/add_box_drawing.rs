@@ -10,7 +10,7 @@ use pulldown_cmark::{Event, Tag};
 ///
 /// 字形を空にするのは `code_font` です。フォントを作らないサイトでは字形が残り、
 /// 線が二重になるので、呼び出し元がこのパスを飛ばします。
-pub fn add_box_drawing(events: &mut Vec<Event<'_>>, advances: Option<&Advances>) {
+pub fn add_box_drawing(events: &mut Vec<Event<'_>>, advances: Option<&Advances>, ratio: f32) {
     let mut out = Vec::with_capacity(events.len());
     let mut i = 0;
 
@@ -31,7 +31,7 @@ pub fn add_box_drawing(events: &mut Vec<Event<'_>>, advances: Option<&Advances>)
             .collect();
 
         out.extend_from_slice(&events[i..end]);
-        if let Some(svg) = box_drawing::svg(&code, advances) {
+        if let Some(svg) = box_drawing::svg(&code, advances, ratio) {
             out.push(Event::InlineHtml(svg.into()));
         }
         out.push(events[end].clone());
@@ -48,7 +48,7 @@ mod test {
 
     fn html_of(md: &str) -> String {
         let mut events: Vec<_> = Parser::new_ext(md, Options::empty()).collect();
-        add_box_drawing(&mut events, None);
+        add_box_drawing(&mut events, None, 2.0);
         let mut out = String::new();
         pulldown_cmark::html::push_html(&mut out, events.into_iter());
         out
