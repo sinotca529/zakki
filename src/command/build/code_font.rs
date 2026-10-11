@@ -256,13 +256,10 @@ fn blank_box_drawing(sfnt: &[u8], box_chars: &BTreeSet<char>) -> Result<Vec<u8>>
     Ok(builder.build())
 }
 
-/// 使うフォントがファイルの何番目かを決めます。/// 使うフォントがファイルの何番目かを決めます。
-///
-/// 1 つのファイルに複数のフォントが入っていることがあります (`.ttc`)。
-/// 番号を人が知る手立てはないので、フォントが名乗っている名前で選びます。
 /// 使うフォントがファイルの何番目かを返します。
 ///
-/// 1 つのファイルに複数のフォントが入っていることがあるので、設定の `name` で選びます。
+/// 1 つのファイルに複数のフォントが入っていることがあります (`.ttc`)。
+/// 番号を人が知る手立てはないので、設定の `name` で選びます。
 fn select_font_index(bytes: &[u8], cfg: &CodeFontConfig) -> Result<u32> {
     let count = match FileRef::new(bytes) {
         Ok(FileRef::Collection(collection)) => collection.len(),
@@ -354,12 +351,19 @@ fn check_outlines(font: &FontRef, cfg: &CodeFontConfig) -> Result<()> {
 
 /// 記事で使われた文字をフォントが持っているかを確かめます。
 ///
-/// 1 つも持っていないと、字形が 1 つも残らないサブセットができます。
-/// その woff2 はブラウザの検査 (OTS) で `glyf: zero-length table` として弾かれます。
+/// 1 つも持っていないと、字形はすべてフォールバックのフォントから出ます。
+/// 指定したフォントが使われないので、設定の誤りとして落とします。
+///
+/// SVG で描く文字は数えません。`blank_box_drawing` が空白の字形に向けるので、
+/// もとのフォントが持っていなくても構いません。
 fn check_coverage(font: &FontRef, cfg: &CodeFontConfig, chars: &BTreeSet<char>) -> Result<()> {
     let charmap = font.charmap();
+    let mut drawn = chars
+        .iter()
+        .filter(|c| !box_drawing::is_covered(**c))
+        .peekable();
 
-    if !chars.iter().any(|c| charmap.map(*c).is_some()) {
+    if drawn.peek().is_some() && !drawn.any(|c| charmap.map(*c).is_some()) {
         bail!(
             "{} は、記事で等幅に使われた文字を 1 つも持っていません",
             cfg.path.display()
