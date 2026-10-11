@@ -121,6 +121,8 @@ cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
 ```
 
+Rust の折り返しとインデントは `cargo fmt` に任せます。書くときに整えません。
+
 上の 3 つを実行した結果は、PR 本文にもレビューにも書きません。
 CI が同じことを確認するためです。書くのは、CI では確かめられないことだけです。
 
