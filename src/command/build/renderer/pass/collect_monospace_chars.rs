@@ -30,13 +30,18 @@ pub fn collect_monospace_chars(events: &[Event]) -> BTreeSet<char> {
                 }
             }
             Event::End(TagEnd::CodeBlock) => in_code_block = false,
-            Event::Code(t) => chars.extend(t.chars()),
-            Event::Text(t) if in_code_block => chars.extend(t.chars()),
+            Event::Code(t) => chars.extend(drawn(t)),
+            Event::Text(t) if in_code_block => chars.extend(drawn(t)),
             _ => {}
         }
     }
 
     chars
+}
+
+/// 字形を持たない文字を落とします。改行とタブが該当します。
+fn drawn(text: &str) -> impl Iterator<Item = char> {
+    text.chars().filter(|c| !c.is_control())
 }
 
 #[cfg(test)]
@@ -56,14 +61,21 @@ mod test {
 
     #[test]
     fn collects_code_block_and_inline_code() {
-        assert_eq!(chars_of("```\n┌─┐\n```\n"), set("┌─┐\n"));
+        assert_eq!(chars_of("```\n┌─┐\n```\n"), set("┌─┐"));
         assert_eq!(chars_of("`あ`\n"), set("あ"));
     }
 
     /// キャプションもコードブロックと同じフォントで描かれます。
     #[test]
     fn collects_the_caption_of_a_code_block() {
-        assert_eq!(chars_of("```rust:見出し\nx\n```\n"), set("見出しx\n"));
+        assert_eq!(chars_of("```rust:見出し\nx\n```\n"), set("見出しx"));
+    }
+
+    /// 改行は字形を持たないので数えません。
+    /// 数えると、罫線素片だけのコードブロックでも「字形がない」と言われます。
+    #[test]
+    fn drops_characters_without_a_glyph() {
+        assert_eq!(chars_of("```\n█\n```\n"), set("█"));
     }
 
     /// 本文の文字まで入れると、日本語を書くだけでサブセットが膨らみます。
@@ -76,6 +88,6 @@ mod test {
     /// コードブロックが閉じたあとの文字を拾わないことを確かめます。
     #[test]
     fn stops_at_the_end_of_a_code_block() {
-        assert_eq!(chars_of("```\nab\n```\n\nあいう\n"), set("ab\n"));
+        assert_eq!(chars_of("```\nab\n```\n\nあいう\n"), set("ab"));
     }
 }
