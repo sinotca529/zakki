@@ -1,4 +1,4 @@
-/* ここから下は zakki が生成した部分です。編集しても次のビルドで上書きされます。 */
+/* 等幅フォントの読み込み。記事に出た文字だけを入れたフォントを zakki が作っています。 */
 @font-face {
   font-family: "zakki-code";
   font-style: normal;
