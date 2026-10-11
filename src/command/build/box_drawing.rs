@@ -175,6 +175,16 @@ const DASHES: &[(char, u8, u8, bool)] = &[
     ('╏', 2, 2, false),
 ];
 
+/// 斜線の符号位置と、その向きです。添字は左上から右下、左下から右上の順です。
+///
+/// セルの角から角へ引くので、画面の上では 45 度になりません。
+/// セルが縦長であれば、斜線もその分だけ立ちます。
+const DIAGONALS: &[(char, [bool; 2])] = &[
+    ('╱', [false, true]),
+    ('╲', [true, false]),
+    ('╳', [true, true]),
+];
+
 /// 塗りで描く符号位置と、その長方形です。
 ///
 /// 座標はセルの左上を (0, 0)、右下を (`CELL`, `CELL`) とする位置です。
@@ -237,6 +247,7 @@ pub fn is_covered(c: char) -> bool {
         || doubles(c).is_some()
         || blocks(c).is_some()
         || shades(c).is_some()
+        || diagonals(c).is_some()
         || dashes(c).is_some()
 }
 
@@ -254,6 +265,10 @@ fn rounds(c: char) -> Option<Arms> {
 
 fn blocks(c: char) -> Option<&'static [Rect]> {
     BLOCKS.iter().find(|(x, _)| *x == c).map(|(_, r)| *r)
+}
+
+fn diagonals(c: char) -> Option<[bool; 2]> {
+    DIAGONALS.iter().find(|(x, _)| *x == c).map(|(_, d)| *d)
 }
 
 fn shades(c: char) -> Option<u8> {
@@ -428,11 +443,20 @@ impl Lines {
 }
 
 /// 3 点が一直線に並び、`from` と `to` が `point` の反対側にあるかどうかを返します。
+///
+/// `from` から `point` への向きと、`point` から `to` への向きを比べます。
+/// 外積が 0 なら一直線に並び、内積が正なら同じ向きに進みます。
 fn is_straight(from: Point, point: Point, to: Point) -> bool {
-    let vertical = from.0 == point.0 && to.0 == point.0 && (from.1 < point.1) != (to.1 < point.1);
-    let horizontal = from.1 == point.1 && to.1 == point.1 && (from.0 < point.0) != (to.0 < point.0);
+    let delta = |a: Point, b: Point| {
+        (
+            i64::from(b.0) - i64::from(a.0),
+            i64::from(b.1) - i64::from(a.1),
+        )
+    };
+    let (ax, ay) = delta(from, point);
+    let (bx, by) = delta(point, to);
 
-    vertical || horizontal
+    ax * by == ay * bx && ax * bx + ay * by > 0
 }
 
 /// 折れ線を 1 つのサブパスにします。
@@ -474,7 +498,8 @@ fn subpath(first: Point, steps: &[(Point, Edge)], arc_ry: u32) -> String {
                 d.push_str(&format!("A{} {arc_ry} 0 0 {sweep} {x} {y}", CELL / 2));
             }
             Edge::Line if y == prev.1 => d.push_str(&format!("H{x}")),
-            Edge::Line => d.push_str(&format!("V{y}")),
+            Edge::Line if x == prev.0 => d.push_str(&format!("V{y}")),
+            Edge::Line => d.push_str(&format!("L{x} {y}")),
         }
         prev = (x, y);
     }
@@ -653,6 +678,15 @@ fn collect(code: &str, advances: Option<&Advances>, arc_ry: u32, gap: (u32, u32)
                 let turn = (from.0 < to.0) == (from.1 < to.1);
                 lines[0].add_arc(from, to, turn);
                 lines[0].add(to, arm);
+            }
+
+            if let Some([falling, rising]) = diagonals(c) {
+                if falling {
+                    lines[0].add((left, top), (right, bottom));
+                }
+                if rising {
+                    lines[0].add((left, bottom), (right, top));
+                }
             }
 
             if let Some([up, down, l, r]) = arms(c) {
@@ -859,6 +893,27 @@ mod test {
     fn fills_each_quadrant() {
         let d = svg("\u{259e}").unwrap();
         assert!(d.contains(r#"d="M12 0H24V12H12ZM0 12H12V24H0Z""#), "{d}");
+    }
+
+    /// 斜線はセルの角から角へ引きます。
+    #[test]
+    fn draws_a_diagonal() {
+        let d = svg("\u{2572}").unwrap();
+        assert!(d.contains(r#"d="M24 24L0 0""#), "{d}");
+    }
+
+    /// `╳` は 2 本です。中心で交わりますが、端は一致しないので別のサブパスになります。
+    #[test]
+    fn crosses_two_diagonals() {
+        let d = svg("\u{2573}").unwrap();
+        assert!(d.contains(r#"d="M24 24L0 0M24 0L0 24""#), "{d}");
+    }
+
+    /// 斜めに続く斜線は端が一致するので、1 本のサブパスになります。
+    #[test]
+    fn joins_diagonals_across_rows() {
+        let d = svg("\u{2572} \n \u{2572}\n").unwrap();
+        assert!(d.contains(r#"d="M48 48L0 0""#), "{d}");
     }
 
     /// 網掛けはセル全体を薄く塗ります。
