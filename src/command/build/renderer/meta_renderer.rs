@@ -3,7 +3,8 @@ use std::collections::BTreeSet;
 use crate::include_asset;
 use crate::{
     command::build::{
-        assets, code_font,
+        assets,
+        code_font::{self, Advances, CodeFont},
         renderer::{self, PageMetadata},
     },
     config::ProjectConfig,
@@ -24,8 +25,12 @@ impl<'a> MetaRenderer<'a> {
         Self { cfg, pj_paths }
     }
 
-    pub fn render(&self, metas: &[PageMetadata]) -> anyhow::Result<()> {
-        self.output_style_sheet(metas)?;
+    pub fn render(
+        &self,
+        metas: &[PageMetadata],
+        code_font: Option<&CodeFont>,
+    ) -> anyhow::Result<()> {
+        self.output_style_sheet(metas, code_font)?;
         renderer::render_index(self.cfg, self.pj_paths.build_dir(), metas)?;
         self.output_sitemap(metas)?;
         self.output_feed(metas)?;
@@ -41,19 +46,40 @@ impl<'a> MetaRenderer<'a> {
     const SHOWN_CHARS: usize = 40;
 
     /// style.css を書き出します。等幅フォントを作る場合は、それを読み込む CSS を足します。
-    fn output_style_sheet(&self, metas: &[PageMetadata]) -> anyhow::Result<()> {
+    fn output_style_sheet(
+        &self,
+        metas: &[PageMetadata],
+        code_font: Option<&CodeFont>,
+    ) -> anyhow::Result<()> {
         let build_dir = self.pj_paths.build_dir();
 
-        let font_css = match &self.cfg.code_font {
+        let font_css = match code_font {
             Some(font) => {
                 let monospace_chars = self.collect_monospace_chars(metas);
+                let all = monospace_chars.all();
                 Self::warn_private_only_chars(&monospace_chars);
-                code_font::output(font, &monospace_chars.all(), build_dir)?
+                Self::warn_odd_advance_chars(&font.advances()?, &all);
+                code_font::output(font, &all, build_dir)?
             }
             None => "",
         };
 
         assets::write_style_css(build_dir, font_css)
+    }
+
+    /// 送り幅がセルの整数倍でない文字を知らせます。
+    ///
+    /// 等幅でない文字が混ざると、その文字から先の列がずれます。
+    fn warn_odd_advance_chars(advances: &Advances, chars: &BTreeSet<char>) {
+        let odd = advances.odd_chars(chars);
+
+        if !odd.is_empty() {
+            let list = Self::char_list(&odd);
+            eprintln!(
+                "警告: 送り幅がセルの整数倍でない文字があります : {list}\n\
+                 この文字から先は、罫線素片の線が文字とずれます。"
+            );
+        }
     }
 
     /// 記事ごとの変換結果から等幅で描く文字を抽出します
@@ -83,19 +109,25 @@ impl<'a> MetaRenderer<'a> {
     }
 
     fn private_only_warning(leaked: &BTreeSet<char>) -> String {
-        let shown = leaked
+        let list = Self::char_list(leaked);
+        format!("警告: 公開した記事に出てこない文字が、コード用フォントに残ります : {list}")
+    }
+
+    /// 文字を並べて書きます。多いときは先頭だけ出し、残りは数で伝えます。
+    fn char_list(chars: &BTreeSet<char>) -> String {
+        let shown = chars
             .iter()
             .take(Self::SHOWN_CHARS)
             .map(char::to_string)
             .collect::<Vec<_>>()
             .join(" ");
 
-        let rest = match leaked.len().saturating_sub(Self::SHOWN_CHARS) {
+        let rest = match chars.len().saturating_sub(Self::SHOWN_CHARS) {
             0 => String::new(),
             n => format!(" ほか {n} 字"),
         };
 
-        format!("警告: 公開した記事に出てこない文字が、コード用フォントに残ります : {shown}{rest}")
+        format!("{shown}{rest}")
     }
 }
 

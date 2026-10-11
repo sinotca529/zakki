@@ -3,6 +3,7 @@ mod box_drawing;
 mod code_font;
 mod renderer;
 
+use crate::command::build::code_font::CodeFont;
 use crate::command::build::renderer::meta_renderer::MetaRenderer;
 use crate::config::ProjectConfig;
 use crate::path::ProjectPaths;
@@ -31,9 +32,13 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> anyhow::Result<()> 
             )
         })?;
 
+    // 列を送り幅から決めるので、記事を描く前にコードフォントを読む。
+    let code_font = cfg.code_font.as_ref().map(CodeFont::read).transpose()?;
+    let advances = code_font.as_ref().map(CodeFont::advances).transpose()?;
+
     // Wikilink のタイトルを書くため、全記事のタイトルを先んじて取得する。
     let title_map = collect_titles(&files)?;
-    let renderer = PageRenderer::new(&cfg, &title_map, pj_paths, render_draft);
+    let renderer = PageRenderer::new(&cfg, &title_map, pj_paths, render_draft, advances.as_ref());
 
     assets::copy_assets(pj_paths.build_dir())?;
 
@@ -54,7 +59,7 @@ pub fn build(pj_paths: &ProjectPaths, render_draft: bool) -> anyhow::Result<()> 
 
     let mr = MetaRenderer::new(&cfg, pj_paths);
     metas.sort_unstable_by_key(|m| Reverse(m.update));
-    mr.render(&metas)?;
+    mr.render(&metas, code_font.as_ref())?;
 
     Ok(())
 }

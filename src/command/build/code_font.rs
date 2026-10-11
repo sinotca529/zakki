@@ -4,6 +4,9 @@ use crate::include_asset;
 use crate::util;
 use anyhow::{Context as _, Result, anyhow, bail};
 use fontcull_klippa::{Plan, SubsetFlags, subset_font};
+use fontcull_skrifa::charmap::Charmap;
+use fontcull_skrifa::instance::{LocationRef, Size};
+use fontcull_skrifa::metrics::GlyphMetrics;
 use fontcull_skrifa::raw::collections::IntSet;
 use fontcull_skrifa::raw::types::NameId;
 use fontcull_skrifa::raw::{FileRef, TableProvider as _};
@@ -50,12 +53,113 @@ const FS_TYPE_RESTRICTED: u16 = 0x0002;
 /// `OS/2` の `fsType` のうち、サブセットを禁じることを表すビット。
 const FS_TYPE_NO_SUBSETTING: u16 = 0x0100;
 
+/// 設定で指定されたコードフォント。
+///
+/// 記事を描く前に読み、列を数えるのとサブセットを作るのに使い回します。
+pub struct CodeFont<'a> {
+    cfg: &'a CodeFontConfig,
+    bytes: Vec<u8>,
+    index: u32,
+}
+
+impl<'a> CodeFont<'a> {
+    /// フォントを読みます。コレクションであれば、設定の名前と一致するものを選びます。
+    pub fn read(cfg: &'a CodeFontConfig) -> Result<Self> {
+        let bytes = std::fs::read(&cfg.path)
+            .with_context(|| format!("{} を読めません", cfg.path.display()))?;
+        let index = select_index(&bytes, cfg)?;
+
+        Ok(Self { cfg, bytes, index })
+    }
+
+    fn font(&self) -> Result<FontRef<'_>> {
+        FontRef::from_index(&self.bytes, self.index)
+            .with_context(|| format!("{} をフォントとして読めません", self.cfg.path.display()))
+    }
+
+    /// 列を数えるための送り幅を取り出します。
+    pub fn advances(&self) -> Result<Advances<'_>> {
+        let font = self.font()?;
+        let charmap = font.charmap();
+        let metrics = font.glyph_metrics(Size::unscaled(), LocationRef::default());
+
+        let cell = charmap
+            .map(CELL_WIDTH_CHAR)
+            .and_then(|gid| metrics.advance_width(gid))
+            .map(|w| w as u32)
+            .filter(|w| *w > 0)
+            .with_context(|| {
+                format!(
+                    "{} に '{CELL_WIDTH_CHAR}' がありません",
+                    self.cfg.path.display()
+                )
+            })?;
+
+        Ok(Advances {
+            charmap,
+            metrics,
+            cell,
+        })
+    }
+}
+
+/// 文字がセルをいくつ占めるかを、フォントの送り幅から答えます。
+pub struct Advances<'a> {
+    charmap: Charmap<'a>,
+    metrics: GlyphMetrics<'a>,
+    /// セル 1 つ分の送り幅。CSS の `ch` に合わせて `'0'` のものを使います。
+    cell: u32,
+}
+
+impl Advances<'_> {
+    /// 文字が占めるセルの数を返します。
+    ///
+    /// フォントが持っていない文字と、送り幅がセルの整数倍でない文字は `None` です。
+    /// 呼び出し側が East Asian Width で数えます。
+    pub fn cells(&self, c: char) -> Option<u32> {
+        let advance = self.advance(c)?;
+        cells_of(advance, self.cell)
+    }
+
+    /// 送り幅がセルの整数倍でない文字を集めます。
+    pub fn odd_chars(&self, chars: &BTreeSet<char>) -> BTreeSet<char> {
+        chars
+            .iter()
+            .filter(|c| {
+                self.advance(**c)
+                    .is_some_and(|a| cells_of(a, self.cell).is_none())
+            })
+            .copied()
+            .collect()
+    }
+
+    /// 描かれる字形の送り幅を返します。
+    ///
+    /// 罫線素片は `blank_box_drawing` が空白の字形に差し替えるので、
+    /// 元の字形の送り幅ではなく空白の送り幅になります。
+    fn advance(&self, c: char) -> Option<u32> {
+        let drawn = match box_drawing::is_covered(c) {
+            true => BLANK_CHAR,
+            false => c,
+        };
+        let gid = self.charmap.map(drawn)?;
+        self.metrics.advance_width(gid).map(|a| a as u32)
+    }
+}
+
+/// 送り幅をセルの数に直します。整数倍でなければ `None` を返します。
+///
+/// 送り幅はフォント単位の整数なので、割り切れるかどうかで判定できます。
+fn cells_of(advance: u32, cell: u32) -> Option<u32> {
+    advance.is_multiple_of(cell).then(|| advance / cell)
+}
+
 /// サブセットしたフォントを出力し、それを読み込む CSS を返します。
 /// ライセンス文書の指定があれば、あわせてコピーします。
 ///
 /// 残す文字が 1 つもなければフォントを作らないので、空の CSS を返します。
 pub fn output(
-    cfg: &CodeFontConfig,
+    code_font: &CodeFont,
     chars: &BTreeSet<char>,
     build_dir: &Path,
 ) -> Result<&'static str> {
@@ -63,12 +167,8 @@ pub fn output(
         return Ok("");
     }
 
-    let bytes =
-        std::fs::read(&cfg.path).with_context(|| format!("{} を読めません", cfg.path.display()))?;
-
-    let index = select_index(&bytes, cfg)?;
-    let font = FontRef::from_index(&bytes, index)
-        .with_context(|| format!("{} をフォントとして読めません", cfg.path.display()))?;
+    let cfg = code_font.cfg;
+    let font = code_font.font()?;
 
     check_permissions(&font, cfg)?;
     check_outlines(&font, cfg)?;
@@ -286,7 +386,22 @@ fn subset(font: &FontRef, chars: &BTreeSet<char>) -> Result<Vec<u8>> {
 
 #[cfg(test)]
 mod test {
-    use super::{CSS, FONT_DIR, WOFF2_NAME};
+    use super::{CSS, FONT_DIR, WOFF2_NAME, cells_of};
+
+    /// 送り幅がセルの整数倍であれば、その倍数を返します。
+    #[test]
+    fn counts_cells_from_the_advance() {
+        assert_eq!(cells_of(1024, 1024), Some(1));
+        assert_eq!(cells_of(2048, 1024), Some(2));
+        assert_eq!(cells_of(0, 1024), Some(0));
+    }
+
+    /// 等幅でない送り幅は数えません。East Asian Width に任せます。
+    #[test]
+    fn rejects_an_advance_that_is_not_a_multiple() {
+        assert_eq!(cells_of(1000, 1024), None);
+        assert_eq!(cells_of(1536, 1024), None);
+    }
 
     /// CSS が読む URL と、実際に書き出す位置は同じである必要があります。
     /// CSS は style.css の末尾に入るので、URL はサイトの根からの相対です。
