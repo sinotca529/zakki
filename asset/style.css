@@ -223,6 +223,10 @@ pre {
   padding: var(--pad-y) var(--pad-x);
   margin: 0.8rem 0;
   overflow-x: auto;
+  /* 行の高さは pre と code の両方のフォントから決まります。
+     pre に指定しないと UA の monospace のままになり、2 つの ascent と descent を
+     合わせた高さが line-height を超えて、行送りが広がります。 */
+  font-family: var(--mono);
   font-size: 0.85em;
   /* 行送りは罫線素片を描く SVG の高さにも使うので、zakki が変数として書き出します。 */
   line-height: var(--code-line-height);
