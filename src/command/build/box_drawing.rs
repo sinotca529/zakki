@@ -103,16 +103,84 @@ const TABLE: &[(char, Arms)] = &[
     ('╿', [2, 1, 0, 0]),
 ];
 
+/// 破線の符号位置です。1 セルに引く本数、太さ、横向きかどうかを持ちます。
+///
+/// 線と間隔の長さは CSS が決めるので、ここには 1 セルの本数だけを持ちます。
+const DASHES: &[(char, u8, u8, bool)] = &[
+    ('┄', 3, 1, true),
+    ('┅', 3, 2, true),
+    ('┆', 3, 1, false),
+    ('┇', 3, 2, false),
+    ('┈', 4, 1, true),
+    ('┉', 4, 2, true),
+    ('┊', 4, 1, false),
+    ('┋', 4, 2, false),
+    ('╌', 2, 1, true),
+    ('╍', 2, 2, true),
+    ('╎', 2, 1, false),
+    ('╏', 2, 2, false),
+];
+
+/// 塗りで描く符号位置と、その長方形です。
+///
+/// 座標はセルの左上を (0, 0)、右下を (`CELL`, `CELL`) とする位置です。
+/// 網掛け (`░▒▓`) は点の模様なので入れていません。
+const BLOCKS: &[(char, &[Rect])] = &[
+    ('▀', &[(0, 0, 24, 12)]),
+    ('▁', &[(0, 21, 24, 24)]),
+    ('▂', &[(0, 18, 24, 24)]),
+    ('▃', &[(0, 15, 24, 24)]),
+    ('▄', &[(0, 12, 24, 24)]),
+    ('▅', &[(0, 9, 24, 24)]),
+    ('▆', &[(0, 6, 24, 24)]),
+    ('▇', &[(0, 3, 24, 24)]),
+    ('█', &[(0, 0, 24, 24)]),
+    ('▉', &[(0, 0, 21, 24)]),
+    ('▊', &[(0, 0, 18, 24)]),
+    ('▋', &[(0, 0, 15, 24)]),
+    ('▌', &[(0, 0, 12, 24)]),
+    ('▍', &[(0, 0, 9, 24)]),
+    ('▎', &[(0, 0, 6, 24)]),
+    ('▏', &[(0, 0, 3, 24)]),
+    ('▐', &[(12, 0, 24, 24)]),
+    ('▔', &[(0, 0, 24, 3)]),
+    ('▕', &[(21, 0, 24, 24)]),
+    ('▖', &[(0, 12, 12, 24)]),
+    ('▗', &[(12, 12, 24, 24)]),
+    ('▘', &[(0, 0, 12, 12)]),
+    ('▙', &[(0, 0, 12, 12), (0, 12, 12, 24), (12, 12, 24, 24)]),
+    ('▚', &[(0, 0, 12, 12), (12, 12, 24, 24)]),
+    ('▛', &[(0, 0, 12, 12), (12, 0, 24, 12), (0, 12, 12, 24)]),
+    ('▜', &[(0, 0, 12, 12), (12, 0, 24, 12), (12, 12, 24, 24)]),
+    ('▝', &[(12, 0, 24, 12)]),
+    ('▞', &[(12, 0, 24, 12), (0, 12, 12, 24)]),
+    ('▟', &[(12, 0, 24, 12), (0, 12, 12, 24), (12, 12, 24, 24)]),
+];
+
+/// 塗る長方形です。左上と右下を持ちます。
+type Rect = (u32, u32, u32, u32);
+
 /// SVG で描く文字かどうかを返します。
 ///
 /// SVG で描く文字と、フォントから字形を落とす文字は同じである必要があります。
 /// 片方だけ変えると、線が二重に描かれるか、消えたままになります。
 pub fn is_covered(c: char) -> bool {
-    arms(c).is_some()
+    arms(c).is_some() || blocks(c).is_some() || dashes(c).is_some()
 }
 
 fn arms(c: char) -> Option<Arms> {
     TABLE.iter().find(|(x, _)| *x == c).map(|(_, a)| *a)
+}
+
+fn blocks(c: char) -> Option<&'static [Rect]> {
+    BLOCKS.iter().find(|(x, _)| *x == c).map(|(_, r)| *r)
+}
+
+fn dashes(c: char) -> Option<(u8, u8, bool)> {
+    DASHES
+        .iter()
+        .find(|(x, ..)| *x == c)
+        .map(|(_, count, weight, horizontal)| (*count, *weight, *horizontal))
 }
 
 /// 文字がセルをいくつ占めるかを返します。
@@ -123,7 +191,13 @@ fn cell_width(c: char) -> u32 {
     c.width().unwrap_or(1) as u32
 }
 
-/// 半セルを単位とする座標です。セルの中心は奇数になります。
+/// 1 セルの長さです。座標はこの単位の整数で持ちます。
+///
+/// ブロックはセルを 8 つに、破線は 2 つから 4 つに割ります。
+/// どちらも割り切れる数にすると、座標に小数が出ません。
+const CELL: u32 = 24;
+
+/// 座標です。コードブロックの左上が原点で、セルの中心は `CELL / 2` の奇数倍になります。
 type Point = (u32, u32);
 
 /// 線のつながりです。点から、辺でつながる隣の点への対応を持ちます。
@@ -244,19 +318,62 @@ fn subpath(points: &[Point]) -> String {
     d
 }
 
-/// コードブロックの中身から、太さごとの線を集めます。
-fn collect(code: &str) -> ([Lines; 2], u32, u32) {
-    let mut lines = [Lines::default(), Lines::default()];
-    let mut cols = 0;
+/// 破線を描き分ける組です。太さ、横向きかどうか、1 セルの本数を持ちます。
+///
+/// 組が違うと線と間隔の長さが変わります。CSS で指定するので、組ごとに別の path にします。
+type Dash = (u8, bool, u8);
 
-    let rows = code.lines().count() as u32;
+/// 図から取り出した形です。
+#[derive(Default)]
+struct Shapes {
+    /// 太さごとの線。
+    lines: [Lines; 2],
+    /// 組ごとの破線。
+    dashes: BTreeMap<Dash, Lines>,
+    /// 塗る長方形。座標は線と同じ単位です。
+    fills: Vec<Rect>,
+    cols: u32,
+    rows: u32,
+}
+
+/// コードブロックの中身から形を集めます。
+fn collect(code: &str) -> Shapes {
+    let mut shapes = Shapes {
+        rows: code.lines().count() as u32,
+        ..Shapes::default()
+    };
+    let lines = &mut shapes.lines;
+
     for (row, text) in code.lines().enumerate() {
         let mut col = 0;
-        let (top, bottom) = (row as u32 * 2, row as u32 * 2 + 2);
+        let (top, bottom) = (row as u32 * CELL, row as u32 * CELL + CELL);
 
         for c in text.chars() {
-            let (left, right) = (col * 2, col * 2 + 2);
-            let (cx, cy) = (left + 1, top + 1);
+            let (left, right) = (col * CELL, col * CELL + CELL);
+            let (cx, cy) = (left + CELL / 2, top + CELL / 2);
+
+            for &(x0, y0, x1, y1) in blocks(c).unwrap_or_default() {
+                shapes
+                    .fills
+                    .push((left + x0, top + y0, left + x1, top + y1));
+            }
+
+            if let Some((count, weight, horizontal)) = dashes(c) {
+                // 線はセルの端から端まで 1 本引きます。
+                // 線と間隔の繰り返しは CSS の `stroke-dasharray` が決めます。
+                // 組ごとに別の `Lines` なので、同じ破線が続くセルだけが
+                // 端で一致し、1 本のサブパスになります。
+                let (from, to) = if horizontal {
+                    ((left, cy), (right, cy))
+                } else {
+                    ((cx, top), (cx, bottom))
+                };
+                shapes
+                    .dashes
+                    .entry((weight, horizontal, count))
+                    .or_default()
+                    .add(from, to);
+            }
 
             if let Some([up, down, l, r]) = arms(c) {
                 if up != 0 {
@@ -276,46 +393,84 @@ fn collect(code: &str) -> ([Lines; 2], u32, u32) {
             col += cell_width(c);
         }
 
-        cols = cols.max(col);
+        shapes.cols = shapes.cols.max(col);
     }
 
-    (lines, cols, rows)
+    shapes
+}
+
+/// 太さに対応する class です。
+fn weight_class(weight: u8) -> &'static str {
+    if weight == 1 {
+        "box-light"
+    } else {
+        "box-heavy"
+    }
 }
 
 /// コードブロックに重ねる SVG を作ります。
 ///
 /// 描く罫線素片が 1 つもなければ `None` を返します。
-/// 座標の単位は半セルなので、viewBox は列数と行数の 2 倍になります。
+/// 座標の単位は 1 セルの `CELL` 分の 1 なので、viewBox は列数と行数の `CELL` 倍になります。
 /// 実際の大きさは CSS が `--cols` と `--rows` から決めます。
 pub fn svg(code: &str) -> Option<String> {
-    let ([light, heavy], cols, rows) = collect(code);
+    let Shapes {
+        lines: [light, heavy],
+        dashes,
+        fills,
+        cols,
+        rows,
+    } = collect(code);
 
     let mut paths = String::new();
-    for (lines, class) in [(light, "box-light"), (heavy, "box-heavy")] {
+    for (lines, weight) in [(light, 1), (heavy, 2)] {
         if let Some(d) = lines.path_data() {
+            let class = weight_class(weight);
             paths.push_str(&format!(r#"<path class="{class}" d="{d}"/>"#));
         }
+    }
+
+    for ((weight, horizontal, count), lines) in dashes {
+        let weight = weight_class(weight);
+        let dir = if horizontal {
+            "box-dash-x"
+        } else {
+            "box-dash-y"
+        };
+        if let Some(d) = lines.path_data() {
+            paths.push_str(&format!(
+                r#"<path class="{weight} {dir}" style="--n:{count}" d="{d}"/>"#
+            ));
+        }
+    }
+
+    if !fills.is_empty() {
+        let d: String = fills
+            .iter()
+            .map(|(x0, y0, x1, y1)| format!("M{x0} {y0}H{x1}V{y1}H{x0}Z"))
+            .collect();
+        paths.push_str(&format!(r#"<path class="box-fill" d="{d}"/>"#));
     }
 
     (!paths.is_empty()).then(|| {
         format!(
             r#"<svg class="box-drawing" style="--cols:{cols};--rows:{rows}" viewBox="0 0 {} {}" preserveAspectRatio="none" aria-hidden="true">{paths}</svg>"#,
-            cols * 2,
-            rows * 2,
+            cols * CELL,
+            rows * CELL,
         )
     })
 }
 
 #[cfg(test)]
 mod test {
-    use super::{TABLE, svg};
+    use super::{is_covered, svg};
 
     /// 1 つの箱は 1 つのサブパスになります。文字ごとに描けば 12 本のところです。
-    /// 端は角の中心までなので、4 列の箱の横線は 1 から 7 までです。
+    /// 端は角の中心までなので、4 列の箱の横線は 12 から 84 までです。
     #[test]
     fn joins_a_box_into_one_subpath() {
         let d = svg("┌──┐\n│  │\n└──┘\n").unwrap();
-        assert!(d.contains(r#"d="M1 1H7V5H1Z""#), "{d}");
+        assert!(d.contains(r#"d="M12 12H84V60H12Z""#), "{d}");
     }
 
     /// 全角の文字は 2 セルと数えます。
@@ -330,7 +485,7 @@ mod test {
     #[test]
     fn turns_a_corner_within_one_subpath() {
         let d = svg("┌─\n│ \n").unwrap();
-        assert!(d.contains(r#"d="M1 4V1H4""#), "{d}");
+        assert!(d.contains(r#"d="M12 48V12H48""#), "{d}");
     }
 
     /// 線が通り抜ける文字では、端が一致しないので別のサブパスになります。
@@ -338,30 +493,102 @@ mod test {
     #[test]
     fn keeps_crossings_apart() {
         let d = svg("┼\n").unwrap();
-        assert!(d.contains(r#"d="M2 1H0M1 2V0""#), "{d}");
+        assert!(d.contains(r#"d="M24 12H0M12 24V0""#), "{d}");
+    }
+
+    /// ブロックは線ではなく長方形の塗りです。
+    #[test]
+    fn fills_a_block() {
+        let d = svg("\u{2588}").unwrap();
+        assert!(
+            d.contains(r#"<path class="box-fill" d="M0 0H24V24H0Z"/>"#),
+            "{d}"
+        );
+    }
+
+    /// 四分円は長方形 2 つ以上になります。
+    #[test]
+    fn fills_each_quadrant() {
+        let d = svg("\u{259e}").unwrap();
+        assert!(d.contains(r#"d="M12 0H24V12H12ZM0 12H12V24H0Z""#), "{d}");
     }
 
     /// 腕ごとに太さが違う文字では、太さごとに別の path に分かれます。
     #[test]
     fn splits_a_junction_of_two_weights() {
         let d = svg("┍━\n│ \n").unwrap();
-        assert!(d.contains(r#"<path class="box-light" d="M1 4V1"/>"#), "{d}");
-        assert!(d.contains(r#"<path class="box-heavy" d="M4 1H1"/>"#), "{d}");
+        assert!(
+            d.contains(r#"<path class="box-light" d="M12 48V12"/>"#),
+            "{d}"
+        );
+        assert!(
+            d.contains(r#"<path class="box-heavy" d="M48 12H12"/>"#),
+            "{d}"
+        );
     }
 
     /// 片側だけに腕のある文字も描きます。
     #[test]
     fn draws_a_half_line() {
         let d = svg("╴\n").unwrap();
-        assert!(d.contains(r#"d="M1 1H0""#), "{d}");
+        assert!(d.contains(r#"d="M12 12H0""#), "{d}");
+    }
+
+    /// 破線はセルの端から端までの 1 本として書きます。
+    /// 線と間隔の繰り返しは CSS が決めます。同じ破線が続くセルは、1 本にまとまります。
+    #[test]
+    fn draws_a_run_of_dashes_as_one_line() {
+        let d = svg("╌╌╌").unwrap();
+        assert!(
+            d.contains(r#"<path class="box-light box-dash-x" style="--n:2" d="M72 12H0"/>"#),
+            "{d}"
+        );
+    }
+
+    /// 破線は実線とつなぎません。つなぐと間隔が消えます。
+    #[test]
+    fn keeps_dashes_apart_from_solid_lines() {
+        let d = svg("─╌").unwrap();
+        assert!(
+            d.contains(r#"<path class="box-light" d="M24 12H0"/>"#),
+            "{d}"
+        );
+        assert!(
+            d.contains(r#"box-dash-x" style="--n:2" d="M48 12H24""#),
+            "{d}"
+        );
+    }
+
+    /// 本数や向きが違う破線は、間隔が違うので別の path にします。
+    #[test]
+    fn splits_dashes_by_count_and_direction() {
+        let d = svg("╌┄╎").unwrap();
+        assert!(
+            d.contains(r#"box-dash-x" style="--n:2" d="M24 12H0""#),
+            "{d}"
+        );
+        assert!(
+            d.contains(r#"box-dash-x" style="--n:3" d="M48 12H24""#),
+            "{d}"
+        );
+        assert!(
+            d.contains(r#"box-dash-y" style="--n:2" d="M60 24V0""#),
+            "{d}"
+        );
     }
 
     /// 太さごとに別の path にします。
     #[test]
     fn separates_heavy_lines() {
         let d = svg("─\n━\n").unwrap();
-        assert!(d.contains(r#"<path class="box-light" d="M2 1H0"/>"#), "{d}");
-        assert!(d.contains(r#"<path class="box-heavy" d="M2 3H0"/>"#), "{d}");
+        assert!(
+            d.contains(r#"<path class="box-light" d="M24 12H0"/>"#),
+            "{d}"
+        );
+        assert!(
+            d.contains(r#"<path class="box-heavy" d="M24 36H0"/>"#),
+            "{d}"
+        );
     }
 
     #[test]
@@ -369,11 +596,13 @@ mod test {
         assert!(svg("let x = 1;\n").is_none());
     }
 
-    /// 字形を落とす文字は、すべて描ける必要があります。
+    /// 字形を落とす文字と、描く文字が一致することを確かめます。
+    ///
+    /// 片方だけに入っていると、線が二重に描かれるか、消えたままになります。
     #[test]
     fn draws_every_covered_character() {
-        for (c, _) in TABLE {
-            assert!(svg(&c.to_string()).is_some(), "{c} を描けません");
+        for c in '\u{2500}'..='\u{259f}' {
+            assert_eq!(is_covered(c), svg(&c.to_string()).is_some(), "{c}");
         }
     }
 }
