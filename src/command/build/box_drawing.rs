@@ -104,6 +104,8 @@ const TABLE: &[(char, Arms)] = &[
 ];
 
 /// 破線の符号位置です。1 セルに引く本数、太さ、横向きかどうかを持ちます。
+///
+/// 間隔は CSS の `stroke-dasharray` が空けるので、本数だけを持ちます。
 const DASHES: &[(char, u8, u8, bool)] = &[
     ('┄', 3, 1, true),
     ('┅', 3, 2, true),
@@ -118,12 +120,6 @@ const DASHES: &[(char, u8, u8, bool)] = &[
     ('╎', 2, 1, false),
     ('╏', 2, 2, false),
 ];
-
-/// 破線の間隔です。両端にはこの半分を空けます。
-///
-/// 隣のセルと合わせて間隔が揃うので、破線が続いても間延びしません。
-/// DejaVu Sans Mono の字形では 0.098 セルでした。ここでは 1/12 セルにしています。
-const DASH_GAP: u32 = 2;
 
 /// 塗りで描く符号位置と、その長方形です。
 ///
@@ -322,11 +318,18 @@ fn subpath(points: &[Point]) -> String {
     d
 }
 
+/// 破線を描き分ける組です。太さ、横向きかどうか、1 セルの本数を持ちます。
+///
+/// 間隔が CSS 任せなので、組ごとに別の path にします。
+type Dash = (u8, bool, u8);
+
 /// 図から取り出した形です。
 #[derive(Default)]
 struct Shapes {
     /// 太さごとの線。
     lines: [Lines; 2],
+    /// 組ごとの破線。
+    dashes: BTreeMap<Dash, Lines>,
     /// 塗る長方形。座標は線と同じ単位です。
     fills: Vec<Rect>,
     cols: u32,
@@ -356,20 +359,18 @@ fn collect(code: &str) -> Shapes {
             }
 
             if let Some((count, weight, horizontal)) = dashes(c) {
-                let (start, across) = if horizontal { (left, cy) } else { (top, cx) };
-                // セルを本数で割り、各区画の中ほどに引きます。
-                // 端は奇数になるので、実線や隣のセルとは端が一致せず、つながりません。
-                let step = CELL / u32::from(count);
-                for i in 0..u32::from(count) {
-                    let a = start + step * i + DASH_GAP / 2;
-                    let b = a + step - DASH_GAP;
-                    let (from, to) = if horizontal {
-                        ((a, across), (b, across))
-                    } else {
-                        ((across, a), (across, b))
-                    };
-                    lines[weight as usize - 1].add(from, to);
-                }
+                // セルいっぱいの 1 本として持ちます。破るのは CSS です。
+                // 同じ組だけをつなぐので、続くセルは 1 本のサブパスになります。
+                let (from, to) = if horizontal {
+                    ((left, cy), (right, cy))
+                } else {
+                    ((cx, top), (cx, bottom))
+                };
+                shapes
+                    .dashes
+                    .entry((weight, horizontal, count))
+                    .or_default()
+                    .add(from, to);
             }
 
             if let Some([up, down, l, r]) = arms(c) {
@@ -396,6 +397,15 @@ fn collect(code: &str) -> Shapes {
     shapes
 }
 
+/// 太さに対応する class です。
+fn weight_class(weight: u8) -> &'static str {
+    if weight == 1 {
+        "box-light"
+    } else {
+        "box-heavy"
+    }
+}
+
 /// コードブロックに重ねる SVG を作ります。
 ///
 /// 描く罫線素片が 1 つもなければ `None` を返します。
@@ -404,15 +414,31 @@ fn collect(code: &str) -> Shapes {
 pub fn svg(code: &str) -> Option<String> {
     let Shapes {
         lines: [light, heavy],
+        dashes,
         fills,
         cols,
         rows,
     } = collect(code);
 
     let mut paths = String::new();
-    for (lines, class) in [(light, "box-light"), (heavy, "box-heavy")] {
+    for (lines, weight) in [(light, 1), (heavy, 2)] {
         if let Some(d) = lines.path_data() {
+            let class = weight_class(weight);
             paths.push_str(&format!(r#"<path class="{class}" d="{d}"/>"#));
+        }
+    }
+
+    for ((weight, horizontal, count), lines) in dashes {
+        let weight = weight_class(weight);
+        let dir = if horizontal {
+            "box-dash-x"
+        } else {
+            "box-dash-y"
+        };
+        if let Some(d) = lines.path_data() {
+            paths.push_str(&format!(
+                r#"<path class="{weight} {dir}" style="--n:{count}" d="{d}"/>"#
+            ));
         }
     }
 
@@ -506,18 +532,47 @@ mod test {
         assert!(d.contains(r#"d="M12 12H0""#), "{d}");
     }
 
-    /// 破線はセルを本数で割り、間隔の分だけ縮めて引きます。
+    /// 破線はセルいっぱいの 1 本として書きます。間隔は CSS が空けます。
+    /// 続くセルは 1 本にまとまります。
     #[test]
-    fn breaks_a_dashed_line_into_segments() {
-        let d = svg("╌").unwrap();
-        assert!(d.contains(r#"d="M11 12H1M23 12H13""#), "{d}");
+    fn draws_a_run_of_dashes_as_one_line() {
+        let d = svg("╌╌╌").unwrap();
+        assert!(
+            d.contains(r#"<path class="box-light box-dash-x" style="--n:2" d="M72 12H0"/>"#),
+            "{d}"
+        );
     }
 
-    /// 破線の端は奇数なので、実線とも隣のセルともつながりません。
+    /// 破線は実線とつなぎません。つなぐと間隔が消えます。
     #[test]
-    fn keeps_dashes_apart_from_their_neighbours() {
+    fn keeps_dashes_apart_from_solid_lines() {
         let d = svg("─╌").unwrap();
-        assert!(d.contains(r#"d="M24 12H0M35 12H25M47 12H37""#), "{d}");
+        assert!(
+            d.contains(r#"<path class="box-light" d="M24 12H0"/>"#),
+            "{d}"
+        );
+        assert!(
+            d.contains(r#"box-dash-x" style="--n:2" d="M48 12H24""#),
+            "{d}"
+        );
+    }
+
+    /// 本数や向きが違う破線は、間隔が違うので別の path にします。
+    #[test]
+    fn splits_dashes_by_count_and_direction() {
+        let d = svg("╌┄╎").unwrap();
+        assert!(
+            d.contains(r#"box-dash-x" style="--n:2" d="M24 12H0""#),
+            "{d}"
+        );
+        assert!(
+            d.contains(r#"box-dash-x" style="--n:3" d="M48 12H24""#),
+            "{d}"
+        );
+        assert!(
+            d.contains(r#"box-dash-y" style="--n:2" d="M60 24V0""#),
+            "{d}"
+        );
     }
 
     /// 太さごとに別の path にします。

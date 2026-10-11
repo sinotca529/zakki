@@ -238,8 +238,11 @@ pre > code { font-family: var(--mono); font-size: inherit; }
   position: absolute;
   left: var(--pad-x);
   top: var(--pad-y);
-  width: calc(var(--cols) * 1ch);
-  height: calc(var(--rows) * var(--lh) * 1em);
+  /* セル 1 つ分の長さです。破線の間隔もここから決めます。 */
+  --cell-x: 1ch;
+  --cell-y: calc(var(--lh) * 1em);
+  width: calc(var(--cols) * var(--cell-x));
+  height: calc(var(--rows) * var(--cell-y));
   pointer-events: none;
 }
 
@@ -253,6 +256,18 @@ pre > code { font-family: var(--mono); font-size: inherit; }
 
 .box-light { stroke-width: 0.085em; }
 .box-heavy { stroke-width: 0.17em; }
+
+/* 破線は、セルいっぱいの線を破って描きます。--n は 1 セルの本数です。
+   間隔は 1 セルの 1/12 で、両端にその半分を空けるので、
+   セルが続いても間隔が揃います。
+   vector-effect が付いているため長さは描画後の px で測られます。
+   そのため、横と縦で基準にするセルの長さを変えます。 */
+.box-dash-x { --cell: var(--cell-x); }
+.box-dash-y { --cell: var(--cell-y); }
+.box-dash-x, .box-dash-y {
+  stroke-dasharray: calc(var(--cell) / var(--n) - var(--cell) / 12) calc(var(--cell) / 12);
+  stroke-dashoffset: calc(var(--cell) / var(--n) - var(--cell) / 24);
+}
 
 /* ブロックは線ではなく面です。 */
 .box-fill { fill: currentColor; }
