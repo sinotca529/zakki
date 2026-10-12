@@ -234,16 +234,10 @@ type Rect = (u32, u32, u32, u32);
 
 /// SVG で描く文字かどうかを返します。
 ///
-/// SVG で描く文字と、フォントから字形を落とす文字は同じである必要があります。
-/// 片方だけ変えると、線が二重に描かれるか、消えたままになります。
+/// 表は U+2500 から U+259F をちょうど覆うので、範囲を見れば足ります。
+/// 覆っていることは `covers_the_whole_range` が確かめます。
 pub fn is_covered(c: char) -> bool {
-    arms(c).is_some()
-        || rounds(c).is_some()
-        || doubles(c).is_some()
-        || blocks(c).is_some()
-        || shades(c).is_some()
-        || diagonals(c).is_some()
-        || dashes(c).is_some()
+    ('\u{2500}'..='\u{259f}').contains(&c)
 }
 
 fn arms(c: char) -> Option<Arms> {
@@ -707,6 +701,10 @@ fn collect(code: &str, advances: Option<&Advances>, arc_ry: u32, gap: (u32, u32)
 ///
 /// `FILL_UNIT` の格子に敷き直したうえで、右と下に伸ばせるだけ伸ばした長方形を切り出します。
 fn merge_fills(fills: &[(u8, Rect)], cols: u32, rows: u32) -> Vec<(u8, Rect)> {
+    if fills.is_empty() {
+        return Vec::new();
+    }
+
     let w = (cols * CELL / FILL_UNIT) as usize;
     let h = (rows * CELL / FILL_UNIT) as usize;
     let mut grid = vec![0u8; w * h];
@@ -746,14 +744,13 @@ fn merge_fills(fills: &[(u8, Rect)], cols: u32, rows: u32) -> Vec<(u8, Rect)> {
 }
 
 /// 濃さに対応する `fill-opacity` です。塗りつぶしのときは属性を出しません。
-fn fill_opacity(density: u8) -> String {
-    if density >= DENSITY_STEPS {
-        return String::new();
+fn fill_opacity(density: u8) -> &'static str {
+    match density {
+        1 => r#" fill-opacity="0.25""#,
+        2 => r#" fill-opacity="0.50""#,
+        3 => r#" fill-opacity="0.75""#,
+        _ => "",
     }
-    format!(
-        r#" fill-opacity="{:.2}""#,
-        f32::from(density) / f32::from(DENSITY_STEPS)
-    )
 }
 
 /// 太さに対応する class です。
@@ -1109,6 +1106,40 @@ mod test {
     #[test]
     fn ignores_code_without_box_drawing() {
         assert!(svg("let x = 1;\n").is_none());
+    }
+
+    /// 表が U+2500 から U+259F をちょうど覆うことを確かめます。
+    ///
+    /// `is_covered` は範囲を見るだけです。
+    /// 漏れがあれば描かない文字の字形を空にし、重なりがあれば 1 文字を 2 通りに描きます。
+    #[test]
+    fn covers_the_whole_range() {
+        for c in '\u{2500}'..='\u{259f}' {
+            let found = [
+                super::arms(c).is_some(),
+                super::rounds(c).is_some(),
+                super::doubles(c).is_some(),
+                super::dashes(c).is_some(),
+                super::diagonals(c).is_some(),
+                super::blocks(c).is_some(),
+                super::shades(c).is_some(),
+            ]
+            .iter()
+            .filter(|found| **found)
+            .count();
+            assert_eq!(found, 1, "{c} を描く表が {found} 個あります");
+        }
+
+        let listed = (super::TABLE.iter().map(|t| t.0))
+            .chain(super::ROUNDS.iter().map(|t| t.0))
+            .chain(super::DOUBLES.iter().map(|t| t.0))
+            .chain(super::DASHES.iter().map(|t| t.0))
+            .chain(super::DIAGONALS.iter().map(|t| t.0))
+            .chain(super::BLOCKS.iter().map(|t| t.0))
+            .chain(super::SHADES.iter().map(|t| t.0));
+        for c in listed {
+            assert!(is_covered(c), "{c} は範囲の外です");
+        }
     }
 
     /// 字形を落とす文字と、描く文字が一致することを確かめます。
