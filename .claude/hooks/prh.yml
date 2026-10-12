@@ -28,6 +28,14 @@ rules:
       - /穴を(塞ぐ|塞ぎ|埋める)/
       - 唯一の穴
 
+  # 製品名の表記
+  - expected: JavaScript
+    patterns:
+      - /\b[jJ]ava[sS]cript\b/
+    specs:
+      - from: javascript で復号します
+        to: JavaScript で復号します
+
   # 英語表現の直訳
   - expected: 区別がつかない
     patterns:
