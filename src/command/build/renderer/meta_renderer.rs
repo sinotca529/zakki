@@ -202,23 +202,15 @@ impl<'a> MetaRenderer<'a> {
             .iter()
             .filter(|m| !m.is_private)
             .map(|m| {
-                let loc = Self::escape_xml_text(&format!("{publish_url}/{}", m.path));
                 format!(
-                    "  <url><loc>{loc}</loc><lastmod>{}</lastmod></url>\n",
-                    m.update
+                    include_asset!("sitemap-url.xml"),
+                    loc = Self::escape_xml_text(&format!("{publish_url}/{}", m.path)),
+                    lastmod = m.update,
                 )
             })
             .collect();
 
-        format!(
-            concat!(
-                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
-                "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n",
-                "{}",
-                "</urlset>\n",
-            ),
-            urls
-        )
+        format!(include_asset!("sitemap.xml"), urls = urls)
     }
 
     /// XML の要素内容として使えるようエスケープします。
