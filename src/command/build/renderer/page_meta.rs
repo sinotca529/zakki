@@ -23,8 +23,8 @@ pub struct PageMetadata {
     #[serde(skip)]
     pub is_private: bool,
 
-    /// 等幅フォントで描かれる文字
-    /// 全記事ぶんを集めてからサブセットを作るため、ここでは記事ごとに返します。
+    /// 等幅フォントで描かれる文字全記事ぶんを集めてからサブセットを作るため、
+    /// ここでは記事ごとに返します。
     #[serde(skip)]
     pub monospace_chars: BTreeSet<char>,
 }

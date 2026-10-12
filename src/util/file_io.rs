@@ -4,7 +4,7 @@ pub fn write_file<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> io::R
     let path = path.as_ref();
     let contents = contents.as_ref();
 
-    // 親ディレクトリは、書けなかったときだけ作る。
+    // 親ディレクトリは書けなかったときだけ作る。
     // 記事ごとに作りに行くと、ほとんどの回が既にある確認だけで終わる。
     match std::fs::write(path, contents) {
         Err(e) if e.kind() == io::ErrorKind::NotFound => {

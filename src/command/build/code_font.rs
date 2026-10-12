@@ -25,10 +25,11 @@ const WOFF2_NAME: &str = "zakki-code.woff2";
 
 /// 生成したフォントを読み込む CSS。style.css の末尾に足します。
 ///
-/// `--code-font` は style.css が定義しています。後ろに足すので、
-/// 同じ名前を書き直せば先頭に差し込めます。
-/// フォントに付ける名前は zakki が決めます。改変したものに元の名前を使わせない条件
-/// (SIL Open Font License でいう Reserved Font Name) を踏まないためです。
+/// `--code-font` は style.css が定義しています。
+/// 後ろに足すので、同じ名前を書き直せば先頭に差し込めます。
+/// フォントに付ける名前は zakki が決めます。
+/// 改変したものに元の名前を使わせない条件を踏まないためです。
+/// SIL Open Font License でいう Reserved Font Name が該当します。
 const CSS: &str = include_asset!("code-font.css");
 
 /// brotli の圧縮の強さ。
@@ -197,7 +198,7 @@ pub fn output(
     // '0' と空白は記事で使われていなくても残します。
     // CSS の `ch` が '0' の advance で、罫線素片を描く SVG の幅をこれで決めます。
     // 字形がないと、ブラウザは `ch` を 0.5em と見なし、図が文字とずれます。
-    // 空白の字形は、罫線素片の行き先として使います。
+    // 空白の字形は罫線素片の行き先として使います。
     chars.insert(CELL_WIDTH_CHAR);
     chars.insert(BLANK_CHAR);
 
@@ -227,13 +228,13 @@ pub fn output(
 
 /// 罫線素片を空白の字形に向けます。
 ///
-/// 線は `box_drawing` が作る SVG で描くので、字形は要りません。サブセットの時点で
-/// 落としたうえで、`cmap` だけを書き直して空白の字形を指すようにします。
-/// 字形を残すと、SVG の線と二重に描かれます。
+/// 線は `box_drawing` が作る SVG で描きます。
+/// 二重に描かれないよう、cmap を書き直して罫線素片の字形を空白に向けます。
+/// 字形そのものはサブセットの時点で落とします。
 ///
 /// 日本語のフォントは罫線素片に全角の advance を与えていることがあり、
-/// そのままでは図の格子が崩れます。等幅のフォントなら空白の advance はセル 1 つ分なので、
-/// 向け先を変えるだけで幅も揃います。
+/// そのままでは図の格子が崩れます。
+/// 等幅のフォントなら空白の advance はセル 1 つ分なので、向け先を変えるだけで幅も揃います。
 fn blank_box_drawing(sfnt: &[u8], box_chars: &BTreeSet<char>) -> Result<Vec<u8>> {
     if box_chars.is_empty() {
         return Ok(sfnt.to_owned());
@@ -354,8 +355,8 @@ fn check_outlines(font: &FontRef, cfg: &CodeFontConfig) -> Result<()> {
 /// 1 つも持っていないと、字形はすべてフォールバックのフォントから出ます。
 /// 指定したフォントが使われないので、設定の誤りとして落とします。
 ///
-/// SVG で描く文字は数えません。`blank_box_drawing` が空白の字形に向けるので、
-/// もとのフォントが持っていなくても構いません。
+/// SVG で描く文字は数えません。
+/// `blank_box_drawing` が空白の字形に向けるので、もとのフォントが持っていなくても構いません。
 fn check_coverage(font: &FontRef, cfg: &CodeFontConfig, chars: &BTreeSet<char>) -> Result<()> {
     let charmap = font.charmap();
     let mut drawn = chars
@@ -379,8 +380,9 @@ fn subset(font: &FontRef, chars: &BTreeSet<char>) -> Result<Vec<u8>> {
         unicodes.insert(*c as u32);
     }
 
-    // 縦組みの表は横組みでは使いません。加えて、klippa は `vmtx` を縮めず
-    // `vhea` の件数も元のまま残すため、置いておくと字形の数と件数が食い違います。
+    // 縦組みの表は横組みでは使いません。
+    // 加えて、klippa は `vmtx` を縮めず `vhea` の件数も元のまま残すため、
+    // 置いておくと字形の数と件数が食い違います。
     // その状態のフォントはブラウザの検査 (OTS) で弾かれ、読み込まれません。
     let mut drop_tables = IntSet::empty();
     drop_tables.insert(Tag::new(b"vhea"));
@@ -426,7 +428,7 @@ mod test {
         assert_eq!(cells_of(1536, 1024), None);
     }
 
-    /// CSS が読む URL と、実際に書き出す位置は同じである必要があります。
+    /// CSS が読む URL と実際に書き出す位置は同じである必要があります。
     /// CSS は style.css の末尾に入るので、URL はサイトの根からの相対です。
     #[test]
     fn css_points_at_the_generated_font() {

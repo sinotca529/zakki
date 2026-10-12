@@ -42,10 +42,7 @@ pub fn convert_math(events: &mut [Event<'_>], pa: &mut PassAssets) -> anyhow::Re
 
 /// タグの属性を名前順に並べ替えます。
 ///
-/// katex-rs は属性を乱数で種を決めるハッシュ表 (`RapidHashMap`) に入れるため、
-/// 書き出す順序が実行のたびに変わります。クレート側もテストで並べ替えてから
-/// 比べる作りなので、順序は保証されません。描画は変わりませんが、同じ入力から
-/// 同じサイトが出るように、ここで揃えます。
+/// katex-rs の出力は属性の順序が非決定的です。並べ替えることで決定的にします。
 fn sort_attributes(html: &str) -> String {
     let mut out = String::with_capacity(html.len());
     let mut rest = html;
@@ -74,8 +71,7 @@ fn sort_attributes(html: &str) -> String {
 /// 先頭のタグを読み、属性を名前順に並べ替えた文字列と、読んだバイト数を返します。
 /// 開きタグとして読めない場合は `None` を返します。
 ///
-/// 属性の値は `"` で囲まれ、中に `>` を含まないものだけを扱います。
-/// KaTeX の出力はこの形です。
+/// 属性の値は `"` で囲まれ、中に `>` を含まないものだけを扱います。KaTeX の出力はこの形です。
 fn sorted_tag(s: &str) -> Option<(String, usize)> {
     let b = s.as_bytes();
     let mut i = 1;

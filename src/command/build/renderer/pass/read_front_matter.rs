@@ -40,8 +40,8 @@ pub fn read_front_matter(events: &mut Vec<Event>) -> anyhow::Result<PageFrontMat
 }
 
 /// `Option` のフィールドに `#[serde(default)]` は付けません。
-/// serde が省略時に `None` を入れるためです。付けるのは `Vec` のように、
-/// 省略時の値を serde が決められない型だけにします。
+/// serde が省略時に `None` を入れるためです。
+/// 付けるのは `Vec` のように、省略時の値を serde が決められない型だけにします。
 #[derive(Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct PageFrontMatter {
@@ -49,8 +49,7 @@ pub struct PageFrontMatter {
     #[serde(rename = "create")]
     pub create_date: Date,
 
-    /// 記事の最終更新日
-    /// 省略できる。読むときは `last_update_date` を使う
+    /// 記事の最終更新日省略できる。読むときは `last_update_date` を使う
     #[serde(rename = "update")]
     update_date: Option<Date>,
 
@@ -71,8 +70,9 @@ pub struct PageFrontMatter {
 impl PageFrontMatter {
     /// 記事の最終更新日です。
     ///
-    /// `update` を省略した記事では作成日を返します。書いたその日に出す記事では
-    /// 2 つが同じ日付になるため、改訂したときだけ書けば済むようにしています。
+    /// `update` を省略した記事では作成日を返します。
+    /// 書いたその日に出す記事では 2 つが同じ日付になるため、
+    /// 改訂したときだけ書けば済むようにしています。
     pub fn last_update_date(&self) -> Date {
         self.update_date.unwrap_or(self.create_date)
     }
@@ -83,7 +83,7 @@ mod test {
     use super::read_front_matter;
     use pulldown_cmark::{Event, Options, Parser, Tag};
 
-    /// ヘッダを残すと、パスワードが検索の索引に載ります。
+    /// パスワードが検索の対象になるのを防ぐため、ヘッダは取り除きます。
     #[test]
     fn removes_the_header_from_the_events() {
         let md = "---\ntitle: 題\ncreate: 2025-01-01\nupdate: 2025-01-01\npassword: ひみつ\n---\n\n本文です。\n";

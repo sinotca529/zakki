@@ -5,11 +5,11 @@ use pulldown_cmark::{Event, Tag};
 
 /// コードブロックに罫線素片があれば、線を描く SVG を差し込みます。
 ///
-/// SVG は `code` の中、コードの後ろに置きます。文字はそのまま残るので、
-/// コピーも検索も変わりません。位置は CSS が `pre` を基準に決めます。
+/// SVG は `code` の中、コードの後ろに置きます。文字はそのまま残るので、コピーも検索も変わりません。
+/// 位置は CSS が `pre` を基準に決めます。
 ///
-/// 字形を空にするのは `code_font` です。フォントを作らないサイトでは字形が残り、
-/// 線が二重になるので、呼び出し元がこのパスを飛ばします。
+/// 字形を空にするのは `code_font` です。
+/// フォントを作らないサイトでは字形が残り、線が二重になるので、呼び出し元がこのパスを飛ばします。
 pub fn add_box_drawing(events: &mut Vec<Event<'_>>, advances: Option<&Advances>, ratio: f32) {
     let mut out = Vec::with_capacity(events.len());
     let mut i = 0;

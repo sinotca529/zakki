@@ -1,27 +1,24 @@
 //! 罫線素片を線に直します。
 //!
-//! ブラウザはフォントの字形で罫線素片を描くので、字形の大きさがセルと違えば
-//! 継ぎ目に隙間ができ、行ごとに描いて重ねる分だけ濃くなります。
-//! advance が ASCII の 2 倍のフォントでは、格子も崩れます。
+//! ブラウザはフォントの字形で罫線素片を描くので、字形の大きさがセルと違えば継ぎ目に隙間ができ、
+//! 行ごとに描いて重ねる分だけ濃くなります。advance が ASCII の 2 倍のフォントでは、格子も崩れます。
 //!
 //! そこで、`code_font` の字形を空にしたうえで (`code_font::output`)、
-//! ここで作った SVG をコードブロックに重ねます。
-//! 線はつないで 1 本にするので、継ぎ目が残りません。
+//! ここで作った SVG をコードブロックに重ねます。線はつないで 1 本にするので、継ぎ目が残りません。
 //! 塗りは濃さごとに 1 つの path にまとめるので、こちらも継ぎ目が残りません。
 
 use super::code_font::Advances;
 use std::collections::BTreeMap;
 use unicode_width::UnicodeWidthChar;
 
-/// 腕の太さ。添字は上、下、左、右の順です。
-/// 0 は腕なし、1 は細線、2 は太線です。
+/// 腕の太さ。添字は上下左右の順です。0 は腕なし、1 は細線、2 は太線です。
 type Arms = [u8; 4];
 
-/// 描く符号位置と、その腕です。
+/// 描く符号位置とその腕です。
 ///
 /// U+2500 から U+257F のうち、線を腕で表せるものを入れています。
 /// ここに載っていない罫線素片は字形が残るので、フォントのまま描かれます。
-/// 二重線、丸角、破線、斜線、ブロック、網掛けは入れていません。
+/// 二重線, 角丸, 破線, 斜線, ブロック, 網掛けは入れていません。
 const TABLE: &[(char, Arms)] = &[
     ('─', [0, 0, 1, 1]),
     ('━', [0, 0, 2, 2]),
@@ -105,9 +102,9 @@ const TABLE: &[(char, Arms)] = &[
     ('╿', [2, 1, 0, 0]),
 ];
 
-/// 角を丸める符号位置と、その腕です。
+/// 角を丸める符号位置とその腕です。
 ///
-/// 腕は上下左右のうち 2 つで、太さは細線だけです。Unicode に太線の丸角はありません。
+/// 腕は上下左右のうち 2 つで、太さは細線だけです。Unicode に太線の角丸はありません。
 const ROUNDS: &[(char, Arms)] = &[
     ('╭', [0, 1, 0, 1]),
     ('╮', [0, 1, 1, 0]),
@@ -115,9 +112,7 @@ const ROUNDS: &[(char, Arms)] = &[
     ('╰', [1, 0, 0, 1]),
 ];
 
-/// 二重線の符号位置と、その腕です。腕の値は 0 が無し、1 が単線、2 が二重線です。
-///
-/// 1 つの文字の中では、上下の腕どうし、左右の腕どうしが同じ値になります。
+/// 二重線の符号位置とその腕です。腕の値は 0 が無し、1 が単線、2 が二重線です。
 const DOUBLES: &[(char, Arms)] = &[
     ('═', [0, 0, 2, 2]),
     ('║', [2, 2, 0, 0]),
@@ -175,7 +170,7 @@ const DASHES: &[(char, u8, u8, bool)] = &[
     ('╏', 2, 2, false),
 ];
 
-/// 斜線の符号位置と、その向きです。添字は左上から右下、左下から右上の順です。
+/// 斜線の符号位置とその向きです。添字は左上から右下、左下から右上の順です。
 ///
 /// セルの角から角へ引くので、画面の上では 45 度になりません。
 /// セルが縦長であれば、斜線の傾きもその分だけ急になります。
@@ -185,7 +180,7 @@ const DIAGONALS: &[(char, [bool; 2])] = &[
     ('╳', [true, true]),
 ];
 
-/// 塗りで描く符号位置と、その長方形です。
+/// 塗りで描く符号位置とその長方形です。
 ///
 /// 座標はセルの左上を (0, 0)、右下を (`CELL`, `CELL`) とする位置です。
 const BLOCKS: &[(char, &[Rect])] = &[
@@ -220,7 +215,7 @@ const BLOCKS: &[(char, &[Rect])] = &[
     ('▟', &[(12, 0, 24, 12), (0, 12, 12, 24), (12, 12, 24, 24)]),
 ];
 
-/// 網掛けの符号位置と、その濃さです。濃さは `DENSITY_STEPS` 分のいくつかで表します。
+/// 網掛けの符号位置とその濃さです。濃さは `DENSITY_STEPS` 分のいくつかで表します。
 ///
 /// もとは CP437 の 176 から 178 で、点の模様でセルを埋めるものです。
 /// 模様の繰り返しがセルの境で合うことを当てにした文字なので、
@@ -282,12 +277,7 @@ fn dashes(c: char) -> Option<(u8, u8, bool)> {
         .map(|(_, count, weight, horizontal)| (*count, *weight, *horizontal))
 }
 
-/// 文字がセルをいくつ占めるかを返します。
-///
-/// フォントが持っている文字は送り幅から決めます。持っていない文字はフォールバックの
-/// フォントで描かれるため送り幅を読めないので、East Asian Width で推測します。
-/// 幅を持たない文字は 1 と数えます。
-/// タブは桁を揃えられないので、罫線素片と同じ行には書けません。
+/// 文字幅を返します。フォントにない文字は East Asian Width で推測し、全角は 2 と判定します。
 fn cell_width(c: char, advances: Option<&Advances>) -> u32 {
     advances
         .and_then(|a| a.cells(c))
@@ -297,7 +287,7 @@ fn cell_width(c: char, advances: Option<&Advances>) -> u32 {
 /// コードブロックの行の高さ。SVG の縦横比を出すのに使い、CSS にも同じ値を書き出します。
 pub const CODE_LINE_HEIGHT: f32 = 1.25;
 
-/// Rust 側が持っている値を、CSS のカスタムプロパティとして書き出します。
+/// コードブロックの行送りを CSS のカスタムプロパティとして書き出します。
 pub fn css_variables() -> String {
     format!("pre {{\n  --code-line-height: {CODE_LINE_HEIGHT};\n}}\n")
 }
@@ -316,7 +306,7 @@ fn arc_radius(ratio: f32) -> u32 {
     (ry as u32).clamp(1, CELL / 2)
 }
 
-/// 二重線の 2 本の、軸からの距離を返します。縦と横で単位の長さが違うので、横は比を掛けます。
+/// 軸から二重線の 2 本までの距離を返します。縦と横で単位の長さが違うので、横は比を掛けます。
 fn double_gap(ratio: f32) -> (u32, u32) {
     let gx = (DOUBLE_GAP as f32 * ratio).round();
     ((gx as u32).clamp(1, CELL / 2 - 1), DOUBLE_GAP)
@@ -331,7 +321,7 @@ const CELL: u32 = 24;
 /// 座標です。コードブロックの左上が原点で、セルの中心は `CELL / 2` の奇数倍になります。
 type Point = (u32, u32);
 
-/// 線のつながりです。点から、辺でつながる隣の点への対応を持ちます。
+/// 線のつながりです。点から辺でつながる隣の点への対応を持ちます。
 ///
 /// 出力を毎回同じにしたいので、並びの決まる BTree を使います。
 #[derive(Default)]
@@ -386,8 +376,7 @@ impl Lines {
 
     /// 次に進む点を選びます。まっすぐ進める辺があれば、それを選びます。
     ///
-    /// まっすぐを選ぶので、同じ向きに続く線は 1 本になり、
-    /// 交差点では通り抜ける線が 1 本になります。
+    /// まっすぐを選ぶので、同じ向きに続く線は 1 本になり、交差点では通り抜ける線が 1 本になります。
     fn next(&self, point: Point, from: Option<Point>) -> Option<(Point, Edge)> {
         let next = self.0.get(&point)?;
         let straight =
@@ -398,7 +387,7 @@ impl Lines {
             .map(|(to, edge)| (*to, *edge))
     }
 
-    /// 辺を辿り、通った点と、そこへ来た辺を順に返します。辿った辺は取り除きます。
+    /// 辺を辿り、通った点とそこへ来た辺を順に返します。辿った辺は取り除きます。
     fn walk(&mut self, start: Point, from: Option<Point>) -> Vec<(Point, Edge)> {
         let mut out = Vec::new();
         let (mut point, mut from) = (start, from);
@@ -517,7 +506,7 @@ type Dash = (u8, bool, u8);
 
 /// 二重線の交点を組み立てます。
 ///
-/// 軸から ±gap の位置に走るレールと、それらをつなぐ枠でできています。
+/// 軸から ±gap の位置に走るレールとそれらをつなぐ枠でできています。
 /// 腕はつねに手前のレールで止めます。枠は 4 辺のうち、腕のある向きの辺を外します。
 /// `╬` は 4 辺とも外れて中心が開き、`╠` は左の辺だけが残って左の縦線が通ります。
 /// 単線が二重線を横切るところには渡りの線を足します。
@@ -533,6 +522,7 @@ fn add_double(lines: &mut Lines, arms: Arms, cell: &CellBox, gap: (u32, u32)) {
         1 => vec![center],
         _ => Vec::new(),
     };
+    // 同じ軸で単線と二重線が混ざる文字はないので、max で腕のある側を取れます。
     let vertical = rails(up.max(down), cx, gx);
     let horizontal = rails(left.max(right), cy, gy);
 
@@ -569,7 +559,7 @@ fn add_double(lines: &mut Lines, arms: Arms, cell: &CellBox, gap: (u32, u32)) {
         lines.add((cx - gx, cy), (cx + gx, cy));
     }
 
-    // 枠は、縦横とも二重のときだけ要ります。腕のない向きの辺を残します。
+    // 枠は縦横とも二重のときだけ要ります。腕のない向きの辺を残します。
     if vertical.len() == 2 && horizontal.len() == 2 {
         let (x0, x1, y0, y1) = (cx - gx, cx + gx, cy - gy, cy + gy);
         if up == 0 {
@@ -638,8 +628,8 @@ fn collect(code: &str, advances: Option<&Advances>, arc_ry: u32, gap: (u32, u32)
             if let Some((count, weight, horizontal)) = dashes(c) {
                 // 線はセルの端から端まで 1 本引きます。
                 // 線と間隔の繰り返しは CSS の `stroke-dasharray` が決めます。
-                // 組ごとに別の `Lines` なので、同じ破線が続くセルだけが
-                // 端で一致し、1 本のサブパスになります。
+                // 組ごとに別の `Lines` なので、同じ破線が続くセルだけが端で一致し、
+                // 1 本のサブパスになります。
                 let (from, to) = if horizontal {
                     ((left, cy), (right, cy))
                 } else {
@@ -665,7 +655,7 @@ fn collect(code: &str, advances: Option<&Advances>, arc_ry: u32, gap: (u32, u32)
             }
 
             if let Some([up, down, l, r]) = rounds(c) {
-                // 円弧は横の腕の端から、縦の腕の側へ回ります。
+                // 円弧は横の腕の端から縦の腕の側へ回ります。
                 let (from, across) = match (l, r) {
                     (0, _) => ((right, cy), (cx, cy)),
                     _ => ((left, cy), (cx, cy)),
@@ -715,8 +705,6 @@ fn collect(code: &str, advances: Option<&Advances>, arc_ry: u32, gap: (u32, u32)
 
 /// 同じ濃さで隣り合う長方形を、1 つの大きな長方形にまとめます。
 ///
-/// 継ぎ目のためではなく、path のデータを短くするために行います。
-/// 60 列 12 行を塗りつぶす図では、まとめると 15190 バイトが 39 バイトになりました。
 /// `FILL_UNIT` の格子に敷き直したうえで、右と下に伸ばせるだけ伸ばした長方形を切り出します。
 fn merge_fills(fills: &[(u8, Rect)], cols: u32, rows: u32) -> Vec<(u8, Rect)> {
     let w = (cols * CELL / FILL_UNIT) as usize;
@@ -815,9 +803,8 @@ pub fn svg(code: &str, advances: Option<&Advances>, ratio: f32) -> Option<String
         }
     }
 
-    // 濃さごとに 1 つの path にします。path 要素を分けると、
-    // 境の列が下地と混ざって縞に見えます。1 つの path の中であれば、
-    // サブパスが辺を共有しても継ぎ目は出ません。
+    // 隣り合う塗りを継ぎ目なく描くため、濃さごとに 1 つの path にまとめます。
+    // 1 つの path の中であれば、サブパスが辺を共有しても継ぎ目は出ません。
     let mut by_density: BTreeMap<u8, String> = BTreeMap::new();
     for (density, (x0, y0, x1, y1)) in merge_fills(&fills, cols, rows) {
         let d = by_density.entry(density).or_default();
@@ -862,7 +849,7 @@ mod test {
         assert!(d.contains(r#"--cols:4;--rows:3"#), "{d}");
     }
 
-    /// 角で曲がる線は、続けて 1 つのサブパスに書きます。
+    /// 角で曲がる線は続けて 1 つのサブパスに書きます。
     /// 別々に引くと端が並ぶだけになり、曲がり角の外側が線の太さの半分だけ欠けます。
     #[test]
     fn turns_a_corner_within_one_subpath() {
@@ -991,8 +978,8 @@ mod test {
         assert!(d.contains(r#"d="M12 12H0""#), "{d}");
     }
 
-    /// 破線はセルの端から端までの 1 本として書きます。
-    /// 線と間隔の繰り返しは CSS が決めます。同じ破線が続くセルは、1 本にまとまります。
+    /// 破線はセルの端から端までの 1 本として書きます。線と間隔の繰り返しは CSS が決めます。
+    /// 同じ破線が続くセルは、1 本にまとまります。
     #[test]
     fn draws_a_run_of_dashes_as_one_line() {
         let d = svg("╌╌╌").unwrap();
@@ -1048,8 +1035,7 @@ mod test {
         );
     }
 
-    /// 丸角の箱は、角丸でない箱と同じく 1 つの閉じたサブパスになります。
-    /// 比が 2 なので、縦の半径は横の半分の 6 です。
+    /// 角丸の箱は 1 つの閉じたサブパスになります。比が 2 なので、縦の半径は横の半分の 6 です。
     #[test]
     fn rounds_a_corner_within_one_subpath() {
         let d = svg("╭─╮\n│ │\n╰─╯\n").unwrap();
@@ -1058,7 +1044,7 @@ mod test {
         assert!(d.contains(&format!(r#"d="{want}""#)), "{d}");
     }
 
-    /// 縦の半径は、横の半径をセルの縦横比で割ったものです。
+    /// 縦の半径は横の半径をセルの縦横比で割ったものです。
     #[test]
     fn shrinks_the_arc_to_the_cell_shape() {
         use super::arc_radius;
@@ -1068,7 +1054,7 @@ mod test {
         assert_eq!(arc_radius(2.076), 6);
     }
 
-    /// 縦に長いセルでも、半径は 1 を下回りません。
+    /// 縦に長いセルでも半径は 1 を下回りません。
     #[test]
     fn keeps_the_arc_visible() {
         use super::arc_radius;
@@ -1111,7 +1097,7 @@ mod test {
         assert!(d.contains(r#"d="M12 24V10H24M24 14H12""#), "{d}");
     }
 
-    /// 2 本の間隔は、縦を決めてから横を比で出します。
+    /// 2 本の間隔は縦を決めてから横を比で出します。
     #[test]
     fn widens_the_double_gap_to_the_cell_shape() {
         use super::double_gap;

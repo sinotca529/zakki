@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 /// `YYYY-MM-DD` の日付です。
 ///
-/// 並べ替えは年、月、日の順に比べます。フィールドの順序がそのまま比較の順序です。
+/// 並べ替えは年, 月, 日の順に比べます。フィールドの順序がそのまま比較の順序です。
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Date {
     year: u16,
@@ -49,9 +49,9 @@ fn days_in_month(year: u16, month: u8) -> u8 {
 
 /// うるう年であれば `true` を返します。
 ///
-/// 乗算、論理積、比較の 3 つで判定します。Falk Hüffner が Z3 で探した定数で、
-/// 0 年から 102499 年まで通常の規則と一致します。libstdc++ の
-/// `std::chrono::year::is_leap` も同じ形です。
+/// 乗算, 論理積, 比較の 3 つで判定します。
+/// Falk Hüffner が Z3 で探した定数で、0 年から 102499 年まで通常の規則と一致します。
+/// libstdc++ の `std::chrono::year::is_leap` も同じ形です。
 /// <https://hueffner.de/falk/blog/a-leap-year-check-in-three-instructions.html>
 fn is_leap(year: u16) -> bool {
     // year は 4 桁までなので、一致する範囲に収まる

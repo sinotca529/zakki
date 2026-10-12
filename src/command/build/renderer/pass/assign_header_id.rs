@@ -2,8 +2,7 @@ use crate::command::build::renderer::html_component::SPAN;
 use itertools::Itertools as _;
 use pulldown_cmark::{Event, Tag};
 
-/// 見出しの id に付ける接頭辞です。
-/// 脚注の id は `1`, `2` ... なので、付けないと衝突します。
+/// 見出しの id に付ける接頭辞です。脚注の id は `1`, `2` ... なので、付けないと衝突します。
 /// 数字で始まる id は CSS のセレクタや `querySelector` でも扱えません。
 pub(super) const SECTION_ID_PREFIX: &str = "s";
 
@@ -35,9 +34,7 @@ pub fn assign_header_id(events: &mut Vec<Event<'_>>) {
 /// 各レベルの採番カウンタ。
 #[derive(Default)]
 struct HeaderIdGenerator {
-    /// セクション番号を管理するカウンタ。
-    /// `counter[1]` は h1 に相当。
-    /// `counter[0]` は番兵。
+    /// セクション番号を管理するカウンタ。`counter[1]` は h1 に相当。`counter[0]` は番兵。
     counter: [usize; 7],
 }
 
