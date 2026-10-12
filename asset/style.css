@@ -246,6 +246,8 @@ pre > code { font-family: var(--mono); font-size: inherit; }
   --cell-y: calc(var(--code-line-height) * 1em);
   width: calc(var(--cols) * var(--cell-x));
   height: calc(var(--rows) * var(--cell-y));
+  /* 斜線の折り返しは図の外枠を超えるため、枠を超えた部分も描画されるようにします。 */
+  overflow: visible;
   pointer-events: none;
 }
 
