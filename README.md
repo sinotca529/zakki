@@ -31,7 +31,7 @@ site_name = "(必須) サイト名を指定します。"
 password  = "(任意) 暗号化用のパスワードを指定します。"
 footer    = "(任意) フッターの内容を HTML で指定します。"
 search_fp = "(任意) サイト内検索の偽陽性率を指定します。デフォルトは 0.0001 (0.01%) です。"
-js_list   = ["(任意) 追加する javascript ファイルを指定します。"]
+js_list   = ["(任意) 追加する JavaScript ファイルを指定します。"]
 css_list  = ["(任意) 追加する css ファイルを指定します。"]
 
 # (任意) コードブロックに使うフォントを指定します。
@@ -41,7 +41,7 @@ name    = "(任意) 1 ファイルに複数のフォントが入っている場�
 license = "(任意) 出力に添えるライセンス文書のパスを指定します。"
 ```
 
-Google Analytics などの javascript を追加する場合は、`js_list` に追加してください。
+Google Analytics などの JavaScript を追加する場合は、`js_list` に追加してください。
 
 `js_list` と `css_list` のパスは、サイトのルート (`build/`) からの位置として読みます。
 先頭の `/` は付けても構いません。サイトをドメインの直下ではなくサブディレクトリに置く場合 (GitHub Pages のプロジェクトページなど) も、この書き方で通ります。<br>
@@ -204,7 +204,7 @@ license = "~/.local/share/fonts/HackGen-LICENSE.txt"
 ### 数式
 
 `$...$` でインライン、`$$...$$` でディスプレイの数式を書けます。<br>
-サイトの生成時、KaTeX で HTML へ変換します。閲覧時に javascript は不要です。
+サイトの生成時、KaTeX で HTML へ変換します。閲覧時に JavaScript は不要です。
 
 ```md
 インライン: $e = mc^2$
@@ -225,7 +225,7 @@ GitHub と同じ記法の注記を書けます。
 
 [staticrypt](https://github.com/robinmoisson/staticrypt) と同様の仕組みでページを暗号化しています。<br>
 ページの生成時に、内容は aes256cbc で暗号化されます。<br>
-ページの表示時に、パスワードが入力されると javascript で復号します。<br>
+ページの表示時に、パスワードが入力されると JavaScript で復号します。<br>
 
 ## サイト内検索
 
