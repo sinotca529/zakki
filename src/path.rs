@@ -2,8 +2,7 @@ use crate::util::PathExt;
 use anyhow::{Result, bail};
 use std::path::{Path, PathBuf};
 
-/// 設定ファイルの名前。
-/// `include_bytes!` の `concat!` がリテラルを要求するため、マクロで定義します。
+/// 設定ファイルの名前。`include_bytes!` の `concat!` がリテラルを要求するため、マクロで定義します。
 #[macro_export]
 macro_rules! config_file_name {
     () => {
@@ -92,15 +91,15 @@ impl ProjectPaths {
     }
 
     /// サブページか否かを返す。
-    /// サブページとは、 public, private, draft 直下になく、かつ、名前が index ではないファイルである。
-    /// サブページはトップページの記事一覧に表示されない。
+    /// サブページとは、 public, private, draft 直下になく、かつ、
+    /// 名前が index ではないファイルである。サブページはトップページの記事一覧に表示されない。
     pub fn is_subpage(&self, src_path: &Path) -> bool {
         !Self::is_index(src_path) && self.is_in_sub_dir(src_path)
     }
 
     /// 記事をまとめるディレクトリの `index.md` か否かを返す。
-    /// サブページと同じ位置にある index である。トップページの記事一覧には表示され、
-    /// カードに group クラスが付く。
+    /// サブページと同じ位置にある index である。
+    /// トップページの記事一覧には表示され、カードに group クラスが付く。
     pub fn is_group(&self, src_path: &Path) -> bool {
         Self::is_index(src_path) && self.is_in_sub_dir(src_path)
     }

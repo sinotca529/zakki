@@ -9,9 +9,10 @@ use pulldown_cmark::{CodeBlockKind, Event, Tag, TagEnd};
 ///
 /// 押したときの動作は `script.js` に書いています。
 ///
-/// `pre` と `code` の開きタグもここで書きます。pulldown-cmark が書くタグには
-/// `tabindex` を足せないためです。横にスクロールする領域は、キーボードでも
-/// 送れる必要があります。表に対しては `wrap_table` が同じことをしています。
+/// `pre` と `code` の開きタグもここで書きます。
+/// pulldown-cmark が書くタグには `tabindex` を足せないためです。
+/// 横にスクロールする領域は、キーボードでも送れる必要があります。
+/// 表に対しては `wrap_table` が同じことをしています。
 pub fn add_copy_button(events: &mut Vec<Event<'_>>) {
     let mut out = Vec::with_capacity(events.len());
     let (open, close) = DIV.attr("class", "code-block").pair();
@@ -37,8 +38,8 @@ pub fn add_copy_button(events: &mut Vec<Event<'_>>) {
 
 /// `pre` と `code` の開きタグを書きます。
 ///
-/// 言語名の付け方は pulldown-cmark に合わせています。info string の
-/// 最初の空白までを言語名とし、`language-` を前に付けた class にします。
+/// 言語名の付け方は pulldown-cmark に合わせています。
+/// info string の最初の空白までを言語名とし、`language-` を前に付けた class にします。
 fn code_open(kind: &CodeBlockKind) -> String {
     let lang = match kind {
         CodeBlockKind::Fenced(info) => info.split(' ').next().unwrap_or(""),

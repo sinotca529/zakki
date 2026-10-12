@@ -130,8 +130,7 @@ impl<'a> PageRenderer<'a> {
         Ok(html)
     }
 
-    /// Markdown を HTML に変換します。
-    /// 変換後の HTML とメタデータを返します。
+    /// Markdown を HTML に変換します。変換後の HTML とメタデータを返します。
     /// ドラフト記事であり、ドラフトを描画しない設定の場合は `None` を返します。
     fn md_to_html(
         &self,
@@ -155,11 +154,11 @@ impl<'a> PageRenderer<'a> {
         // - assign_header_id は make_toc より前。make_toc は見出しの id を読み、無ければ落ちます
         // - highlight_code は make_bloom_filter より前。区切り文字はここで取り除かれるので、
         //   索引に載りません
-        // - add_box_drawing は highlight_code より後。先に置くと、highlight_code が
-        //   コードブロックの中身を Text から組み直すときに SVG が落ちます
+        // - add_box_drawing は highlight_code より後。先に置くと、
+        //   highlight_code がコードブロックの中身を Text から組み直すときに SVG が落ちます
         //
-        // ほかの組み合わせでは、触るイベントが重なりません。並びを変えるときは、
-        // 生成したサイトを変更前と比べてください。
+        // ほかの組み合わせでは、触るイベントが重なりません。
+        // 並びを変えるときは、生成したサイトを変更前と比べてください。
         let front_matter = pass::read_front_matter(&mut events)?;
 
         // フォントの指定がなければサブセットを作らないので、文字も集めません。
@@ -190,7 +189,8 @@ impl<'a> PageRenderer<'a> {
         // 目次と索引は本文が確定してから作る。
         let toc = pass::make_toc(&events);
 
-        // 非公開の記事は本文を渡さない。bloom filter は語の有無を問い合わせられるため、
+        // 非公開の記事は本文を渡さない。
+        // Bloom filter は語の有無を問い合わせられるため、
         // 暗号化した本文に対して総当たりができてしまう。
         // タイトルは一覧にも metadata.js にも出ているので、索引に入れても変わらない。
         let body = if self.pj_paths.is_private(page_paths.src_path) {

@@ -27,8 +27,8 @@ fn class(c: char) -> Class {
 /// - それ以外の文字の連続は、文字バイグラムにします (例: `検索語` -> `検索`, `索語`)
 /// - 区切り文字をまたぐバイグラムは作りません
 ///
-/// バイグラムを使うのは、日本語には単語境界がなく、分かち書きに頼ると
-/// 文書側とクエリ側で切れ目が食い違って取りこぼすためです。
+/// バイグラムを使うのは、日本語には単語境界がなく、
+/// 分かち書きに頼ると文書側とクエリ側で切れ目が食い違って取りこぼすためです。
 /// (例: 文書が `ブルームフィルタ` を 1 語と切ると `フィルタ` で引けない)
 ///
 pub fn tokenize(text: &str) -> Vec<Cow<'_, str>> {
@@ -65,8 +65,8 @@ fn push_tokens<'a>(tokens: &mut Vec<Cow<'a, str>>, cls: Class, run: &'a str) {
 
 /// 文字バイグラムを積みます。
 ///
-/// 小文字にする必要があるかは run 単位で調べます。日本語のように変わらない場合は、
-/// 部分文字列を借りたまま積めます。
+/// 小文字にする必要があるかは run 単位で調べます。
+/// 日本語のように変わらない場合は、部分文字列を借りたまま積めます。
 fn push_bigrams<'a>(tokens: &mut Vec<Cow<'a, str>>, run: &'a str) {
     match lower(run) {
         Cow::Borrowed(run) => each_bigram(run, |b| tokens.push(Cow::Borrowed(b))),
@@ -124,8 +124,8 @@ mod test_vector {
 mod test {
     use super::tokenize;
 
-    /// 入力ごとの出力は test_vector の表で見ます。ここに書くのは、
-    /// 2 つの入力の関係のように、行ごとの比較で表せないものだけです。
+    /// 入力ごとの出力は test_vector の表で見ます。
+    /// ここに書くのは、2 つの入力の関係のように、行ごとの比較で表せないものだけです。
     #[test]
     fn substring_of_a_compound_word_is_searchable() {
         // 分かち書きでは取りこぼしていたケース

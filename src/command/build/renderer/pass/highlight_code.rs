@@ -8,8 +8,8 @@ use anyhow::{Result, bail};
 /// コードブロックの中身に、記事で指定された区切り文字のスタイルを適用します。
 ///
 /// スタイルは `<span>` を生の HTML として差し込み、コードの中身は `Text` のまま残します。
-/// こうすると、後続のパスがコードの文字を読めます。区切り文字はここで取り除かれるため、
-/// 検索の索引にも入りません。
+/// こうすると、後続のパスがコードの文字を読めます。
+/// 区切り文字はここで取り除かれるため、検索の索引にも入りません。
 pub fn highlight_code(events: &mut Vec<Event<'_>>, highlights: &Option<Vec<HighlightRule>>) {
     let Some(rules) = highlights.as_ref() else {
         return;
@@ -71,8 +71,9 @@ enum Piece<'a> {
 
 /// コードを区切り文字で分割します。
 ///
-/// 左から順に、いちばん手前で当たる規則を選びます。同じ位置で複数の規則が当たる場合は、
-/// yaml ヘッダに先に書いたものを使います。区切り文字の入れ子は扱いません。
+/// 左から順に、いちばん手前で当たる規則を選びます。
+/// 同じ位置で複数の規則が当たる場合は、yaml ヘッダに先に書いたものを使います。
+/// 区切り文字の入れ子は扱いません。
 fn split<'a>(code: &'a str, rules: &'a [HighlightRule]) -> Vec<Piece<'a>> {
     let mut pieces = Vec::new();
     let mut rest = code;
@@ -112,8 +113,7 @@ struct Found<'a> {
     inner: &'a str,
 }
 
-/// yaml ヘッダに書かれる形。
-/// 実行時の形は `HighlightRule`。
+/// yaml ヘッダに書かれる形。実行時の形は `HighlightRule`。
 #[derive(Clone, Deserialize, Debug)]
 struct HighlightRuleConfig {
     delim: [String; 2],

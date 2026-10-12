@@ -20,8 +20,7 @@ pub fn header(url_to_root: &Url, site_name: &str) -> String {
 /// フッタを作ります。中身が何もなければ、要素ごと出しません。
 ///
 /// custom_footer には利用者が書いた HTML がそのまま入ります。
-/// 1 つの要素とは限らないので、フィードのリンクは連結せず、
-/// 別のブロックとして並べます。
+/// 1 つの要素とは限らないので、フィードのリンクは連結せず、別のブロックとして並べます。
 pub fn footer(custom_footer: &Option<String>, feed_url: Option<&str>) -> String {
     let custom_footer = custom_footer.as_deref().unwrap_or("");
     let feed_link = feed_url
@@ -37,8 +36,7 @@ pub fn footer(custom_footer: &Option<String>, feed_url: Option<&str>) -> String 
 
 /// そのページから見たフィードの位置です。
 ///
-/// フィードには絶対 URL が要るので、
-/// publish_url を書いていないサイトではフィード自体を作りません。
+/// フィードには絶対 URL が要るので、publish_url を書いていないサイトではフィード自体を作りません。
 /// その場合は `None` を返します。
 pub fn feed_url(url_to_root: &Url, publish_url: &Option<String>) -> Option<String> {
     publish_url
@@ -87,7 +85,8 @@ pub fn tag_elems(tags: &[String], url_to_root: &Url) -> String {
 
 /// 設定に書かれた css と js の位置を、そのページから辿れる URL にします。
 ///
-/// 先頭の `/` はサイトのルートとして読みます。そのまま出すとドメインの直下を指すため、
+/// 先頭の `/` はサイトのルートとして読みます。
+/// そのまま出すとドメインの直下を指すため、
 /// サブディレクトリに置いたサイト (GitHub Pages のプロジェクトページなど) で読み込まれません。
 /// `//` で始まるものはプロトコル相対の URL なので、そのままにします。
 fn adjust_path_origin(path: &str, url_to_root: &Url) -> String {
@@ -101,8 +100,8 @@ fn adjust_path_origin(path: &str, url_to_root: &Url) -> String {
 
 /// クエリ文字列の値として安全な形にします。
 ///
-/// 非 ASCII はそのまま残します。ブラウザが URL を解決する時点で
-/// パーセントエンコードするため動作に影響はなく、
+/// 非 ASCII はそのまま残します。
+/// ブラウザが URL を解決する時点でパーセントエンコードするため動作に影響はなく、
 /// HTML のソース上でタグ名が読めるほうが利点が大きいためです。
 pub fn encode_query_value(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
@@ -164,8 +163,7 @@ impl<K> Element<K> {
         }
     }
 
-    /// 属性を足します。値が空の場合は属性ごと書きません。
-    /// 値のない属性は `flag` を使います。
+    /// 属性を足します。値が空の場合は属性ごと書きません。値のない属性は `flag` を使います。
     pub fn attr(mut self, name: &str, value: impl AsRef<str>) -> Self {
         let value = value.as_ref();
         if !value.is_empty() {
@@ -281,8 +279,9 @@ mod test {
         assert_eq!(f("//example.com/x.css"), "//example.com/x.css");
     }
 
-    /// `/assets/x.css` はドメインの直下を指します。サイトをサブディレクトリに置くと
-    /// そこにファイルはないので、サイトのルートからの位置として読み替えます。
+    /// `/assets/x.css` はドメインの直下を指します。
+    /// サイトをサブディレクトリに置くとそこにファイルはないので、
+    /// サイトのルートからの位置として読み替えます。
     #[test]
     fn leading_slash_points_at_the_site_root() {
         let sub = Url::from_relative_path(Path::new("..")).unwrap();
@@ -305,8 +304,8 @@ mod test {
         assert_eq!(P.text("a < b"), "<p>a &lt; b</p>");
     }
 
-    /// 値が空の属性は、書いても区別が付きません。alt="" のように
-    /// 空であることに意味がある場合は flag を使います。
+    /// 値が空の属性は書いても区別が付きません。
+    /// alt="" のように空であることに意味がある場合は flag を使います。
     #[test]
     fn omits_attributes_with_an_empty_value() {
         assert_eq!(

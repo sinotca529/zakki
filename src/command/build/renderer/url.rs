@@ -25,8 +25,9 @@ impl Url {
             }
         }
 
-        // 区画が 1 つもなければ `.` にします。空にすると、前置きとして使う側が
-        // `{url_to_root}/style.css` のように `/` で始まる URL を書き、
+        // 区画が 1 つもなければ `.` にします。
+        // 空にすると、
+        // 前置きとして使う側が `{url_to_root}/style.css` のように `/` で始まる URL を書き、
         // サブディレクトリに置いたサイトでドメインの直下を指してしまいます。
         if segs.is_empty() {
             return Ok(Self(".".to_string()));
@@ -35,12 +36,12 @@ impl Url {
         Ok(Self(segs.join("/")))
     }
 
-    /// URL の 1 区画として安全な形にします。
-    /// 非 ASCII はそのまま残します。理由は encode_query_value と同じです。
+    /// URL の 1 区画として安全な形にします。非 ASCII はそのまま残します。
+    /// 理由は encode_query_value と同じです。
     fn encode_path_segment(s: &str) -> String {
-        // WHATWG の path percent-encode set に %、\、/ を足したもの。
-        // % はエスケープの起点、\ はブラウザが / と同じに扱う、
-        // / は区切りなので、いずれも素通しにできません。
+        // WHATWG の path percent-encode set に %, \, / を足したもの。
+        // % はエスケープの起点、\ はブラウザが / と同じに扱う、/ は区切りなので、
+        // いずれも素通しにできません。
         const META_CHARS: &str = r#" "<>`#?{}%\/"#;
         let mut out = String::with_capacity(s.len());
         for c in s.chars() {

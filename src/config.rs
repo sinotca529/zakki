@@ -21,8 +21,7 @@ pub struct ProjectConfig {
     /// ページの下部に表示する内容 (HTML 形式)
     pub footer: Option<String>,
 
-    /// サイト内検索の偽陽性率
-    /// INFO: デフォルト値の即値による指定は現状できない。
+    /// サイト内検索の偽陽性率 INFO: デフォルト値の即値による指定は現状できない。
     /// see: <https://github.com/serde-rs/serde/issues/368>
     #[serde(default = "default_search_fp")]
     pub search_fp: f64,
@@ -44,8 +43,9 @@ pub struct ProjectConfig {
 
 /// コードブロックに使うフォントの設定
 ///
-/// フォント自体は zakki に同梱しません。日本語フォントはサブセット前の全字形が要るため、
-/// 実行ファイルが十数 MB ふくらむためです。利用者が手元のフォントを指す形にしています。
+/// フォント自体は zakki に同梱しません。
+/// 日本語フォントはサブセット前の全字形が要るため、実行ファイルが十数 MB ふくらむためです。
+/// 利用者が手元のフォントを指す形にしています。
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CodeFontConfig {
@@ -53,8 +53,8 @@ pub struct CodeFontConfig {
     /// TrueType アウトライン (`glyf`) を持つものに限る
     pub path: PathBuf,
 
-    /// 1 つのファイルに複数のフォントが入っている場合 (`.ttc`) に、どれを使うか
-    /// フォントが名乗っている名前で指定する。指定を誤ると、入っている名前を挙げて止まる
+    /// 1 つのファイルに複数のフォントが入っている場合 (`.ttc`) に、
+    /// どれを使うかフォントが名乗っている名前で指定する。指定を誤ると、入っている名前を挙げて止まる
     pub name: Option<String>,
 
     /// 出力に添えるライセンス文書のパス

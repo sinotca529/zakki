@@ -132,8 +132,7 @@ impl<'a> MetaRenderer<'a> {
 impl<'a> MetaRenderer<'a> {
     /// Atom フィードを書きます。
     ///
-    /// 絶対 URL が要るので、
-    /// publish_url を書いていないサイトでは作りません。
+    /// 絶対 URL が要るので、publish_url を書いていないサイトでは作りません。
     /// sitemap.xml と同じ条件です。
     fn output_feed(&self, metas: &[PageMetadata]) -> anyhow::Result<()> {
         let Some(pub_url) = self.cfg.publish_url.as_ref() else {
@@ -233,8 +232,7 @@ impl<'a> MetaRenderer<'a> {
 
 // ページ情報
 impl<'a> MetaRenderer<'a> {
-    /// METADATA を書き出します。
-    /// 書き出し順は BLOOM_FILTER と統一します。
+    /// METADATA を書き出します。書き出し順は BLOOM_FILTER と統一します。
     fn output_pagemeta(&self, metas: &[PageMetadata]) -> anyhow::Result<()> {
         let json = serde_json::to_string(metas)?;
         let js = format!("const METADATA={json}");
@@ -243,8 +241,7 @@ impl<'a> MetaRenderer<'a> {
         Ok(())
     }
 
-    /// BLOOM_FILTER を書き出します。
-    /// 書き出し順は METADATA と統一します。
+    /// BLOOM_FILTER を書き出します。書き出し順は METADATA と統一します。
     fn output_bloom_index(&self, metas: &[PageMetadata]) -> anyhow::Result<()> {
         let blooms: Vec<_> = metas.iter().map(|o| &o.bloom).collect();
         let json = serde_json::to_string(&blooms)?;
@@ -255,7 +252,7 @@ impl<'a> MetaRenderer<'a> {
     }
 }
 
-/// 等幅で描く文字を、公開する記事と非公開の記事に分けて集めたものです。
+/// 等幅で描く文字を公開する記事と非公開の記事に分けて集めたものです。
 #[derive(Default)]
 struct MonospaceChars {
     public: BTreeSet<char>,
@@ -263,8 +260,8 @@ struct MonospaceChars {
 }
 
 impl MonospaceChars {
-    /// サブセットに残す文字です。非公開の記事のぶんも要ります。
-    /// 外すと、その記事のコードだけ桁が揃わなくなります。
+    /// サブセットに残す文字です。
+    /// 非公開の記事にある文字も正しく描けるよう、そのぶんも含めます。
     fn all(&self) -> BTreeSet<char> {
         self.public.union(&self.private).copied().collect()
     }

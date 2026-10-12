@@ -60,7 +60,7 @@ a { color: var(--link); text-underline-offset: 0.16em; }
 
 p { margin: 0 0 0.6em; }
 
-/* ヘッダ、本文、フッタの幅をそろえる。 */
+/* ヘッダ, 本文, フッタの幅をそろえる。 */
 .site-header, main, footer {
   width: 100%;
   max-width: calc(var(--measure) + var(--gutter) * 2);
@@ -224,8 +224,8 @@ pre {
   margin: 0.8rem 0;
   overflow-x: auto;
   /* 行の高さは pre と code の両方のフォントから決まります。
-     pre に指定しないと UA の monospace のままになり、2 つの ascent と descent を
-     合わせた高さが line-height を超えて、行送りが広がります。 */
+     pre に指定しないと UA の monospace のままになり、
+     2 つの ascent と descent を合わせた高さが line-height を超えて、行送りが広がります。 */
   font-family: var(--mono);
   font-size: 0.85em;
   /* 行送りは罫線素片を描く SVG の高さにも使うので、zakki が変数として書き出します。 */
@@ -262,10 +262,10 @@ pre > code { font-family: var(--mono); font-size: inherit; }
 .box-light { stroke-width: 0.085em; }
 .box-heavy { stroke-width: 0.17em; }
 
-/* 破線は、セルの端から端まで引いた 1 本の線に、線と間隔の繰り返しを指定したものです。
-   --n は 1 セルあたりの本数です。間隔は 1 セルの 1/12 で、
-   セルの両端にはその半分を空けます。こうすると、破線のセルが続いても
-   境をまたぐ間隔が 1/12 のままになります。
+/* 破線は、セルの端から端まで引いた 1 本の線に線と間隔の繰り返しを指定したものです。
+   --n は 1 セルあたりの本数です。
+   間隔は 1 セルの 1/12 で、セルの両端にはその半分を空けます。
+   こうすると、破線のセルが続いても境をまたぐ間隔が 1/12 のままになります。
    vector-effect が付いていると、線と間隔の長さも描画後の px で測られます。
    そのため、横と縦で基準にするセルの長さを変えます。 */
 .box-dash-x { --cell: var(--cell-x); }
