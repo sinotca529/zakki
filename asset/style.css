@@ -48,7 +48,11 @@ body {
   line-break: strict;
   display: flex;
   flex-direction: column;
+  /* 携帯のブラウザでは、100vh がアドレスバーの裏側まで含みます。
+     短いページでもフッタが画面の外に出るので、バーが出ている状態の高さで止めます。
+     svh を読めないブラウザは手前の 100vh を使います。 */
   min-height: 100vh;
+  min-height: 100svh;
 }
 
 /* script.js はタグで絞り込むときに hidden 属性で要素を隠す。 */
