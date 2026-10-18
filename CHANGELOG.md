@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.4](https://github.com/sinotca529/zakki/compare/v0.20.3...v0.20.4) - 2026-10-18
+
+### Fixed
+
+- 短いページでフッタが画面の外に出ないようにする
+
 ## [0.20.3](https://github.com/sinotca529/zakki/compare/v0.20.2...v0.20.3) - 2026-10-12
 
 ### Other
